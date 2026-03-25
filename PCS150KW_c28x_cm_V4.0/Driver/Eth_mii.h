@@ -12,4 +12,11 @@ void Lwip_ParamInit(void);
 void Ethernet_init(const unsigned char *mac);
 void lwIPHostTimerHandler(void);
 
+extern uint32_t genericISRCustomcount;
+extern uint32_t genericISRCustomRBUcount;
+extern uint32_t genericISRCustomROVcount;
+extern uint32_t genericISRCustomRIcount;
+
+extern interrupt void Ethernet_genericISRCustom(void);
+
 #endif /* SRC_ETH_MII_H_ */
