@@ -171,5 +171,7 @@ enum {
 
 void ptp_master_init();
 
+void ptp_valid_init();
+
 void ptp_master_run();
 

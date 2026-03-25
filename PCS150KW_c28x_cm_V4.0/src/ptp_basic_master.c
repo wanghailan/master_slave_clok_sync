@@ -7,8 +7,6 @@
 #include "ptp_basic_master.h"
 #include "bsp.h"
 
-IPC_DATA_CM2CPU         cmIpc_cm2cpu;
-
 static uint32_t Ethernet_numRxCallbackCustom = 0;
 static uint32_t releaseTxCount = 0;
 
@@ -49,16 +47,14 @@ static Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackCustom(
         Ethernet_Pkt_Desc *pPacket);
 
 
+Ethernet_InitConfig *pInitCfg;
+
 void ptp_master_init()
 {
-    Ethernet_InitConfig *pInitCfg;
     uint32_t i;
     uint32_t varPtpConfig = 0;
     Ethernet_InitInterfaceConfig initInterfaceConfig;
     float subSecondInc;
-
-    // Initialize device clock and peripherals
-    //CM_init();
 
     initInterfaceConfig.ssbase = EMAC_SS_BASE;
     initInterfaceConfig.enet_base = EMAC_BASE;
@@ -166,6 +162,209 @@ void ptp_master_init()
     InitConstants(&gPtpMasterState);
 }
 
+
+/////////////////////////////////
+#include "driverlib_cm/ethernet.h"
+#include "lwipopts.h"
+#include "bsp.h"
+#include "Eth_mii.h"
+#include "utils/lwiplib.h"
+#include "lwipopts.h"
+
+#define MAKE_IP_ADDRESS(a3,a2,a1,a0) (((a3<<24) & 0xFF000000) | ((a2<<16) & 0x00FF0000) | ((a1<<8)  & 0x0000FF00) | (a0 & 0x000000FF) )
+#define ETHERNET_DMA_MODE_INTM_MODE_2    2U
+IPC_DATA_CM2CPU         CmIpc_cm2cpu;
+IPC_DATA_CPU2CM         CmIpc_cpu2cm;
+LOCAL_PARAM_CM          CmLocalParam;
+
+
+void ptp_valid_init()
+{
+    uint8_t mac[8];
+    uint32_t IPAddr; // 0xC0A80004; //192.168.0.4
+    uint32_t NetMask;
+    uint32_t GWAddr;
+
+    IPAddr  = MAKE_IP_ADDRESS(CmLocalParam.pIpAddr1[3],CmLocalParam.pIpAddr1[2],CmLocalParam.pIpAddr1[1],CmLocalParam.pIpAddr1[0]);
+    NetMask = MAKE_IP_ADDRESS(255,255,255,0);
+    GWAddr  = MAKE_IP_ADDRESS(CmLocalParam.pIpAddr1[3],CmLocalParam.pIpAddr1[2],CmLocalParam.pIpAddr1[1],1);
+
+    mac[0] = ((CmIpc_cpu2cm.uniqueID_L >> 0) & 0xff);
+    mac[1] = ((CmIpc_cpu2cm.uniqueID_L >> 8) & 0xff);
+    mac[2] = ((CmIpc_cpu2cm.uniqueID_M >> 0) & 0xff);
+    mac[3] = ((CmIpc_cpu2cm.uniqueID_M >> 8) & 0xff);
+    mac[4] = 0x08;
+    mac[5] = 0x01;
+
+    ///////////////// Ethernet_Init ///////////////////
+    uint32_t macLower;
+    uint32_t macHigher;
+    uint8_t *temp;
+
+    uint32_t i;
+    uint32_t varPtpConfig = 0;
+    Ethernet_InitInterfaceConfig initInterfaceConfig;
+    float subSecondInc;
+
+    initInterfaceConfig.ssbase = EMAC_SS_BASE;
+    initInterfaceConfig.enet_base = EMAC_BASE;
+    initInterfaceConfig.phyMode = ETHERNET_SS_PHY_INTF_SEL_MII;
+    initInterfaceConfig.clockSel = ETHERNET_SS_CLK_SRC_EXTERNAL;
+
+    initInterfaceConfig.ptrPlatformInterruptDisable = &Platform_disableInterrupt;
+    initInterfaceConfig.ptrPlatformInterruptEnable = &Platform_enableInterrupt;
+    initInterfaceConfig.ptrPlatformPeripheralEnable = &Platform_enablePeripheral;
+    initInterfaceConfig.ptrPlatformPeripheralReset = &Platform_resetPeripheral;
+
+    //Assign the peripheral number at the SoC
+    initInterfaceConfig.peripheralNum = SYSCTL_PERIPH_CLK_ENET;
+
+    //Assign the default SoC specific interrupt numbers of Ethernet interrupts
+    initInterfaceConfig.interruptNum[0] = INT_EMAC;
+    initInterfaceConfig.interruptNum[1] = INT_EMAC_TX0;
+    initInterfaceConfig.interruptNum[2] = INT_EMAC_TX1;
+    initInterfaceConfig.interruptNum[3] = INT_EMAC_RX0;
+    initInterfaceConfig.interruptNum[4] = INT_EMAC_RX1;
+
+    pInitCfg = Ethernet_initInterface(initInterfaceConfig);
+
+    // 强制设置以太网MAC为100Mbps模式
+    Ethernet_setMACConfiguration(EMAC_BASE, ETHERNET_MAC_CONFIGURATION_100MBIT);
+
+    // 获取完整的初始化配置
+    Ethernet_getInitConfig(pInitCfg);
+
+    pInitCfg->dmaMode.InterruptMode = ETHERNET_DMA_MODE_INTM_MODE_2;
+
+    //
+    // Assign the callbacks for Getting packet buffer when needed
+    // Releasing the TxPacketBuffer on Transmit interrupt callbacks
+    // Receive packet callback on Receive packet completion interrupt
+    //
+    pInitCfg->pfcbRxPacket = &Ethernet_receivePacketCallbackCustom;
+    pInitCfg->pfcbFreePacket = &Ethernet_releaseTxPacketBufferCustom;
+    pInitCfg->pfcbGetPacket = &Ethernet_getPacketBuffer;
+
+    // PTP相关配置
+    varPtpConfig = (0 << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
+                        ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
+                        ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
+                        ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
+                        ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
+                        ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;
+
+    subSecondInc = PTP_REF_CLOCK_PERIOD;
+
+    Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
+    Ethernet_enableSysTimePTP(EMAC_BASE);
+
+    // Start the system with a random value.
+    Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCA, 0x25a5a5a5);
+
+    //Assign the Buffer to be used by the Low level driver for receiving
+    //Packets. This should be accessible by the Ethernet DMA
+    pInitCfg->rxBuffer = Ethernet_rxBuffer;
+    Ethernet_getHandle((Ethernet_Handle)1, pInitCfg, &emac_handle);
+
+    //
+    // Disable transmit buffer unavailable and normal interrupt which
+    // are enabled by default in Ethernet_getHandle.
+    //
+    Ethernet_disableDmaInterrupt(Ethernet_device_struct.baseAddresses.enet_base,
+                                 0, (ETHERNET_DMA_CH0_INTERRUPT_ENABLE_TBUE |
+                                     ETHERNET_DMA_CH0_INTERRUPT_ENABLE_NIE));
+
+    //
+    // Enable the MTL interrupt to service the receive FIFO overflow
+    // condition in the Ethernet module.
+    //
+    Ethernet_enableMTLInterrupt(Ethernet_device_struct.baseAddresses.enet_base,0,
+                                ETHERNET_MTL_Q0_INTERRUPT_CONTROL_STATUS_RXOIE);
+
+    //
+    // Disable the MAC Management counter interrupts as they are not used
+    // in this application.
+    //
+    HWREG(Ethernet_device_struct.baseAddresses.enet_base + ETHERNET_O_MMC_RX_INTERRUPT_MASK) = 0xFFFFFFFF;
+    HWREG(Ethernet_device_struct.baseAddresses.enet_base + ETHERNET_O_MMC_IPC_RX_INTERRUPT_MASK) = 0xFFFFFFFF;
+    HWREG(Ethernet_device_struct.baseAddresses.enet_base + ETHERNET_O_MMC_TX_INTERRUPT_MASK) = 0xFFFFFFFF;
+
+
+    //Do global Interrupt Enable
+    (void)Interrupt_enableInProcessor();
+
+    //Assign default ISRs
+    Interrupt_registerHandler(INT_EMAC_TX0, Ethernet_transmitISR);
+    Interrupt_registerHandler(INT_EMAC_RX0, Ethernet_receiveISR);
+    Interrupt_registerHandler(INT_EMAC, Ethernet_genericISRCustom);
+
+    //
+    // Convert the mac address string into the 32/16 split variables format
+    // that is required by the driver to program into hardware registers.
+    // Note: This step is done after the Ethernet_getHandle function because
+    // a dummy MAC address is programmed in that function.
+    temp = (uint8_t *)&macLower;
+    temp[0] = mac[0];
+    temp[1] = mac[1];
+    temp[2] = mac[2];
+    temp[3] = mac[3];
+
+    temp = (uint8_t *)&macHigher;
+    temp[0] = mac[4];
+    temp[1] = mac[5];
+
+    //
+    // Program the unicast mac address.
+    //
+    Ethernet_setMACAddr(EMAC_BASE,
+                        0,
+                        macHigher,
+                        macLower,
+                        ETHERNET_CHANNEL_0);
+
+    Ethernet_clearMACConfigurationCustom(Ethernet_device_struct.baseAddresses.enet_base,ETHERNET_MAC_CONFIGURATION_RE);
+    Ethernet_setMACConfigurationCustom(Ethernet_device_struct.baseAddresses.enet_base,ETHERNET_MAC_CONFIGURATION_RE);
+
+    //Enable the default interrupt handlers
+    Interrupt_setPriority(INT_EMAC_TX0, 2);
+    Interrupt_setPriority(INT_EMAC_RX0, 1);
+    Interrupt_enable(INT_EMAC_TX0);
+    Interrupt_enable(INT_EMAC_RX0);
+    Interrupt_enable(INT_EMAC);
+
+    // Lwip init
+    lwIPInit(0, mac, IPAddr, NetMask, GWAddr, IPADDR_USE_STATIC);
+
+    // We need to program this standard multicast address so that this device
+    // identifies PTP over Ethernet packets correctly. "01:1B:19:00:00:00"
+    Ethernet_setMACAddr(EMAC_BASE,
+                        1,
+                        0x00000000,
+                        0x00191B01,
+                        ETHERNET_CHANNEL_0);
+
+    // 新增1:先禁用 TX/RX，然后配置速度和双工模式, 直接强制设置为100Mbps全双工
+    Ethernet_setMACConfiguration(EMAC_BASE, ((uint32_t)1 << 14));
+    Ethernet_setMACConfiguration(EMAC_BASE, ((uint32_t)1 << 13));
+
+    // 新增2:重新使能TX/RX
+    Ethernet_setMACConfiguration(EMAC_BASE, 0x2);  // 使能TX
+    Ethernet_setMACConfiguration(EMAC_BASE, 0x1);  // 使能RX
+
+    Ethernet_selectTargetInterruptOrPulsePPS(
+                            EMAC_BASE,
+                            ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                            ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT);
+
+    // We need to set a standard defined Multicast address : 01:1B:19:00:00:00
+    // as the Destination address in the ethernet frame and that is how the
+    // receiver will recognize it as a valid PTP over Ethernet packet.
+    //
+    i=0; *((uint32_t *)gMsgBuf + i) = 0x00191B01;
+    i++; *((uint32_t *)gMsgBuf + i)  = 0xF7880000;
+    InitConstants(&gPtpMasterState);
+}
+
 void ptp_master_run()
 {
     uint32_t timeSec;
@@ -190,7 +389,7 @@ void ptp_master_run()
 
     if(timeout >= TIMEOUT_MAX)
     {
-        cmIpc_cm2cpu.IpcCpu2Cm_Fault = 1;
+        CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1;
         return;
     }
 
@@ -213,7 +412,7 @@ void ptp_master_run()
     if(timeout >= TIMEOUT_MAX)
     {
         // 时间戳捕获超时
-        cmIpc_cm2cpu.IpcCpu2Cm_Fault = 2;  // 用不同值区分错误类型
+        CmIpc_cm2cpu.IpcCpu2Cm_Fault = 2;  // 用不同值区分错误类型
         return;
     }
 

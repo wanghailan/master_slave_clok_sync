@@ -37,7 +37,6 @@ int main(void)
 {
     uint8_t tempData[50];                 //定义的传输Buffer
 
-    //  ////////////////////////////////////////
     // Initializing the CM. Loading the required functions to SRAM.
     CM_init();
 
@@ -54,7 +53,9 @@ int main(void)
         DEVICE_DELAY_US(100);
     } while(cpuIpc_flag == 0);
 
-    ptp_master_init();
+    //ptp_master_init();
+
+    ptp_valid_init();
 
     //Lwip_ParamInit();
     udpDebug_Init();
