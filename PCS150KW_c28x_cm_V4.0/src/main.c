@@ -54,10 +54,12 @@ int main(void)
     } while(cpuIpc_flag == 0);
 
     //ptp_master_init();
+    //ptp_valid_init();
 
-    ptp_valid_init();
+    Lwip_ParamInit();
 
-    //Lwip_ParamInit();
+    ptp_master_init();
+
     udpDebug_Init();
     MbTcp1_Init();
     w5500_init();
