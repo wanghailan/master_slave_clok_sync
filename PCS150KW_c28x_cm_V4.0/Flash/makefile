@@ -16,6 +16,7 @@ ORDERED_OBJS += \
 "./Driver/Drv_LED.obj" \
 "./Driver/Drv_Timer.obj" \
 "./Driver/Eth_mii.obj" \
+"./Driver/ethernet_dispatch.obj" \
 "./Driver/f2838xif.obj" \
 "./Driver/W5500/socket.obj" \
 "./Driver/W5500/utility.obj" \
@@ -31,7 +32,7 @@ ORDERED_OBJS += \
 "./src/main.obj" \
 "./src/modbus_Param.obj" \
 "./src/obj_debug.obj" \
-"./src/ptp_basic_master.obj" \
+"./src/ptp_master_sync.obj" \
 "./src/startup_ccs.obj" \
 "../2838x_flash_lnk_cm_lwip.cmd" \
 "../Driver/device/driverlib_cm.lib" \
@@ -174,8 +175,8 @@ PCS150KW_c28x_cm_V4.0.out: $(OBJS) $(CMD_SRCS) $(LIB_SRCS) $(GEN_CMDS)
 # Other Targets
 clean:
 	-$(RM) $(EXE_OUTPUTS__QUOTED)
-	-$(RM) "Driver\Drv_I2CA.obj" "Driver\Drv_I2C_EE.obj" "Driver\Drv_I2C_RTC.obj" "Driver\Drv_LED.obj" "Driver\Drv_Timer.obj" "Driver\Eth_mii.obj" "Driver\f2838xif.obj" "Driver\W5500\socket.obj" "Driver\W5500\utility.obj" "Driver\W5500\w5500.obj" "Driver\W5500\w5500_conf.obj" "Driver\device\cm.obj" "lib\utils\lwiplib.obj" "lib\utils\ustdlib.obj" "src\ModbusRtu.obj" "src\ModbusTcp.obj" "src\bsp.obj" "src\ipc_cm.obj" "src\main.obj" "src\modbus_Param.obj" "src\obj_debug.obj" "src\ptp_basic_master.obj" "src\startup_ccs.obj" 
-	-$(RM) "Driver\Drv_I2CA.d" "Driver\Drv_I2C_EE.d" "Driver\Drv_I2C_RTC.d" "Driver\Drv_LED.d" "Driver\Drv_Timer.d" "Driver\Eth_mii.d" "Driver\f2838xif.d" "Driver\W5500\socket.d" "Driver\W5500\utility.d" "Driver\W5500\w5500.d" "Driver\W5500\w5500_conf.d" "Driver\device\cm.d" "lib\utils\lwiplib.d" "lib\utils\ustdlib.d" "src\ModbusRtu.d" "src\ModbusTcp.d" "src\bsp.d" "src\ipc_cm.d" "src\main.d" "src\modbus_Param.d" "src\obj_debug.d" "src\ptp_basic_master.d" "src\startup_ccs.d" 
+	-$(RM) "Driver\Drv_I2CA.obj" "Driver\Drv_I2C_EE.obj" "Driver\Drv_I2C_RTC.obj" "Driver\Drv_LED.obj" "Driver\Drv_Timer.obj" "Driver\Eth_mii.obj" "Driver\ethernet_dispatch.obj" "Driver\f2838xif.obj" "Driver\W5500\socket.obj" "Driver\W5500\utility.obj" "Driver\W5500\w5500.obj" "Driver\W5500\w5500_conf.obj" "Driver\device\cm.obj" "lib\utils\lwiplib.obj" "lib\utils\ustdlib.obj" "src\ModbusRtu.obj" "src\ModbusTcp.obj" "src\bsp.obj" "src\ipc_cm.obj" "src\main.obj" "src\modbus_Param.obj" "src\obj_debug.obj" "src\ptp_master_sync.obj" "src\startup_ccs.obj" 
+	-$(RM) "Driver\Drv_I2CA.d" "Driver\Drv_I2C_EE.d" "Driver\Drv_I2C_RTC.d" "Driver\Drv_LED.d" "Driver\Drv_Timer.d" "Driver\Eth_mii.d" "Driver\ethernet_dispatch.d" "Driver\f2838xif.d" "Driver\W5500\socket.d" "Driver\W5500\utility.d" "Driver\W5500\w5500.d" "Driver\W5500\w5500_conf.d" "Driver\device\cm.d" "lib\utils\lwiplib.d" "lib\utils\ustdlib.d" "src\ModbusRtu.d" "src\ModbusTcp.d" "src\bsp.d" "src\ipc_cm.d" "src\main.d" "src\modbus_Param.d" "src\obj_debug.d" "src\ptp_master_sync.d" "src\startup_ccs.d" 
 	-@echo 'Finished clean'
 	-@echo ' '
 

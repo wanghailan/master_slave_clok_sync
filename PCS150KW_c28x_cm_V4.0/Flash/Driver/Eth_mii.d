@@ -2,6 +2,7 @@
 
 Driver/Eth_mii.obj: ../Driver/Eth_mii.c
 Driver/Eth_mii.obj: ../Driver/Eth_mii.h
+Driver/Eth_mii.obj: ../Driver/ethernet_dispatch.h
 Driver/Eth_mii.obj: ../Driver/eth_common.h
 Driver/Eth_mii.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/driverlib_cm.h
 Driver/Eth_mii.obj: C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/driverlib_cm/inc/hw_memmap.h
@@ -159,6 +160,8 @@ Driver/Eth_mii.obj: C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Et
 ../Driver/Eth_mii.c:
 
 ../Driver/Eth_mii.h:
+
+../Driver/ethernet_dispatch.h:
 
 ../Driver/eth_common.h:
 

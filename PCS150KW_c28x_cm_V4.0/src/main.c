@@ -9,7 +9,7 @@
 #include "Eth_mii.h"
 #include "ipc.h"
 #include "bsp.h"
-#include "ptp_basic_master.h"
+#include "ptp_master_sync.h"
 
 
 uint32_t systickPeriodValue = 125000; //15000000;
@@ -52,9 +52,6 @@ int main(void)
     do{
         DEVICE_DELAY_US(100);
     } while(cpuIpc_flag == 0);
-
-    //ptp_master_init();
-    //ptp_valid_init();
 
     Lwip_ParamInit();
 

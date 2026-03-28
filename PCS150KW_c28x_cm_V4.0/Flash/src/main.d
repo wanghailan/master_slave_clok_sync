@@ -137,6 +137,7 @@ src/main.obj: C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet
 src/main.obj: C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/lwip/lwip-2.1.2/src/include/lwip/sockets.h
 src/main.obj: C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/lwip/lwip-2.1.2/src/include/lwip/opt.h
 src/main.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/Eth_mii.h
+src/main.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/ethernet_dispatch.h
 src/main.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/eth_common.h
 src/main.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h
 src/main.obj: ../src/bsp.h
@@ -156,7 +157,7 @@ src/main.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/W5500/w5500.h
 src/main.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/W5500/Types.h
 src/main.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/W5500/w5500_conf.h
 src/main.obj: ../src/obj_debug.h
-src/main.obj: ../src/ptp_basic_master.h
+src/main.obj: ../src/ptp_master_sync.h
 src/main.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h
 
 ../src/main.c:
@@ -433,6 +434,8 @@ C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/l
 
 D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/Eth_mii.h:
 
+D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/ethernet_dispatch.h:
+
 D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/eth_common.h:
 
 D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h:
@@ -471,7 +474,7 @@ D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/W5500/w5500_conf.h:
 
 ../src/obj_debug.h:
 
-../src/ptp_basic_master.h:
+../src/ptp_master_sync.h:
 
 D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h:
 

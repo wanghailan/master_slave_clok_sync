@@ -23,4 +23,4 @@ encoding//Flash/src/subdir_rules.mk=UTF-8
 encoding//Flash/src/subdir_vars.mk=UTF-8
 encoding//Flash/subdir_rules.mk=UTF-8
 encoding//Flash/subdir_vars.mk=UTF-8
-encoding//src/ptp_basic_master.c=UTF-8
+encoding//src/ptp_master_sync.c=UTF-8
