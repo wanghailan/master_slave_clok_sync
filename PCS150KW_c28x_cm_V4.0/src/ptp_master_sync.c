@@ -1,29 +1,56 @@
 /*
- * ptp_basic_master.c
+ * ptp_master_sync.c
  *
- *  Created on: 2026.03.26
+ *  Created on: 2026Äê3ÔÂ31ÈÕ
  *      Author: whl
  */
 #include "ptp_master_sync.h"
-#include "bsp.h"
 #include "Eth_mii.h"
+#include "bsp.h"
 
-static uint32_t Ethernet_numRxCallbackCustom = 0;
-static uint32_t releaseTxCount = 0;
+static void InitConstants(PTPMasterState *ptpMasterState)
+{
+    uint32_t mac_low,mac_high, i, j;
+    uint8_t *pucTemp;
 
-static void InitConstants(PTPMasterState *ptpMasterState);
+    Ethernet_getMACAddr(EMAC_BASE, 0, &mac_high, &mac_low);
 
-// ptpd init test
+    pucTemp = (uint8_t *)&mac_low;
+    ptpMasterState->port_uuid_field[0] = pucTemp[0];
+    ptpMasterState->port_uuid_field[1] = pucTemp[1];
+    ptpMasterState->port_uuid_field[2] = pucTemp[2];
+    ptpMasterState->port_uuid_field[3] = pucTemp[3];
+
+    pucTemp = (uint8_t *)&mac_high;
+    ptpMasterState->port_uuid_field[4] = pucTemp[0];
+    ptpMasterState->port_uuid_field[5] = pucTemp[1];
+
+    // Init global constants.
+    for (i = 0, j = 0; i < CLOCK_IDENTITY_LENGTH; i++)
+    {
+       if (i == 3) ptpMasterState->portIdentity.clockIdentity[i] = 0xFF;
+       else if (i == 4) ptpMasterState->portIdentity.clockIdentity[i] = 0xFE;
+       else
+       {
+           ptpMasterState->portIdentity.clockIdentity[i] =
+                   ptpMasterState->port_uuid_field[j];
+           j++;
+       }
+    }
+}
+
+
+// ptpd init
 void ptp_master_init()
 {
     uint32_t i;
     uint32_t varPtpConfig = 0;
     float subSecondInc;
 
-    // å¯®å“„åŸ—ç’å‰§ç–†æµ ãƒ¥ãŠç¼ƒæ…šACæ¶“ï¿½100Mbpså¦¯â€³ç´¡
+    // Ç¿ÖÆÉèÖÃÒÔÌ«ÍøMACÎª100MbpsÄ£Ê½
     Ethernet_setMACConfiguration(EMAC_BASE, ETHERNET_MAC_CONFIGURATION_100MBIT);
 
-    // PTPé©ç¨¿å§é–°å¶‡ç–†
+    // PTPÏà¹ØÅäÖÃ
     varPtpConfig = (0 << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
                             ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
                             ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
@@ -47,13 +74,13 @@ void ptp_master_init()
                         0x00191B01,
                         ETHERNET_CHANNEL_0);
 
-    // é–°å¶‡ç–†é–«ç†·å®³éœå±½å¼»å®¸ãƒ¦Äå¯®ï¿½
+    // ÅäÖÃËÙ¶ÈºÍË«¹¤Ä£Ê½
     Ethernet_setMACConfiguration(EMAC_BASE, ((uint32_t)1 << 14));
     Ethernet_setMACConfiguration(EMAC_BASE, ((uint32_t)1 << 13));
 
-    // é–²å¶†æŸŠæµ£èƒ¯å…˜TX/RX
-    Ethernet_setMACConfiguration(EMAC_BASE, 0x2);  // æµ£èƒ¯å…˜TX
-    Ethernet_setMACConfiguration(EMAC_BASE, 0x1);  // æµ£èƒ¯å…˜RX
+    // ÖØĞÂÊ¹ÄÜTX/RX
+    Ethernet_setMACConfiguration(EMAC_BASE, 0x2);  // Ê¹ÄÜTX
+    Ethernet_setMACConfiguration(EMAC_BASE, 0x1);  // Ê¹ÄÜRX
 
     Ethernet_selectTargetInterruptOrPulsePPS(
                             EMAC_BASE,
@@ -75,7 +102,6 @@ void ptp_master_run()
     uint32_t timeSec;
     uint32_t timeNanosec;
     const uint32_t TIMEOUT_MAX = 2000000;
-
     uint32_t timeout = 0;
 
     // Use the system time counter to send the sync + followUp messages
@@ -106,8 +132,6 @@ void ptp_master_run()
     // Send out the SYNC packet.
     sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
 
-    timeout = 0;
-
     //  Wait till the latest sync timestamp is captured. As soon as the
     //  timestamp for the SYNC packet going out is captured, this flag
     //  will be set to TRUE by the application.
@@ -116,45 +140,10 @@ void ptp_master_run()
         timeout++;
     }
 
-    if(timeout >= TIMEOUT_MAX)
-    {
-        CmIpc_cm2cpu.IpcCpu2Cm_Fault = 2;
-        return;
-    }
-
     // Since the timestamp for the last SYNC packet has been captured,
     // send out the associated FOLLOW-UP packet.
     sendMessage((Octet *)gMsgBuf, FOLLOW_UP, &gPtpMasterState, &gPktDesc);
+
 }
 
-void InitConstants(PTPMasterState *ptpMasterState)
-{
-    uint32_t mac_low,mac_high, i, j;
-    uint8_t *pucTemp;
-
-    Ethernet_getMACAddr(EMAC_BASE, 0, &mac_high, &mac_low);
-
-    pucTemp = (uint8_t *)&mac_low;
-    ptpMasterState->port_uuid_field[0] = pucTemp[0];
-    ptpMasterState->port_uuid_field[1] = pucTemp[1];
-    ptpMasterState->port_uuid_field[2] = pucTemp[2];
-    ptpMasterState->port_uuid_field[3] = pucTemp[3];
-
-    pucTemp = (uint8_t *)&mac_high;
-    ptpMasterState->port_uuid_field[4] = pucTemp[0];
-    ptpMasterState->port_uuid_field[5] = pucTemp[1];
-
-    // Init global constants.
-    for (i = 0, j = 0; i < CLOCK_IDENTITY_LENGTH; i++)
-    {
-       if (i == 3) ptpMasterState->portIdentity.clockIdentity[i] = 0xFF;
-       else if (i == 4) ptpMasterState->portIdentity.clockIdentity[i] = 0xFE;
-       else
-       {
-           ptpMasterState->portIdentity.clockIdentity[i] =
-                   ptpMasterState->port_uuid_field[j];
-           j++;
-       }
-    }
-}
 

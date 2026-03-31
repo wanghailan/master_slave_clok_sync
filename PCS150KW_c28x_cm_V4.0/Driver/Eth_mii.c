@@ -1,8 +1,8 @@
 /*
  * Eth_mii.c
  *
- *  Created on: 2025Äê6ÔÂ26ÈÕ
- *      Author: guowei
+ *  Created on: 2026å¹´3æœˆ31æ—¥
+ *      Author: whl
  */
 
 #include "Eth_mii.h"
@@ -12,47 +12,44 @@
 #include "utils/lwiplib.h"
 #include "lwipopts.h"
 
-#define ETHERNET_NO_OF_RX_PACKETS   2U
-#define ETHERNET_MAX_PACKET_LENGTH 1538U
-
-//#define NUM_PACKET_DESC_RX_APPLICATION PBUF_POOL_SIZE //8 - same as PBUF_POOL_SIZE
 
 #define MAKE_IP_ADDRESS(a3,a2,a1,a0) (((a3<<24) & 0xFF000000) | ((a2<<16) & 0x00FF0000) | ((a1<<8)  & 0x0000FF00) | (a0 & 0x000000FF) )
 
-//Ethernet_Handle emac_handle;
-Ethernet_InitConfig *pInitCfg;
 
-uint32_t Ethernet_numRxCallbackCustom = 0;
-uint32_t releaseTxCount = 0;
+//Ethernet_Handle emac_handle;
+
+Ethernet_InitConfig *pInitCfg;
 uint32_t genericISRCustomcount = 0;
 uint32_t genericISRCustomRBUcount = 0;
 uint32_t genericISRCustomROVcount = 0;
 uint32_t genericISRCustomRIcount = 0;
-
-//Ethernet_Pkt_Desc  pktDescriptorRXCustom[NUM_PACKET_DESC_RX_APPLICATION];
 
 uint8_t Ethernet_rxBuffer[ETHERNET_NO_OF_RX_PACKETS *
                           ETHERNET_MAX_PACKET_LENGTH];
 
 uint32_t sendPacketFailedCount = 0;
 
-//uint32_t IPAddr =  0xC0A80004; // 0xC0A80004; //192.168.0.4
-//uint32_t NetMask = 0xFFFFFF00;
-//uint32_t GWAddr = 0x00000000;
+Ethernet_Pkt_Desc* Ethernet_getPacketBufferCustom(void);
 
+Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackCustom(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
 
-extern uint32_t Ethernet_numGetPacketBufferCallback;
-//extern Ethernet_Device Ethernet_device_struct;
+void Ethernet_releaseTxPacketBufferCustom(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
+
 
 extern Ethernet_Pkt_Desc*
 lwIPEthernetIntHandler(Ethernet_Pkt_Desc *pPacket);
 
-// ÒÔÌ«Íø½ÓÊÕ»Øµ÷·Ö·¢Æ÷£ºÍ¬Ê±´¦ÀíLwIPºÍPTP
+
+// ä»¥å¤ªç½‘æŽ¥æ”¶å›žè°ƒåˆ†å‘å™¨ï¼šåŒæ—¶å¤„ç†LwIPå’ŒPTP
 Ethernet_Pkt_Desc* Ethernet_Rx_Dispatch(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket);
 
-// ÒÔÌ«Íø·¢ËÍÊÍ·Å»Øµ÷·Ö·¢Æ÷£ºÍ¬Ê±ÊÍ·ÅLwIP»º³åÇø+²¶»ñPTPÊ±¼ä´Á
+// ä»¥å¤ªç½‘å‘é€é‡Šæ”¾å›žè°ƒåˆ†å‘å™¨ï¼šåŒæ—¶é‡Šæ”¾LwIPç¼“å†²åŒº+æ•èŽ·PTPæ—¶é—´æˆ³
 void Ethernet_Tx_Release_Dispatch(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket);
@@ -89,15 +86,15 @@ Ethernet_Pkt_Desc* Ethernet_getPacketBufferCustom(void)
     // Update the receive buffer address in the packer descriptor.
     //
     pktDescriptorRXCustom[shortIndex].dataBuffer =
-                                      &Ethernet_device_struct.rxBuffer [ \
+                                      &Ethernet_device_struct.rxBuffer [
                (ETHERNET_MAX_PACKET_LENGTH*Ethernet_device_struct.rxBuffIndex)];
 
     //
     // Update the receive buffer pool index.
     //
     Ethernet_device_struct.rxBuffIndex += 1U;
-    Ethernet_device_struct.rxBuffIndex  = \
-    (Ethernet_device_struct.rxBuffIndex%ETHERNET_NO_OF_RX_PACKETS);
+    Ethernet_device_struct.rxBuffIndex  =
+            (Ethernet_device_struct.rxBuffIndex%ETHERNET_NO_OF_RX_PACKETS);
 
     //
     // Receive buffer is usable from Address 0
@@ -122,47 +119,78 @@ Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackCustom(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket)
 {
+    //
+    // Need to unpack the header to check which packet is received.
+    // We expect a Delay Request packet from the slave. Ignore others.
+    //
+    msgUnpackHeader((Octet*)(pPacket->dataBuffer + PTP_HEADER_OFFSET),
+                    &gPtpMasterState.delayReqHeader);
 
-    Ethernet_Pkt_Desc* temp_eth_pkt;
+    switch(gPtpMasterState.delayReqHeader.messageType)
+    {
+    case DELAY_REQ:
+        //
+        // Simply get the timestamp and send the delay response packet asap.
+        //
+        gPtpMasterState.delayReqRecvTimestamp.nanosecondsField =
+                pPacket->timeStampLow;
+        gPtpMasterState.delayReqRecvTimestamp.secondsField.lsb =
+                pPacket->timeStampHigh;
+        gPtpMasterState.delayReqRecvTimestamp.secondsField.msb = 0;
+
+        //
+        // Save this state that we are sending Delay Resp packet so that it
+        // doesn't affect other packets which are being sent.
+        //
+        gPtpMasterState.sendingDelayResp = TRUE;
+
+        //
+        // Send the corresponding Delay Response packet.
+        //
+        sendMessage((Octet *)gMsgBuf, DELAY_RESP, &gPtpMasterState, &gPktDesc);
+        break;
+    default:
+        //
+        // Error condition, the code should never reach here
+        //
+        break;
+    }
+
     //
     // Book-keeping to maintain number of callbacks received.
     //
 #ifdef ETHERNET_DEBUG
     Ethernet_numRxCallbackCustom++;
 #endif
-
-      Ethernet_disableRxDMAReception(EMAC_BASE,0);
-
-    //
-    // This is a placeholder for Application specific handling
-    // We are replenishing the buffer received with another buffer
-    //
-  //  return lwIPEthernetIntHandler(pPacket);
-
-      temp_eth_pkt=lwIPEthernetIntHandler(pPacket);
-
-
-      Ethernet_enableRxDMAReception(EMAC_BASE,0);
-
-      return temp_eth_pkt;
+    return Ethernet_getPacketBufferCustom();
 }
 
 void Ethernet_releaseTxPacketBufferCustom(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket)
 {
+
     //
-    // Once the packet is sent, reuse the packet memory to avoid
-    // memory leaks. Call this interrupt handler function which will take care
-    // of freeing the memory used by the packet descriptor.
+    // We would like to capture the timestamp for the SYNC packet only.
     //
-    lwIPEthernetIntHandler(pPacket);
+    if(gPtpMasterState.sendingDelayResp == TRUE)
+    {
+        gPtpMasterState.sendingDelayResp = FALSE;
+    }
+    else if(gPtpMasterState.syncTimestampAvailable == FALSE)
+    {
+        gPtpMasterState.syncTimestamp.nanosecondsField = pPacket->timeStampLow;
+        gPtpMasterState.syncTimestamp.secondsField.lsb = pPacket->timeStampHigh;
+        gPtpMasterState.syncTimestamp.secondsField.msb = 0;
+
+        gPtpMasterState.syncTimestampAvailable = TRUE;
+    }
 
     //
     // Increment the book-keeping counter.
     //
-#ifdef ETHERNET_DEBUG
-    releaseTxCount++;
+#if ETHERNET_DEBUG
+    Ethernet_releaseTxCount++;
 #endif
 }
 
@@ -181,6 +209,7 @@ Ethernet_Pkt_Desc *Ethernet_performPopOnPacketQueueCustom(
 
     return(pktDescHdrPtr);
 }
+
 void Ethernet_performPushOnPacketQueueCustom(
         Ethernet_PKT_Queue_T *pktQueuePtr,
         Ethernet_Pkt_Desc *pktDescHdrPtr)
@@ -205,10 +234,12 @@ void Ethernet_performPushOnPacketQueueCustom(
     }
     pktQueuePtr->count++;
 }
+
 void Ethernet_setMACConfigurationCustom(uint32_t base, uint32_t flags)
 {
     HWREG(base + ETHERNET_O_MAC_CONFIGURATION) |= flags;
 }
+
 void Ethernet_clearMACConfigurationCustom(uint32_t base, uint32_t flags)
 {
     HWREG(base + ETHERNET_O_MAC_CONFIGURATION) &= ~flags;
@@ -357,6 +388,7 @@ interrupt void Ethernet_genericISRCustom(void)
     Ethernet_setMACConfigurationCustom(Ethernet_device_struct.baseAddresses.enet_base,ETHERNET_MAC_CONFIGURATION_TE);
 }
 
+
 void Ethernet_init(const unsigned char *mac)
 {
     Ethernet_InitInterfaceConfig initInterfaceConfig;
@@ -367,6 +399,7 @@ void Ethernet_init(const unsigned char *mac)
     initInterfaceConfig.ssbase = EMAC_SS_BASE;
     initInterfaceConfig.enet_base = EMAC_BASE;
     initInterfaceConfig.phyMode = ETHERNET_SS_PHY_INTF_SEL_MII;
+    initInterfaceConfig.clockSel = ETHERNET_SS_CLK_SRC_EXTERNAL;
 
     //
     // Assign SoC specific functions for Enabling,Disabling interrupts
@@ -401,10 +434,6 @@ void Ethernet_init(const unsigned char *mac)
     // Releasing the TxPacketBuffer on Transmit interrupt callbacks
     // Receive packet callback on Receive packet completion interrupt
     //
-    //pInitCfg->pfcbRxPacket = &Ethernet_receivePacketCallbackCustom;
-    //pInitCfg->pfcbGetPacket = &Ethernet_getPacketBuffer;    //custom
-    //pInitCfg->pfcbFreePacket = &Ethernet_releaseTxPacketBufferCustom;
-
     pInitCfg->pfcbRxPacket = &Ethernet_Rx_Dispatch;
     pInitCfg->pfcbGetPacket = &Ethernet_getPacketBuffer;
     pInitCfg->pfcbFreePacket = &Ethernet_Tx_Release_Dispatch;
@@ -443,6 +472,7 @@ void Ethernet_init(const unsigned char *mac)
     HWREG(Ethernet_device_struct.baseAddresses.enet_base + ETHERNET_O_MMC_RX_INTERRUPT_MASK) = 0xFFFFFFFF;
     HWREG(Ethernet_device_struct.baseAddresses.enet_base + ETHERNET_O_MMC_IPC_RX_INTERRUPT_MASK) = 0xFFFFFFFF;
     HWREG(Ethernet_device_struct.baseAddresses.enet_base + ETHERNET_O_MMC_TX_INTERRUPT_MASK) = 0xFFFFFFFF;
+
     //
     //Do global Interrupt Enable
     //
@@ -509,7 +539,6 @@ void  Lwip_ParamInit(void)
     lwIPInit(0, pucMACArray, IPAddr, NetMask, GWAddr, IPADDR_USE_STATIC);
 
     // Loop forever. All the work is done in interrupt handlers.
-
     Interrupt_setPriority(INT_EMAC_TX0, 2);
     Interrupt_setPriority(INT_EMAC_RX0, 1);
     Interrupt_enable(INT_EMAC_TX0);
@@ -527,12 +556,11 @@ uint32_t cnt_ms_lwip_Htimer=0;
 uint32_t cnt_ms_TX_Htimer=0;
 void lwIPHostTimerHandler(void)
 {
-//  msTime++;
-
+    //msTime++;
     cnt_ms_lwip_Htimer++;
 }
 
-// ÒÔÌ«Íø½ÓÊÕ»Øµ÷·Ö·¢Æ÷£ºÍ¬Ê±´¦ÀíLwIPºÍPTP
+
 Ethernet_Pkt_Desc* Ethernet_Rx_Dispatch(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket)
@@ -540,16 +568,13 @@ Ethernet_Pkt_Desc* Ethernet_Rx_Dispatch(
     if (pPacket == NULL)
         return NULL;
 
-    Ethernet_Pkt_Desc* eth_lwip;
+    //Ethernet_Pkt_Desc* eth_lwip;
 
-    // 1.ÓÅÏÈ½»¸øLwip´¦ÀíÍ¨ÓÃÒÔÌ«Íø±¨ÎÄ
-    eth_lwip = Ethernet_receivePacketCallbackCustom(handleApplication, pPacket);
+    pPacket = Ethernet_receivePacketCallbackCustom(handleApplication, pPacket);
 
-    // 2.½»¸øptp´¦Àí×¨ÊôPTP±¨ÎÄ
-    return ptpd_receivePacketCallback_handler(handleApplication, eth_lwip);
+    return ptpd_receivePacketCallback_handler(handleApplication, pPacket);
 }
 
-// ÒÔÌ«Íø·¢ËÍÊÍ·Å»Øµ÷·Ö·¢Æ÷£ºÍ¬Ê±ÊÍ·ÅLwIP»º³åÇø+²¶»ñPTPÊ±¼ä´Á
 void Ethernet_Tx_Release_Dispatch(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket)
@@ -557,11 +582,10 @@ void Ethernet_Tx_Release_Dispatch(
     if (pPacket == NULL)
         return;
 
-    // 1.LwipÊÍ·ÅTX»º³åÇø£¬±ÜÃâÄÚ´æÐ¹Â©
     Ethernet_releaseTxPacketBufferCustom(handleApplication, pPacket);
 
-    // 2.ptp²¶»ñ·¢ËÍ±¨ÎÄµÄÓ²¼þÊ±¼ä´Á
     ptpd_releaseTxPacketBuffer_handler(handleApplication, pPacket);
 
 }
+
 

@@ -1,7 +1,7 @@
 /*
  * ethernet_dispatch.h
  *
- *  Created on: 2026年3月27日
+ *  Created on: 2026年3月31日
  *      Author: whl
  */
 
@@ -10,6 +10,9 @@
 
 #include "eth_common.h"
 
+
+extern uint32_t Ethernet_numRxCallbackCustom;
+extern uint32_t releaseTxCount;
 
 extern PTPMasterState gPtpMasterState;
 extern uint8_t gMsgBuf[];
@@ -37,6 +40,7 @@ extern void sendMessage(Octet * msg,
                          uint32_t messageType,
                          PTPMasterState * ptpMasterState,
                          Ethernet_Pkt_Desc * pktDesc);
+
 
 
 #endif /* DRIVER_ETHERNET_DISPATCH_H_ */

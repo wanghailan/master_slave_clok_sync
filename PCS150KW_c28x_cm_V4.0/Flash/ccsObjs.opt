@@ -21,8 +21,8 @@
 "./src/modbus_Param.obj"
 "./src/obj_debug.obj"
 "./src/ptp_master_sync.obj"
-"./src/startup_ccs.obj"
-"../2838x_flash_lnk_cm_lwip.cmd"
+"./src/startup_cm.obj"
+"../2838x_FLASH_lnk_cm.cmd"
 "../Driver/device/driverlib_cm.lib"
 -l"D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/driverlib_cm.lib"
 -llibc.a

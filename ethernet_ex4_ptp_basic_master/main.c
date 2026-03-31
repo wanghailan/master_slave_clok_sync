@@ -137,7 +137,7 @@ uint8_t Ethernet_rxBuffer[ETHERNET_NO_OF_RX_PACKETS *
 #define PDELAY_RESP_FOLLOW_UP_LENGTH            54
 #define MANAGEMENT_LENGTH                       48
 
-// Ç¿ÖÆÉèÖÃÒÔÌ«ÍøMACÎª100MbpsÄ£Ê½
+// Ç¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì«ï¿½ï¿½MACÎª100MbpsÄ£Ê½
 #define ETHERNET_MAC_CONFIGURATION_100MBIT      0x4000U
 
 // GPIO number for LD1
@@ -274,9 +274,9 @@ void Ethernet_releaseTxPacketBufferCustom(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket);
 
-// ¶¨Ê±Æ÷
-static uint32_t m_u32_Clk500msCnt = 0;  //500ms¶¨Ê±ÓÃ
-static uint16_t u16_b500ms = 1;         //500ms¶¨Ê±±êÖ¾
+// ï¿½ï¿½Ê±ï¿½ï¿½
+static uint32_t m_u32_Clk500msCnt = 0;  //500msï¿½ï¿½Ê±ï¿½ï¿½
+static uint16_t u16_b500ms = 1;         //500msï¿½ï¿½Ê±ï¿½ï¿½Ö¾
 		
 void ipc_init(void)
 {
@@ -309,8 +309,8 @@ main(void)
 
     initInterfaceConfig.ssbase = EMAC_SS_BASE;
     initInterfaceConfig.enet_base = EMAC_BASE;
-    initInterfaceConfig.phyMode = ETHERNET_SS_PHY_INTF_SEL_MII;    // ÉèÖÃÎªMIIÄ£Ê½
-    initInterfaceConfig.clockSel = ETHERNET_SS_CLK_SRC_EXTERNAL;   // Ê±ÖÓÔ´Íâ²¿Ìá¹©
+    initInterfaceConfig.phyMode = ETHERNET_SS_PHY_INTF_SEL_MII;    // ï¿½ï¿½ï¿½ï¿½ÎªMIIÄ£Ê½
+    initInterfaceConfig.clockSel = ETHERNET_SS_CLK_SRC_EXTERNAL;   // Ê±ï¿½ï¿½Ô´ï¿½â²¿ï¿½á¹©
 
     initInterfaceConfig.ptrPlatformInterruptDisable = &Platform_disableInterrupt;
     initInterfaceConfig.ptrPlatformInterruptEnable = &Platform_enableInterrupt;
@@ -329,17 +329,17 @@ main(void)
 
     pInitCfg = Ethernet_initInterface(initInterfaceConfig);
 
-    // Ç¿ÖÆÉèÖÃÒÔÌ«ÍøMACÎª100MbpsÄ£Ê½
+    // Ç¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì«ï¿½ï¿½MACÎª100MbpsÄ£Ê½
     Ethernet_setMACConfiguration(EMAC_BASE, ETHERNET_MAC_CONFIGURATION_100MBIT);
 
-    // »ñÈ¡ÍêÕûµÄ³õÊ¼»¯ÅäÖÃ
+    // ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½Ä³ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     Ethernet_getInitConfig(pInitCfg);
 
     pInitCfg->pfcbFreePacket = &Ethernet_releaseTxPacketBufferCustom;
     pInitCfg->pfcbRxPacket = &Ethernet_receivePacketCallbackCustom;
     pInitCfg->pfcbGetPacket = &Ethernet_getPacketBufferCustom;
 
-    // PTPÏà¹ØÅäÖÃ
+    // PTPï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     varPtpConfig = (0 << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
@@ -360,12 +360,12 @@ main(void)
 
     //Assign the Buffer to be used by the Low level driver for receiving
     //Packets. This should be accessible by the Ethernet DMA
-    // ·ÖÅä½ÓÊÕ»º³åÇø
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ»ï¿½ï¿½ï¿½ï¿½ï¿½
     pInitCfg->rxBuffer = Ethernet_rxBuffer;
     Ethernet_getHandle((Ethernet_Handle)1,pInitCfg , &emac_handle);
 
     //Do global Interrupt Enable
-    // Ê¹ÄÜÖĞ¶Ï
+    // Ê¹ï¿½ï¿½ï¿½Ğ¶ï¿½
     (void)Interrupt_enableInProcessor();
 
     //Assign default ISRs
@@ -376,7 +376,7 @@ main(void)
     Interrupt_enable(INT_EMAC_TX0);
     Interrupt_enable(INT_EMAC_RX0);
 
-    // ÉèÖÃMACµØÖ·
+    // ï¿½ï¿½ï¿½ï¿½MACï¿½ï¿½Ö·
     Ethernet_setMACAddr(EMAC_BASE,
                         0,
                         0x00000506U,
@@ -392,13 +392,13 @@ main(void)
                         ETHERNET_CHANNEL_0);
 
     ////////////////////////////////////////
-    // ĞÂÔö1:ÏÈ½ûÓÃ TX/RX£¬È»ºóÅäÖÃËÙ¶ÈºÍË«¹¤Ä£Ê½, Ö±½ÓÇ¿ÖÆÉèÖÃÎª100MbpsÈ«Ë«¹¤
-    Ethernet_setMACConfiguration(EMAC_BASE, ((uint32_t)1 << 14));  // ÉèÖÃ FES = 1 (100Mbps)
-    Ethernet_setMACConfiguration(EMAC_BASE, ((uint32_t)1 << 13));  // ÉèÖÃ DM = 1 (È«Ë«¹¤Ä£Ê½)
+    // ï¿½ï¿½ï¿½ï¿½1:ï¿½È½ï¿½ï¿½ï¿½ TX/RXï¿½ï¿½È»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶Èºï¿½Ë«ï¿½ï¿½Ä£Ê½, Ö±ï¿½ï¿½Ç¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª100MbpsÈ«Ë«ï¿½ï¿½
+    Ethernet_setMACConfiguration(EMAC_BASE, ((uint32_t)1 << 14));  // ï¿½ï¿½ï¿½ï¿½ FES = 1 (100Mbps)
+    Ethernet_setMACConfiguration(EMAC_BASE, ((uint32_t)1 << 13));  // ï¿½ï¿½ï¿½ï¿½ DM = 1 (È«Ë«ï¿½ï¿½Ä£Ê½)
 
-    // ĞÂÔö2:ÖØĞÂÊ¹ÄÜTX/RX
-    Ethernet_setMACConfiguration(EMAC_BASE, 0x2);  // Ê¹ÄÜTX
-    Ethernet_setMACConfiguration(EMAC_BASE, 0x1);  // Ê¹ÄÜRX
+    // ï¿½ï¿½ï¿½ï¿½2:ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½TX/RX
+    Ethernet_setMACConfiguration(EMAC_BASE, 0x2);  // Ê¹ï¿½ï¿½TX
+    Ethernet_setMACConfiguration(EMAC_BASE, 0x1);  // Ê¹ï¿½ï¿½RX
 
     ////////////////////////////////////////
 

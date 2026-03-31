@@ -1,3 +1,29 @@
+//#############################################################################
+//
+// FILE:   ethernet_ex4_ptp_basic_master.c
+//
+// TITLE:  Ethernet PTP Basic Master Example
+//
+//! \addtogroup driver_example_cm_list
+//! <h1> Ethernet PTP Basic Master </h1>
+//!
+//! This example configures the device in IEEE PTPv2 Master mode and then
+//! periodically sends Sync packets to the slave. On receiving the DelayReq
+//! packets from the slave, the master also sends out the DelayResp packets.
+//!
+//! \b External \b Connections \n
+//! This example programs the Ethernet module in PTP Basic Master mode.
+//! The example project \e Ethernet \e PTP \e Basic \e Slave is intended to
+//! be used along with this project to see the whole PTP Protocol state in
+//! action. The second device is configured as \e Slave and both devices in
+//! conjunction exchange Sync, DelayReq and DelayResp packets.
+//!
+//! Refer to the C28x CPU1 code of ethernet_config_c28x project for configuring
+//! the PTP clock that drives the system time counter on the Ethernet module.
+//!
+//! \b Watch \b Variables \n
+//!  - gPtpMasterState
+//!
 
 #include <string.h>
 
@@ -11,13 +37,11 @@
 #include "bsp.h"
 #include "ptp_master_sync.h"
 
+#define DEVICE_FLASH_WAITSTATES 2
 
 uint32_t systickPeriodValue = 125000; //15000000;
-
+		
 extern void sys_check_timeouts(void);
-
-
-#define DEVICE_FLASH_WAITSTATES 2
 
 
 //*****************************************************************************
@@ -29,15 +53,16 @@ void
 SysTickIntHandler(void)
 {
     // Call the lwIP timer handler.
- //   lwIPTimer(systickPeriodValue);
-	   lwIPTimer(1);
+    //lwIPTimer(systickPeriodValue);
+    lwIPTimer(1);
 }
 
-int main(void)
-{
-    uint8_t tempData[50];                 //定义的传输Buffer
 
-    // Initializing the CM. Loading the required functions to SRAM.
+main(void)
+{
+    uint8_t tempData[50];
+
+    // Initialize device clock and peripherals
     CM_init();
 
     SYSTICK_setPeriod(systickPeriodValue);
@@ -53,19 +78,22 @@ int main(void)
         DEVICE_DELAY_US(100);
     } while(cpuIpc_flag == 0);
 
+    // Lwip param init
     Lwip_ParamInit();
 
+    // ptpd clock init
     ptp_master_init();
 
     udpDebug_Init();
     MbTcp1_Init();
     w5500_init();
-    while (1)
+
+    while(1)
     {
         Drv_Timer_ClockMaintain();
         upDataHoldingCBReg();
 
-        if(m_st_TimerFlag.u16_b500ms == 1)
+        if (m_st_TimerFlag.u16_b500ms == 1)
             Drv_Led_toggle();
 
         if(m_st_TimerFlag.u16_b500ms == 1)
@@ -81,7 +109,7 @@ int main(void)
         {
             IpcCpu2Cm_ErrCnt++;
 
-            if(IpcCpu2Cm_ErrCnt >= 100)//1s
+            if(IpcCpu2Cm_ErrCnt >= 100) //1s
             {
                 IpcCpu2Cm_ErrCnt = 100;
                 CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1;
@@ -101,8 +129,8 @@ int main(void)
         {
             if(CmIpc_cm2cpu.debugData_TxEn == 1)
             {
-                memcpy(tempData, (uint8_t *)ipcRx_DebugData, 40);//通过拷贝把数据重新整理
-                tempData[40] = 0x00;                    //写如结尾数据
+                memcpy(tempData, (uint8_t *)ipcRx_DebugData, 40);
+                tempData[40] = 0x00;
                 tempData[41] = 0x00;
                 tempData[42] = 0x80;
                 tempData[43] = 0x7f;
@@ -112,9 +140,8 @@ int main(void)
         }
         sys_check_timeouts();
 
-        // ptp
+        // ptpd clock sync
         ptp_master_run();
     }
 }
-
 

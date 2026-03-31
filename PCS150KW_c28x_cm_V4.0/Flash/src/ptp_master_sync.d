@@ -70,6 +70,10 @@ src/ptp_master_sync.obj: C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/
 src/ptp_master_sync.obj: C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/xlocale/_string.h
 src/ptp_master_sync.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h
 src/ptp_master_sync.obj: C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stddef.h
+src/ptp_master_sync.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/Eth_mii.h
+src/ptp_master_sync.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/ethernet_dispatch.h
+src/ptp_master_sync.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/eth_common.h
+src/ptp_master_sync.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h
 src/ptp_master_sync.obj: ../src/bsp.h
 src/ptp_master_sync.obj: C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdio.h
 src/ptp_master_sync.obj: C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdarg.h
@@ -87,10 +91,6 @@ src/ptp_master_sync.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/W5500/w55
 src/ptp_master_sync.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/W5500/Types.h
 src/ptp_master_sync.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/W5500/w5500_conf.h
 src/ptp_master_sync.obj: ../src/obj_debug.h
-src/ptp_master_sync.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/Eth_mii.h
-src/ptp_master_sync.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/ethernet_dispatch.h
-src/ptp_master_sync.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/eth_common.h
-src/ptp_master_sync.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h
 
 ../src/ptp_master_sync.c:
 
@@ -232,6 +232,14 @@ D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h:
 
 C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stddef.h:
 
+D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/Eth_mii.h:
+
+D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/ethernet_dispatch.h:
+
+D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/eth_common.h:
+
+D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h:
+
 ../src/bsp.h:
 
 C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdio.h:
@@ -265,12 +273,4 @@ D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/W5500/Types.h:
 D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/W5500/w5500_conf.h:
 
 ../src/obj_debug.h:
-
-D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/Eth_mii.h:
-
-D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/ethernet_dispatch.h:
-
-D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/eth_common.h:
-
-D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h:
 

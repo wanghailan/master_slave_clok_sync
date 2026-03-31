@@ -1,11 +1,13 @@
 /*
  * ethernet_dispatch.c
  *
- *  Created on: 2026年3月27日
+ *  Created on: 2026年3月31日
  *      Author: whl
  */
-
 #include "ethernet_dispatch.h"
+
+uint32_t Ethernet_numRxCallbackCustom = 0;
+uint32_t releaseTxCount = 0;
 
 PTPMasterState gPtpMasterState = {0};
 uint8_t gMsgBuf[PACKET_LENGTH] = {0};
@@ -29,6 +31,9 @@ void ptpd_releaseTxPacketBuffer_handler(
 
 
 // Function prototypes used in this case
+
+void fromInternalTime(TimeInternal * internal, Timestamp * external);
+
 void sendMessage(Octet * msg,
                  uint32_t messageType,
                  PTPMasterState * ptpMasterState,
@@ -53,6 +58,13 @@ void msgPackDelayResp(Octet * buf, PTPMasterState *ptpMasterState);
 //  Rewrite this API for custom use case.
 //
 //*****************************************************************************
+void fromInternalTime(TimeInternal * internal, Timestamp * external)
+{
+    external->secondsField.lsb = internal->seconds;
+    external->nanosecondsField = internal->nanoseconds;
+    external->secondsField.msb = 0;
+}
+
 Ethernet_Pkt_Desc* ptpd_receivePacketCallback_handler(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket)
@@ -373,5 +385,6 @@ void msgPackDelayResp(Octet * buf, PTPMasterState *ptpMasterState)
     *(UInteger16 *) (buf + 52) =
         flip16(ptpMasterState->delayReqHeader.sourcePortIdentity.portNumber);
 }
+
 
 

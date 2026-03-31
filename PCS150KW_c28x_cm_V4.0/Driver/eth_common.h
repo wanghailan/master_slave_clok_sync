@@ -1,13 +1,20 @@
+/*
+ * eth_common.h
+ *
+ *  Created on: 2026Äê3ÔÂ31ÈÕ
+ *      Author: whl
+ */
+
+#ifndef DRIVER_ETH_COMMON_H_
+#define DRIVER_ETH_COMMON_H_
 #include "driverlib_cm.h"
 #include "string.h"
 #include "cm.h"
 
 #define PTP_REF_CLOCK_FREQ   25000000   // 25MHz for MII 100Mbps
 #define PTP_REF_CLOCK_PERIOD 1000000000 / PTP_REF_CLOCK_FREQ
-#define NUM_PACKET_DESC_RX_APPLICATION PBUF_POOL_SIZE
+#define NUM_PACKET_DESC_RX_APPLICATION  8U
 
-#define flip16(x) PP_HTONS(x)
-#define flip32(x) PP_HTONL(x)
 
 // Network related definitions as follows
 // Taking care of network byte order conversions using these macros.
@@ -19,6 +26,8 @@
                      (((x) & (uint32_t)0x00ff0000UL) >>  8) |                  \
                      (((x) & (uint32_t)0xff000000UL) >> 24))
 #define PP_NTOHL(x) PP_HTONL(x)
+#define flip16(x) PP_HTONS(x)
+#define flip32(x) PP_HTONL(x)
 
 
 // Following definitions and prototypes are specific to the PTP state machine
@@ -39,7 +48,7 @@
 #define PDELAY_RESP_FOLLOW_UP_LENGTH            54
 #define MANAGEMENT_LENGTH                       48
 
-#define PACKET_LENGTH 200
+#define PACKET_LENGTH       1538U
 #define PTP_HEADER_OFFSET   14U
 #define ETHERNET_NO_OF_RX_PACKETS   8U
 #define ETHERNET_MAX_PACKET_LENGTH  PACKET_LENGTH
@@ -134,3 +143,4 @@ enum {
 Ethernet_Pkt_Desc gPktDesc;
 
 
+#endif /* DRIVER_ETH_COMMON_H_ */
