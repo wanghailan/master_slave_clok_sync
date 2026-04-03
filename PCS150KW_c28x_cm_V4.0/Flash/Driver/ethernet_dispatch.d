@@ -71,6 +71,7 @@ Driver/ethernet_dispatch.obj: C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7
 Driver/ethernet_dispatch.obj: C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/xlocale/_string.h
 Driver/ethernet_dispatch.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h
 Driver/ethernet_dispatch.obj: C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stddef.h
+Driver/ethernet_dispatch.obj: C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/limits.h
 
 ../Driver/ethernet_dispatch.c:
 
@@ -213,4 +214,6 @@ C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/xlocale/_string.h
 D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h:
 
 C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stddef.h:
+
+C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/limits.h:
 

@@ -8,6 +8,8 @@
 #include "Eth_mii.h"
 #include "bsp.h"
 
+#define ETHERNET_MAC_TIMESTAMP_CONTROL_TSCFUPDT 0x00000020U
+
 static void InitConstants(PTPMasterState *ptpMasterState)
 {
     uint32_t mac_low,mac_high, i, j;
@@ -39,24 +41,29 @@ static void InitConstants(PTPMasterState *ptpMasterState)
     }
 }
 
-
 // ptpd init
 void ptp_master_init()
 {
     uint32_t i;
     uint32_t varPtpConfig = 0;
     float subSecondInc;
+    uint32_t timeSec, timeNanosec;
 
     // 强制设置以太网MAC为100Mbps模式
     Ethernet_setMACConfiguration(EMAC_BASE, ETHERNET_MAC_CONFIGURATION_100MBIT);
 
-    // PTP相关配置
+    // ========== 新增：先禁用时间戳，避免配置PPS时状态冲突 ==========
+    uint32_t tsCtrl = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL);
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) = tsCtrl & ~ETHERNET_MAC_TIMESTAMP_CONTROL_TSENA;
+
+
+    // PTP相关配置 ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA / 0x20
     varPtpConfig = (0 << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
                             ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
                             ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
                             ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
                             ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
-                            ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;
+                            0x20;
 
     subSecondInc = PTP_REF_CLOCK_PERIOD;
 
@@ -82,10 +89,41 @@ void ptp_master_init()
     Ethernet_setMACConfiguration(EMAC_BASE, 0x2);  // 使能TX
     Ethernet_setMACConfiguration(EMAC_BASE, 0x1);  // 使能RX
 
+//    // PPS输出配置为中断模式
+//    Ethernet_selectTargetInterruptOrPulsePPS(
+//                            EMAC_BASE,
+//                            ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+//                            ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT);
+
+    // 配置PPS输出为脉冲模式(新增)
     Ethernet_selectTargetInterruptOrPulsePPS(
-                            EMAC_BASE,
-                            ETHERNET_MAC_PPS_OUT_INSTANCE_0,
-                            ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT);
+            EMAC_BASE,
+            ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+            ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
+
+//    // ========== 新增：设置PPS脉冲宽度（单位：PTP参考时钟周期） ==========
+//    // PTP参考时钟频率为25MHz（周期40ns），脉冲宽度设为1000ms
+//    // 实际频率需根据PTP_REF_CLOCK_PERIOD计算：周期数 =1 / PTP_REF_CLOCK_PERIOD
+//    // 脉冲宽度 = 500ms / 40ns = 25,000,000
+
+    // 设置PPS脉冲宽度为500ms
+    uint32_t PTP_CLOCK_FREQ = 25000000;
+    uint32_t ppsWidth = (uint32_t)(0.5 * PTP_CLOCK_FREQ);
+    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_WIDTH) = ppsWidth;  // 设置宽度寄存器
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) |= ETHERNET_MAC_PPS_CONTROL_PPSEN0;  // 使能PPS0输出
+
+    // 初始化时设置PPS目标时间
+    // 获取当前系统时间
+    Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+
+    // 设置PPS在下一秒0纳秒时刻触发，之后每秒自动重复
+    Ethernet_setTargetTimePPS(EMAC_BASE,
+                              ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                              timeSec + 1,
+                              0);
+
+    // ========== 新增：重新使能时间戳 ==========
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) = tsCtrl | ETHERNET_MAC_TIMESTAMP_CONTROL_TSENA;
 
     // We need to set a standard defined Multicast address : 01:1B:19:00:00:00
     // as the Destination address in the ethernet frame and that is how the
@@ -95,55 +133,73 @@ void ptp_master_init()
     i++; *((uint32_t *)gMsgBuf + i)  = 0xF7880000;
 
     InitConstants(&gPtpMasterState);
+
 }
 
 void ptp_master_run()
 {
-    uint32_t timeSec;
-    uint32_t timeNanosec;
+    static uint32_t lastRunSec = 0;
+    uint32_t timeSec, timeNanosec;
     const uint32_t TIMEOUT_MAX = 2000000;
     uint32_t timeout = 0;
 
-    // Use the system time counter to send the sync + followUp messages
-    // every one second.
+    // 1. 获取当前时间，计算下一秒目标
     Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+
+    // ===== 每秒只执行一次 =====
+    if(timeSec == lastRunSec)
+    {
+        return;  // 同一秒内不重复执行
+    }
+    lastRunSec = timeSec;
+
+    uint32_t targetSec = timeSec + 1;
+
+    // 2. 设置PPS在目标时间输出脉冲
     Ethernet_setTargetTimePPS(EMAC_BASE, ETHERNET_MAC_PPS_OUT_INSTANCE_0,
-                              timeSec + 1, timeNanosec);
+                              targetSec, 0);
+//    // 3. 等待目标时间到达
+//    while(timeout < TIMEOUT_MAX)
+//    {
+//        Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+//        if(timeSec >= targetSec)
+//            break;
+//        timeout++;
+//    }
+//    if(timeout >= TIMEOUT_MAX)
+//    {
+//        CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1;
+//        return;
+//    }
 
-    // Waiting till the target time that we set above is reached.
-    // We're using the PPSOUT instance 0 as the timer.
-    while((((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS)) &
-         (ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0)) == 0) &&
-         (timeout < TIMEOUT_MAX))
-    {
-        timeout++;
-    }
-
-    if(timeout >= TIMEOUT_MAX)
-    {
-        CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1;
-        return;
-    }
-
-    // Save the state. We want to capture the timestamp of the next SYNC
-    // packet that is being sent.
+    // 4. 发送SYNC报文
     gPtpMasterState.syncTimestampAvailable = FALSE;
-
-    // Send out the SYNC packet.
     sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
 
-    //  Wait till the latest sync timestamp is captured. As soon as the
-    //  timestamp for the SYNC packet going out is captured, this flag
-    //  will be set to TRUE by the application.
+    // 5. 等待时间戳捕获（脉冲模式下可能超时）
+    timeout = 0;
     while((gPtpMasterState.syncTimestampAvailable == FALSE) && (timeout < TIMEOUT_MAX))
     {
         timeout++;
     }
 
-    // Since the timestamp for the last SYNC packet has been captured,
-    // send out the associated FOLLOW-UP packet.
-    sendMessage((Octet *)gMsgBuf, FOLLOW_UP, &gPtpMasterState, &gPktDesc);
+    // 超时后填充估算时间戳到 syncTimestamp
+    if(timeout >= TIMEOUT_MAX)
+    {
+        CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1;
 
+        uint32_t estSec, estNs;
+        Ethernet_getSysTimePTP(EMAC_BASE, &estSec, &estNs);
+
+        gPtpMasterState.syncTimestamp.secondsField.lsb = estSec;
+        gPtpMasterState.syncTimestamp.secondsField.msb = 0;
+        gPtpMasterState.syncTimestamp.nanosecondsField = estNs;
+
+        gPtpMasterState.syncTimestampAvailable = TRUE;
+    }
+
+    // 6. 发送FOLLOW_UP（使用 syncTimestamp 中的时间戳）
+    sendMessage((Octet *)gMsgBuf, FOLLOW_UP, &gPtpMasterState, &gPktDesc);
 }
 
 

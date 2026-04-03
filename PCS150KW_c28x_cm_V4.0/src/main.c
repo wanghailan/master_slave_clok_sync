@@ -36,8 +36,10 @@
 #include "ipc.h"
 #include "bsp.h"
 #include "ptp_master_sync.h"
+#include "ptp_slave_sync.h"
+#include "gpio.h"
 
-#define DEVICE_FLASH_WAITSTATES 2
+#define  PTP_MODE_MASTER 1    // 1=Master，0=Slave
 
 uint32_t systickPeriodValue = 125000; //15000000;
 		
@@ -62,6 +64,13 @@ main(void)
 {
     uint8_t tempData[50];
 
+#if PTP_MODE_MASTER
+    g_ptpMode = 0;   // Master
+#else
+    g_ptpMode = 1;   // Slave
+#endif
+
+
     // Initialize device clock and peripherals
     CM_init();
 
@@ -81,8 +90,11 @@ main(void)
     // Lwip param init
     Lwip_ParamInit();
 
-    // ptpd clock init
-    ptp_master_init();
+    // PTP主从机初始化
+    if (g_ptpMode == 0)
+        ptp_master_init();
+    else
+        ptp_slave_init();
 
     udpDebug_Init();
     MbTcp1_Init();
@@ -140,8 +152,11 @@ main(void)
         }
         sys_check_timeouts();
 
-        // ptpd clock sync
-        ptp_master_run();
+        // PTP主/从循环
+        if (g_ptpMode == 0)
+            ptp_master_run();
+        else
+            ptp_slave_run();
     }
 }
 

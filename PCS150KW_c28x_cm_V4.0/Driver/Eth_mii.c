@@ -11,6 +11,7 @@
 #include "bsp.h"
 #include "utils/lwiplib.h"
 #include "lwipopts.h"
+#include "ptp_slave_sync.h"
 
 
 #define MAKE_IP_ADDRESS(a3,a2,a1,a0) (((a3<<24) & 0xFF000000) | ((a2<<16) & 0x00FF0000) | ((a1<<8)  & 0x0000FF00) | (a0 & 0x000000FF) )
@@ -27,10 +28,10 @@ uint32_t genericISRCustomRIcount = 0;
 uint8_t Ethernet_rxBuffer[ETHERNET_NO_OF_RX_PACKETS *
                           ETHERNET_MAX_PACKET_LENGTH];
 
-uint32_t sendPacketFailedCount = 0;
+//uint32_t sendPacketFailedCount = 0;
+uint8_t g_ptpMode = 0;
 
-Ethernet_Pkt_Desc* Ethernet_getPacketBufferCustom(void);
-
+// master回调函数
 Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackCustom(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket);
@@ -54,58 +55,8 @@ void Ethernet_Tx_Release_Dispatch(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket);
 
-//*****************************************************************************
-//
-//  This function is a callback function called by the example to
-//  get a Packet Buffer. Has to return a ETHERNET_Pkt_Desc Structure.
-//  Rewrite this API for custom use case.
-//
-//*****************************************************************************
-Ethernet_Pkt_Desc* Ethernet_getPacketBufferCustom(void)
-{
-    //
-    // Get the next packet descriptor from the descriptor pool
-    //
-    uint32_t shortIndex = (Ethernet_numGetPacketBufferCallback + 3)
-                % NUM_PACKET_DESC_RX_APPLICATION;
 
-    //
-    // Increment the book-keeping pointer which acts as a head pointer
-    // to the circular array of packet descriptor pool.
-    //
-    Ethernet_numGetPacketBufferCallback++;
 
-    //
-    // Update buffer length information to the newly procured packet
-    // descriptor.
-    //
-    pktDescriptorRXCustom[shortIndex].bufferLength =
-                                  ETHERNET_MAX_PACKET_LENGTH;
-
-    //
-    // Update the receive buffer address in the packer descriptor.
-    //
-    pktDescriptorRXCustom[shortIndex].dataBuffer =
-                                      &Ethernet_device_struct.rxBuffer [
-               (ETHERNET_MAX_PACKET_LENGTH*Ethernet_device_struct.rxBuffIndex)];
-
-    //
-    // Update the receive buffer pool index.
-    //
-    Ethernet_device_struct.rxBuffIndex += 1U;
-    Ethernet_device_struct.rxBuffIndex  =
-            (Ethernet_device_struct.rxBuffIndex%ETHERNET_NO_OF_RX_PACKETS);
-
-    //
-    // Receive buffer is usable from Address 0
-    //
-    pktDescriptorRXCustom[shortIndex].dataOffset = 0U;
-
-    //
-    // Return this new descriptor to the driver.
-    //
-    return (&(pktDescriptorRXCustom[shortIndex]));
-}
 
 //*****************************************************************************
 //
@@ -119,78 +70,36 @@ Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackCustom(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket)
 {
-    //
-    // Need to unpack the header to check which packet is received.
-    // We expect a Delay Request packet from the slave. Ignore others.
-    //
-    msgUnpackHeader((Octet*)(pPacket->dataBuffer + PTP_HEADER_OFFSET),
-                    &gPtpMasterState.delayReqHeader);
+    Ethernet_Pkt_Desc* temp_eth_pkt;
 
-    switch(gPtpMasterState.delayReqHeader.messageType)
-    {
-    case DELAY_REQ:
-        //
-        // Simply get the timestamp and send the delay response packet asap.
-        //
-        gPtpMasterState.delayReqRecvTimestamp.nanosecondsField =
-                pPacket->timeStampLow;
-        gPtpMasterState.delayReqRecvTimestamp.secondsField.lsb =
-                pPacket->timeStampHigh;
-        gPtpMasterState.delayReqRecvTimestamp.secondsField.msb = 0;
-
-        //
-        // Save this state that we are sending Delay Resp packet so that it
-        // doesn't affect other packets which are being sent.
-        //
-        gPtpMasterState.sendingDelayResp = TRUE;
-
-        //
-        // Send the corresponding Delay Response packet.
-        //
-        sendMessage((Octet *)gMsgBuf, DELAY_RESP, &gPtpMasterState, &gPktDesc);
-        break;
-    default:
-        //
-        // Error condition, the code should never reach here
-        //
-        break;
-    }
-
-    //
     // Book-keeping to maintain number of callbacks received.
-    //
-#ifdef ETHERNET_DEBUG
-    Ethernet_numRxCallbackCustom++;
-#endif
-    return Ethernet_getPacketBufferCustom();
+    Ethernet_disableRxDMAReception(EMAC_BASE, 0);
+
+    // This is a placeholder for Application specific handling
+    // We are replenishing the buffer received with another buffer
+    temp_eth_pkt = lwIPEthernetIntHandler(pPacket);
+
+    Ethernet_enableRxDMAReception(EMAC_BASE, 0);
+
+    return temp_eth_pkt;
 }
 
 void Ethernet_releaseTxPacketBufferCustom(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket)
 {
-
     //
-    // We would like to capture the timestamp for the SYNC packet only.
+    // Once the packet is sent, reuse the packet memory to avoid
+    // memory leaks. Call this interrupt handler function which will take care
+    // of freeing the memory used by the packet descriptor.
     //
-    if(gPtpMasterState.sendingDelayResp == TRUE)
-    {
-        gPtpMasterState.sendingDelayResp = FALSE;
-    }
-    else if(gPtpMasterState.syncTimestampAvailable == FALSE)
-    {
-        gPtpMasterState.syncTimestamp.nanosecondsField = pPacket->timeStampLow;
-        gPtpMasterState.syncTimestamp.secondsField.lsb = pPacket->timeStampHigh;
-        gPtpMasterState.syncTimestamp.secondsField.msb = 0;
-
-        gPtpMasterState.syncTimestampAvailable = TRUE;
-    }
+    lwIPEthernetIntHandler(pPacket);
 
     //
     // Increment the book-keeping counter.
     //
-#if ETHERNET_DEBUG
-    Ethernet_releaseTxCount++;
+#ifdef ETHERNET_DEBUG
+    releaseTxCount++;
 #endif
 }
 
@@ -568,11 +477,12 @@ Ethernet_Pkt_Desc* Ethernet_Rx_Dispatch(
     if (pPacket == NULL)
         return NULL;
 
-    //Ethernet_Pkt_Desc* eth_lwip;
-
+    //1.优先交给Lwip处理通用以太网报文
     pPacket = Ethernet_receivePacketCallbackCustom(handleApplication, pPacket);
 
-    return ptpd_receivePacketCallback_handler(handleApplication, pPacket);
+    //2.交给ptp处理专属PTP报文
+    pPacket = Ethernet_receivePacketCallbackPtp(handleApplication, pPacket);
+    return pPacket;
 }
 
 void Ethernet_Tx_Release_Dispatch(
@@ -582,10 +492,10 @@ void Ethernet_Tx_Release_Dispatch(
     if (pPacket == NULL)
         return;
 
+    // 1.Lwip释放TX缓冲区，避免内存泄漏
     Ethernet_releaseTxPacketBufferCustom(handleApplication, pPacket);
 
-    ptpd_releaseTxPacketBuffer_handler(handleApplication, pPacket);
-
+    // 2.ptp捕获发送报文的硬件时间戳
+    Ethernet_releaseTxPacketBufferPtp(handleApplication, pPacket);
 }
-
 

@@ -118,7 +118,7 @@ typedef struct {
     Integer8 logMessageInterval;
 } MsgHeader;
 
-
+// 主机收发报文结构体
 typedef struct
 {
     PortIdentity portIdentity;
@@ -132,6 +132,32 @@ typedef struct
     MsgHeader delayReqHeader;
 } PTPMasterState;
 
+// 从机收发报文结构体
+typedef struct {
+    PortIdentity portIdentity;
+    Octet port_uuid_field[PTP_UUID_LENGTH];
+
+    Timestamp syncRecvTimestamp;     // Sync报文接收时间t2
+    Timestamp syncOriginTimestamp;
+    Timestamp delayReqSentTimestamp; // Delay_Req发送时间t3
+    Timestamp delayReqRecvTimestamp; // Master的Delay_Req接收时间t4（来自Delay_Resp）
+
+    TimeInternal delayMS;
+    TimeInternal delaySM;
+    TimeInternal offsetFromMaster;
+    TimeInternal meanPathDelay;
+
+    uint16_t lastSyncSeqId;
+    uint16_t delayReqSeqId;
+    uint16_t portNumber;
+    uint32_t clockUpdateCount;
+
+    Boolean syncReceived;
+    Boolean waitingForFollowup;
+    Boolean waitingForDelayResp;
+} PTPSlaveState;
+
+
 // brief PTP Messages
 enum {
     SYNC=0x0,
@@ -142,5 +168,6 @@ enum {
 
 Ethernet_Pkt_Desc gPktDesc;
 
+extern uint8_t g_ptpMode;   // 0=Master, 1=Slave
 
 #endif /* DRIVER_ETH_COMMON_H_ */

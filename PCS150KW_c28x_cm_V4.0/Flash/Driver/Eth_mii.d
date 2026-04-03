@@ -156,6 +156,7 @@ Driver/Eth_mii.obj: C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Et
 Driver/Eth_mii.obj: C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/lwip/lwip-2.1.2/src/include/lwip/opt.h
 Driver/Eth_mii.obj: C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/lwip/lwip-2.1.2/src/include/lwip/sockets.h
 Driver/Eth_mii.obj: C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/lwip/lwip-2.1.2/src/include/lwip/opt.h
+Driver/Eth_mii.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/src/ptp_slave_sync.h
 
 ../Driver/Eth_mii.c:
 
@@ -468,4 +469,6 @@ C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/l
 C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/lwip/lwip-2.1.2/src/include/lwip/sockets.h:
 
 C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/lwip/lwip-2.1.2/src/include/lwip/opt.h:
+
+D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/src/ptp_slave_sync.h:
 
