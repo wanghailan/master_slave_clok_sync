@@ -11,7 +11,6 @@
 #include "bsp.h"
 #include "utils/lwiplib.h"
 #include "lwipopts.h"
-#include "ptp_slave_sync.h"
 
 
 #define MAKE_IP_ADDRESS(a3,a2,a1,a0) (((a3<<24) & 0xFF000000) | ((a2<<16) & 0x00FF0000) | ((a1<<8)  & 0x0000FF00) | (a0 & 0x000000FF) )

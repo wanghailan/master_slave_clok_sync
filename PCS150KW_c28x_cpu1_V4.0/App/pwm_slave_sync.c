@@ -6,12 +6,17 @@
  */
 
 #include "pwm_slave_sync.h"
-#include "F28x_Project.h"
-#include "ipc_data.h"
+#include <Driver/device/device.h>
+#include <Driver/device/driverlib.h>
 
-//extern volatile struct CmIpc_Struct CmIpc_cm2cpu;
+//#include "f2838x_device.h"
+//#include "f2838x_epwm_defines.h"
+//#include "f2838x_pie_defines.h"
+//#include "f2838x_globalprototypes.h"
 
-extern IPC_DATA_CM2CPU   Cpu1Ipc_cm2cpu;
+#if 0
+#include "f28x_project.h"
+#include "bsp.h"
 
 // PI Params
 #define SLAVE_PWM_KP          (0.1f)
@@ -22,12 +27,21 @@ extern IPC_DATA_CM2CPU   Cpu1Ipc_cm2cpu;
 static const uint16_t g_slavePwmBasePhase = 0;
 
 static volatile int32_t  g_slavePhaseError = 0;
-static volatile float    g_slavePhaseIntegral = 0.0f;
+static volatile float32_t  g_slavePhaseIntegral = 0.0f;
 static volatile uint32_t g_slavePpsIsrCount   = 0;
+
+extern IPC_DATA_CPU2CM         Cpu1Ipc_cpu2cm;
+extern IPC_DATA_CM2CPU         Cpu1Ipc_cm2cpu;
+
 
 static void Slave_InitSystemClock(void);
 static void Slave_InitEPwm1(void);
 static void Slave_InitPPS_Input_ECAP(void);
+
+void InitEPwm1Gpio(void);
+void InitPieCtrl(void);
+void InitPieVectTable(void);
+void InitSysCtrl(void);
 
 
 // ≥ı ºªØ
@@ -153,5 +167,4 @@ __interrupt void PPS_Slave_ISR(void)
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP4;
 }
 
-
-
+#endif

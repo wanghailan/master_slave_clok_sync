@@ -11,8 +11,8 @@
 #include "string.h"
 #include "cm.h"
 
-#define PTP_REF_CLOCK_FREQ   25000000   // 25MHz for MII 100Mbps
-#define PTP_REF_CLOCK_PERIOD 1000000000 / PTP_REF_CLOCK_FREQ
+#define PTP_REF_CLOCK_FREQ   25000000UL   // 25MHz for MII 100Mbps
+#define PTP_REF_CLOCK_PERIOD 1000000000UL / PTP_REF_CLOCK_FREQ  // 40ns
 #define NUM_PACKET_DESC_RX_APPLICATION  8U
 
 
@@ -148,13 +148,14 @@ typedef struct {
     TimeInternal meanPathDelay;
 
     uint16_t lastSyncSeqId;
+    uint16_t followUpSeqId;
     uint16_t delayReqSeqId;
     uint16_t portNumber;
     uint32_t clockUpdateCount;
 
     Boolean syncReceived;
-    Boolean waitingForFollowup;
-    Boolean waitingForDelayResp;
+    Boolean followUpReceived;
+    Boolean delayRespReceived;
 } PTPSlaveState;
 
 

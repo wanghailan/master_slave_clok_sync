@@ -5,18 +5,28 @@
  *      Author: whl
  */
 
+
 #include "pwm_master_sync.h"
-#include "F28x_Project.h"
-#include "ipc_data.h"
 
+//#include <Driver/device/device.h>
+//#include <Driver/device/driverlib.h>
+//#include "f2838x_device.h"
+//#include "f2838x_epwm_defines.h"
+//#include "f2838x_pie_defines.h"
+//#include "f2838x_globalprototypes.h"
 
-extern IPC_DATA_CM2CPU   Cpu1Ipc_cm2cpu;
+#if 0
+#include "f28x_project.h"
+//#include "bsp.h"
 
 volatile struct ECAP_REGS ECap1Regs;
 volatile struct EPWM_REGS EPwm1Regs;
 volatile struct GPIO_CTRL_REGS GpioCtrlRegs;
 volatile struct PIE_CTRL_REGS PieCtrlRegs;
 volatile struct PIE_VECT_TABLE PieVectTable;
+
+extern IPC_DATA_CPU2CM         Cpu1Ipc_cpu2cm;
+extern IPC_DATA_CM2CPU         Cpu1Ipc_cm2cpu;
 
 
 // PPS…œ…˝—ÿ, PWM TBCTR=0
@@ -28,6 +38,7 @@ static volatile uint32_t g_masterPpsIsrCount = 0;
 static void Master_InitSystemClock(void);
 static void Master_InitEPwm1(void);
 static void Master_InitPPS_Input_ECAP(void);
+
 
 // ≥ı ºªØ
 void PWM_MasterSync_Init(void)
@@ -131,3 +142,4 @@ __interrupt void PPS_Master_ISR(void)
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP4;
 }
 
+#endif

@@ -11,6 +11,7 @@
 
 //PTPSlaveState gPtpSlaveState;
 
+
 // 初始化常量
 static void InitSlaveConstants(PTPSlaveState *ptpSlaveState)
 {
@@ -42,20 +43,25 @@ static void InitSlaveConstants(PTPSlaveState *ptpSlaveState)
     }
 }
 
+
 // Slave端PTP初始化
 void ptp_slave_init(void)
 {
     uint32_t i;
     uint32_t varPtpConfig = 0;
     float subSecondInc;
+    uint32_t tsCtrl;
+    uint32_t ptpClkHz;
+    uint32_t ppsPeriodTicks;
+    uint32_t ppsWidthTicks;
+    uint32_t sec, nsec;
 
-    // ========== 新增：先禁用时间戳，避免配置PPS时状态冲突 ==========
-    uint32_t tsCtrl = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL);
+    // 1.关闭时间戳
+    tsCtrl = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL);
     HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) = tsCtrl & ~ETHERNET_MAC_TIMESTAMP_CONTROL_TSENA;
 
-    // PTP时钟配置（启用从机模式时间戳）
-    varPtpConfig = 0x0 |
-                    (0 << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
+    // 2.PTP时钟配置（配置PTP时间戳为Slave模式）
+    varPtpConfig = (0U << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
@@ -69,72 +75,93 @@ void ptp_slave_init(void)
     Ethernet_enableSysTimePTP(EMAC_BASE);
 
     // Start the system with a random value.
-    Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCA, 0x25a5a5a5);
+    // 3.初始化系统时间
+    Ethernet_setSysTimePTP(EMAC_BASE, 0x00000000U, 0x00000000U);
 
     // We need to program this standard multicast address so that this device
     // identifies PTP over Ethernet packets correctly. "01:1B:19:00:00:00"
+    // 4.配置PTP多播MAC地址
     Ethernet_setMACAddr(EMAC_BASE,
-                        1,
-                        0x00000000,
-                        0x00191B01, // 01:1B:19:00:00:00
+                        1U,
+                        0x00000000U,
+                        0x00191B01U, // 01:1B:19:00:00:00
                         ETHERNET_CHANNEL_0);
 
-    // 初始化PTP组播地址到报文缓冲区
-    i=0; *((uint32_t *)gMsgBuf + i) = 0x00191B01;
+    // 5.初始化PTP组播地址到报文缓冲区
+    i=0U; *((uint32_t *)gMsgBuf + i) = 0x00191B01;
     i++; *((uint32_t *)gMsgBuf + i)  = 0xF7880000;
 
-    // 初始化Slave状态
+    // 6.初始化Slave状态
     memset(&gPtpSlaveState, 0, sizeof(PTPSlaveState));
-
     InitSlaveConstants(&gPtpSlaveState);
 
-    gPtpSlaveState.portNumber = 1;
-    gPtpSlaveState.delayReqSeqId = 0;
+    gPtpSlaveState.portNumber          = 1;
+    gPtpSlaveState.delayReqSeqId       = 0;
+    gPtpSlaveState.syncReceived        = FALSE;
+    gPtpSlaveState.followUpReceived    = FALSE;
+    gPtpSlaveState.delayRespReceived   = FALSE;
 
-    // 配置PPS输出为脉冲模式
+    // 7.配置PPS输出为脉冲模式
     Ethernet_selectTargetInterruptOrPulsePPS(
             EMAC_BASE,
             ETHERNET_MAC_PPS_OUT_INSTANCE_0,
             ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
 
-    // ========== 新增：重新使能时间戳 ==========
+    // 8.PPS周期与脉宽
+    ptpClkHz = (uint32_t)(1.0f / PTP_REF_CLOCK_PERIOD);
+    ppsPeriodTicks = ptpClkHz * 1U;
+    ppsWidthTicks  = ptpClkHz / 100U;
+
+    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_INTERVAL) = ppsPeriodTicks;
+    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_WIDTH)    = ppsWidthTicks;
+
+    // 9.开启时间戳模块
     HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) = tsCtrl | ETHERNET_MAC_TIMESTAMP_CONTROL_TSENA;
 
-    // 设置初始目标时间，当前秒+1
-    uint32_t sec, nsec;
+    // 10.设置初始PPS目标时间为当前秒+1
     Ethernet_getSysTimePTP(EMAC_BASE, &sec, &nsec);
     Ethernet_setTargetTimePPS(EMAC_BASE,
                               ETHERNET_MAC_PPS_OUT_INSTANCE_0,
-                              sec + 1,
-                              0);
+                              sec + 1U,
+                              0U);
 
+    // 11.打开PP0输出
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) |= ETHERNET_MAC_PPS_CONTROL_PPSEN0;
+
+    // 状态清零
+    gPtpSlaveState.lastSyncSeqId = 0;
+    gPtpSlaveState.followUpSeqId = 0;
+    gPtpSlaveState.delayReqSeqId = 0;
+    gPtpSlaveState.syncReceived = false;
+    gPtpSlaveState.followUpReceived = false;
+    gPtpSlaveState.delayRespReceived = false;
 }
 
 // Slave处理报文交互+时钟同步
 void ptp_slave_run(void)
 {
-    const uint32_t TIMEOUT_MAX = 2000000;
-    uint32_t timeout = 0;
+    const uint32_t TIMEOUT_MAX = 2000000U;
+    uint32_t timeout = 0U;
 
-    // 1.等待接收Sync报文
-    if (gPtpSlaveState.syncReceived && !gPtpSlaveState.waitingForFollowup)
+    // 1.已收到Sync, 需要等待Follow_Up
+    if (gPtpSlaveState.syncReceived && !gPtpSlaveState.followUpReceived)
     {
         // 等待Follow_Up报文（携带t1）
-        timeout = 0;
-        while (!gPtpSlaveState.waitingForFollowup && (timeout < TIMEOUT_MAX))
+        timeout = 0U;
+        while (!gPtpSlaveState.followUpReceived && (timeout < TIMEOUT_MAX))
         {
             timeout++;
         }
         if (timeout >= TIMEOUT_MAX)
         {
-            CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1;
+            CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1U;
             gPtpSlaveState.syncReceived = FALSE;
             return;
         }
     }
 
-    // 2.发送Delay_Req报文（并记录发送时间t3）
-    if (gPtpSlaveState.waitingForFollowup && !gPtpSlaveState.waitingForDelayResp)
+    // 2.已收到 Follow_Up, 开始发送Delay_Req报文（并记录发送时间t3）
+    if (gPtpSlaveState.followUpReceived && !gPtpSlaveState.delayRespReceived)
     {
         gPtpSlaveState.delayReqSeqId++;
 
@@ -145,30 +172,34 @@ void ptp_slave_run(void)
 
         // 发送Delay_Req报文
         sendMessage((Octet *)gMsgBuf, DELAY_REQ, &gPtpSlaveState, &gPktDesc);
-        gPtpSlaveState.waitingForDelayResp = TRUE;
+        gPtpSlaveState.delayRespReceived = TRUE;
     }
 
     // 3.等待Delay_Resp报文（携带t4）
-    if (gPtpSlaveState.waitingForDelayResp)
+    if (gPtpSlaveState.delayRespReceived)
     {
-        timeout = 0;
-        while (!gPtpSlaveState.waitingForDelayResp && (timeout < TIMEOUT_MAX))
+        timeout = 0U;
+        while (!gPtpSlaveState.delayRespReceived && (timeout < TIMEOUT_MAX))
         {
             timeout++;
         }
         if (timeout >= TIMEOUT_MAX)
         {
-            CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1;
-            gPtpSlaveState.waitingForDelayResp = FALSE;
+            CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1U;
+            gPtpSlaveState.delayRespReceived = FALSE;
             return;
         }
     }
 
-    // 4.如果收到 Delay_Resp，调整时钟
-    if (gPtpSlaveState.waitingForDelayResp)
+    // 4.如果收到Delay_Resp，调整时钟
+    if (gPtpSlaveState.delayRespReceived)
     {
         ptp_slave_adjust_clock();
+        gPtpSlaveState.syncReceived      = FALSE;
+        gPtpSlaveState.followUpReceived  = FALSE;
+        gPtpSlaveState.delayRespReceived = FALSE;
     }
+
 }
 
 // 时钟调整函数,根据offset调整Slave本地PTP时钟
@@ -179,7 +210,7 @@ void ptp_slave_adjust_clock(void)
     uint32_t curr_sec, curr_nsec;
 
     // 1. 转换所有时间戳为纳秒（统一单位）
-    // t1: Master发送Sync的时间
+    // t1: Master发送Sync的时间 (from Follow_Up)
     t1_ns = (int64_t)gPtpSlaveState.syncOriginTimestamp.secondsField.lsb * 1000000000LL +
             gPtpSlaveState.syncOriginTimestamp.nanosecondsField;
 
@@ -195,33 +226,44 @@ void ptp_slave_adjust_clock(void)
     t4_ns = (int64_t)gPtpSlaveState.delayReqRecvTimestamp.secondsField.lsb * 1000000000LL +
             gPtpSlaveState.delayReqRecvTimestamp.nanosecondsField;
 
-    // 2. 计算偏移量和路径延迟
+    // 2.计算偏移量和路径延迟
     offset_ns = ((t2_ns - t1_ns) + (t3_ns - t4_ns)) / 2;
     delay_ns  = ((t2_ns - t1_ns) - (t3_ns - t4_ns)) / 2;
 
-    // 3. 读取当前Slave的PTP系统时间
+    // 3.读取当前Slave的PTP系统时间
     Ethernet_getSysTimePTP(EMAC_BASE, &curr_sec, &curr_nsec);
     int64_t curr_ns = (int64_t)curr_sec * 1000000000LL + curr_nsec;
 
-    // 4. 调整时间（减去offset，使Slave时钟对齐Master）
+    // 4.纠正offse, 调整时间（减去offset，使Slave时钟对齐Master）
     int64_t new_ns = curr_ns - offset_ns;
     uint32_t new_sec = (uint32_t)(new_ns / 1000000000LL);
     uint32_t new_nsec = (uint32_t)(new_ns % 1000000000LL);
 
-    // 5. 写入调整后的时间到PTP系统时钟
+    // 5.写入调整后的时间到PTP系统时钟
     Ethernet_setSysTimePTP(EMAC_BASE, new_sec, new_nsec);
 
-    // 6.重新设置PPS目标时间为下一个整秒(新增)
-    Ethernet_getSysTimePTP(EMAC_BASE, &curr_sec, &curr_nsec);
+    // 5.1 首次同步, 通过 IPC告知CPU1
+    static bool firstSyncDone = false;
+    if (!firstSyncDone)
+    {
+        CmIpc_cm2cpu.PtpSynced = 1U;
+        firstSyncDone = true;
+    }
+
+    // 6.同步后，更新下一次PPS的targetTime (保持1PPS对齐)
+    uint32_t sec, nsec;
+    Ethernet_getSysTimePTP(EMAC_BASE, &sec, &nsec);
+    // 如果当前纳秒数大于500ms
+    if (nsec > 500000000U)
+    {
+        sec++;
+    }
+
     Ethernet_setTargetTimePPS(EMAC_BASE,
                               ETHERNET_MAC_PPS_OUT_INSTANCE_0,
-                              curr_sec + 1,
+                              sec + 1,
                               0);
 
-    // 重置状态，准备下一次同步
-    gPtpSlaveState.syncReceived = FALSE;
-    gPtpSlaveState.waitingForDelayResp = FALSE;
-    gPtpSlaveState.waitingForDelayResp = FALSE;
 }
 
 

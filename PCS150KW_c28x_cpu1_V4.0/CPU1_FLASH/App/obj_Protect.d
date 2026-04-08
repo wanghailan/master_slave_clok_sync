@@ -148,7 +148,6 @@ App/obj_Protect.obj: syscfg/clb_config.h
 App/obj_Protect.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/spll/spll_3ph_srf.h
 App/obj_Protect.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/spll/spll_3ph_ddsrf.h
 App/obj_Protect.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/power_measurement/power_meas_sine_analyzer.h
-App/obj_Protect.obj: ../App/ipc_data.h
 
 ../App/obj_Protect.c:
 
@@ -445,6 +444,4 @@ D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/spll/spll_3ph_srf.h:
 D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/spll/spll_3ph_ddsrf.h:
 
 D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/power_measurement/power_meas_sine_analyzer.h:
-
-../App/ipc_data.h:
 

@@ -148,7 +148,6 @@ main.obj: syscfg/clb_config.h
 main.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/spll/spll_3ph_srf.h
 main.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/spll/spll_3ph_ddsrf.h
 main.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/power_measurement/power_meas_sine_analyzer.h
-main.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/App/ipc_data.h
 
 ../main.c:
 
@@ -445,6 +444,4 @@ D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/spll/spll_3ph_srf.h:
 D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/spll/spll_3ph_ddsrf.h:
 
 D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/power_measurement/power_meas_sine_analyzer.h:
-
-D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/App/ipc_data.h:
 

@@ -159,7 +159,7 @@ void Ethernet_releaseTxPacketBufferPtp(
         gPtpSlaveState.delayReqSentTimestamp.nanosecondsField = pPacket->timeStampLow;
         gPtpSlaveState.delayReqSentTimestamp.secondsField.lsb = pPacket->timeStampHigh;
         gPtpSlaveState.delayReqSentTimestamp.secondsField.msb = 0;
-        gPtpSlaveState.waitingForDelayResp = TRUE;
+        gPtpSlaveState.delayRespReceived = TRUE;
     }
 
     // Increment the book-keeping counter.
@@ -288,9 +288,9 @@ Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackPtp(
             // 1.Get the "Delay Request receive timestamp.
             // 2.Calculate the Slave to Master Delay.
             // 3.Calculate the Mean Path Delay and save it.
-            if (gPtpSlaveState.waitingForDelayResp == TRUE)
+            if (gPtpSlaveState.delayRespReceived == TRUE)
             {
-                gPtpSlaveState.waitingForDelayResp = FALSE;
+                gPtpSlaveState.delayRespReceived = FALSE;
 
                 gPtpSlaveState.delayReqRecvTimestamp.secondsField.msb =
                     flip16(*(UInteger16 *) (pPacket->dataBuffer + PTP_HEADER_OFFSET + 34 ));

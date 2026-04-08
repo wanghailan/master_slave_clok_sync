@@ -11,9 +11,21 @@
 #include "board.h"
 #include "math.h"
 
+
+#define  PTP_MODE_MASTER 1    // 1=Master，0=Slave
+
+//static void* gAllowPpsSync = NULL;
+
 void main(void)
 {
     bsp_init();
+
+//#if PTP_MODE_MASTER
+//    PWM_MasterSync_Init(); // Master PWM初始化
+//#else
+//    PWM_SlaveSync_Init();  // Slave PWM初始化
+//#endif
+
     for(;;)
     {
         if(Cpu1Ipc_cm2cpu.Reset_En == 0)
@@ -44,6 +56,13 @@ void main(void)
         objControl_LedControl();
         SciC_Poll();
         SciD_Poll();
+
+//        // 检查CM侧是否已经完成PTP同步
+//#if PTP_MODE_MASTER
+//        PWM_MasterSync_run(gAllowPpsSync);
+//#else
+//        PWM_SlaveSync_run(gAllowPpsSync);
+//#endif
     }
 }
 

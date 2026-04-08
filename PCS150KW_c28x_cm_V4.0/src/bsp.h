@@ -364,6 +364,7 @@ typedef struct _IPC_DATA_CM2CPU //
     int16_t   CAN_2_Fault;            //CAN_2通信故障
     int16_t   EE_Fault;               //EEPROM故障
     int16_t   Sflash_Fault;           //spi flash通信故障
+    uint16_t  PtpSynced;              // PTP同步完成标志，由CM核设置
 }IPC_DATA_CM2CPU;
 
 

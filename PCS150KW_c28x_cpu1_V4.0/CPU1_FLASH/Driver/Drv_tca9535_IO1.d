@@ -148,7 +148,6 @@ Driver/Drv_tca9535_IO1.obj: syscfg/clb_config.h
 Driver/Drv_tca9535_IO1.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/spll/spll_3ph_srf.h
 Driver/Drv_tca9535_IO1.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/spll/spll_3ph_ddsrf.h
 Driver/Drv_tca9535_IO1.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/power_measurement/power_meas_sine_analyzer.h
-Driver/Drv_tca9535_IO1.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/App/ipc_data.h
 
 ../Driver/Drv_tca9535_IO1.c:
 
@@ -445,6 +444,4 @@ D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/spll/spll_3ph_srf.h:
 D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/spll/spll_3ph_ddsrf.h:
 
 D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/power_measurement/power_meas_sine_analyzer.h:
-
-D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/App/ipc_data.h:
 

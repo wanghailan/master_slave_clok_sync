@@ -328,4 +328,7 @@ typedef struct _IPC_DATA_CM2CPU //
 }IPC_DATA_CM2CPU;
 
 
+extern IPC_DATA_CPU2CM         Cpu1Ipc_cpu2cm;
+extern IPC_DATA_CM2CPU         Cpu1Ipc_cm2cpu;
+
 #endif /* APP_IPC_DATA_H_ */
