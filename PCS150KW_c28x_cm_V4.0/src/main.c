@@ -37,9 +37,8 @@
 #include "bsp.h"
 #include "ptp_master_sync.h"
 #include "ptp_slave_sync.h"
-#include "gpio.h"
 
-#define  PTP_MODE_MASTER 1    // 1=Master，0=Slave
+#define  PTP_MODE_MASTER 0    // 1=Master，0=Slave
 
 uint32_t systickPeriodValue = 125000; //15000000;
 		

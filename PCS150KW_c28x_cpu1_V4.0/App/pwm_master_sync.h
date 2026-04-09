@@ -1,12 +1,17 @@
 /*
  * pwm_master_sync.h
  *
- *  Created on: 2026年4月7日
+ *  Created on: 2026年4月9日
  *      Author: whl
  */
 
 #ifndef APP_PWM_MASTER_SYNC_H_
 #define APP_PWM_MASTER_SYNC_H_
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "driverlib.h"
+
 
 #ifdef __cplusplus
 extern "C" {

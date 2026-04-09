@@ -138,7 +138,7 @@ typedef struct {
     Octet port_uuid_field[PTP_UUID_LENGTH];
 
     Timestamp syncRecvTimestamp;     // Sync报文接收时间t2
-    Timestamp syncOriginTimestamp;
+    Timestamp syncOriginTimestamp;   // T1
     Timestamp delayReqSentTimestamp; // Delay_Req发送时间t3
     Timestamp delayReqRecvTimestamp; // Master的Delay_Req接收时间t4（来自Delay_Resp）
 
@@ -156,6 +156,9 @@ typedef struct {
     Boolean syncReceived;
     Boolean followUpReceived;
     Boolean delayRespReceived;
+
+    uint32_t  lockCount;
+    bool      isLocked;
 } PTPSlaveState;
 
 

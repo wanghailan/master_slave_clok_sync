@@ -8,9 +8,15 @@
 #ifndef APP_PWM_SLAVE_SYNC_H_
 #define APP_PWM_SLAVE_SYNC_H_
 
+#include <stdint.h>
+#include <stdbool.h>
+#include "driverlib.h"
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 
 void PWM_SlaveSync_Init(void);
 

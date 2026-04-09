@@ -1,145 +1,42 @@
 /*
  * pwm_master_sync.c
  *
- *  Created on: 2026年4月7日
+ * 功能：
+ *    Master的PPS是参考信号
+ *    配置PWM同步输出功能，用于同步从机PWM模块
+ *
+ *  Created on: 2026年4月9日
  *      Author: whl
  */
 
-
 #include "pwm_master_sync.h"
-
-//#include <Driver/device/device.h>
-//#include <Driver/device/driverlib.h>
-//#include "f2838x_device.h"
-//#include "f2838x_epwm_defines.h"
-//#include "f2838x_pie_defines.h"
-//#include "f2838x_globalprototypes.h"
-
-#if 0
-#include "f28x_project.h"
-//#include "bsp.h"
-
-volatile struct ECAP_REGS ECap1Regs;
-volatile struct EPWM_REGS EPwm1Regs;
-volatile struct GPIO_CTRL_REGS GpioCtrlRegs;
-volatile struct PIE_CTRL_REGS PieCtrlRegs;
-volatile struct PIE_VECT_TABLE PieVectTable;
-
-extern IPC_DATA_CPU2CM         Cpu1Ipc_cpu2cm;
-extern IPC_DATA_CM2CPU         Cpu1Ipc_cm2cpu;
-
-
-// PPS上升沿, PWM TBCTR=0
-static const uint16_t g_masterPwmBasePhase = 0;
-
-// 调试计数
-static volatile uint32_t g_masterPpsIsrCount = 0;
+#include "bsp.h"
 
 static void Master_InitSystemClock(void);
-static void Master_InitEPwm1(void);
-static void Master_InitPPS_Input_ECAP(void);
+
+static void Master_InitEpwm1(void);
 
 
-// 初始化
+/*============================ 初始化函数 ============================*/
 void PWM_MasterSync_Init(void)
 {
-    Master_InitSystemClock();
-
-    DINT;
-    InitPieCtrl();
-    IER = 0x0000;
-    IFR = 0x0000;
-
-    InitPieVectTable();
-
-    Master_InitEPwm1();
-    Master_InitPPS_Input_ECAP();
-
-    EINT;
-    DRTM;
-}
-
-// 系统时钟
-static void Master_InitSystemClock(void)
-{
-    InitSysCtrl();
-}
-
-// EPWM1配置:master
-static void Master_InitEPwm1(void)
-{
     EALLOW;
-    InitEPwm1Gpio();
 
-    EPwm1Regs.TBCTL.bit.CTRMODE   = TB_COUNT_UPDOWN;
-    EPwm1Regs.TBCTL.bit.PHSEN     = TB_DISABLE;
-    EPwm1Regs.TBCTL.bit.PRDLD     = TB_SHADOW;
-    EPwm1Regs.TBCTL.bit.HSPCLKDIV = TB_DIV1;
-    EPwm1Regs.TBCTL.bit.CLKDIV    = TB_DIV1;
+//    // 配置PWM1在CTR=0时输出同步信号,用于同步从机PWM模块(PWM2)
+//    EPWM_setSyncOutPulseMode(EPWM1_BASE, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
+//    EPWM_enableSyncOutPulseSource(EPWM1_BASE, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
+//    // 配置系统同步输出
+//    SysCtl_setSyncOutputConfig(SYSCTL_SYNC_OUT_SRC_EPWM1SYNCOUT);
 
-    EPwm1Regs.TBPRD = 5000;  // 100MHz / (2*5000) = 10kHz
+    // 1.在配置各个ePWM模块前，先禁止所有ePWM模块的时基时钟，防止初始化过程中产生意外的脉冲
+    SysCtl_disablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
 
-    EPwm1Regs.TBPHS.bit.TBPHS = 0;
-    EPwm1Regs.TBCTR = 0;
+    // 2.配置同步源EPWM1，使其作为同步的起点.禁用自身同步输入，使能在CTR=0时输出SYNC0
+    EPWM_setSyncInPulseSource(EPWM1_BASE, EPWM_SYNC_IN_PULSE_SRC_DISABLE);
 
-    // 50%占空比
-    EPwm1Regs.CMPA.bit.CMPA = 2500;
-    EPwm1Regs.AQCTLA.bit.CAU = AQ_CLEAR;
-    EPwm1Regs.AQCTLA.bit.CAD = AQ_SET;
-
-    // 本地同步
-    //EPwm1Regs.TBCTL2.bit.SYNCOSEL = TB_CTR_ZERO;
+    // 3.配置EPWM1在计数器归零时产生同步输出脉冲
+    EPWM_enableSyncOutPulseSource(EPWM1_BASE, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
 
     EDIS;
 }
 
-// PPS Input + ECAP1 Interrupt
-static void Master_InitPPS_Input_ECAP(void)
-{
-    EALLOW;
-
-    GpioCtrlRegs.GPBPUD.bit.GPIO47 = 0;      // 0 = 使能上拉, 1 = 禁用上拉
-    GpioCtrlRegs.GPBQSEL1.bit.GPIO47 = 0;    // 同步到 SYSCLKOUT
-    GpioCtrlRegs.GPBMUX1.bit.GPIO47 = 3;     // GPIO47 -> ECAP1
-
-    // ECAP1配置：捕获上升沿，用事件1触发中断
-    ECap1Regs.ECEINT.all = 0x0000;
-    ECap1Regs.ECCLR.all  = 0xFFFF;
-    ECap1Regs.ECCTL1.all = 0x0000;
-    ECap1Regs.ECCTL2.all = 0x0000;
-
-    ECap1Regs.ECCTL1.bit.CAPLDEN = 1;
-    ECap1Regs.ECCTL1.bit.CAP1POL = 0;    // 上升沿
-    ECap1Regs.ECCTL1.bit.CTRRST1 = 1;    // 捕获后复位计数器
-
-    ECap1Regs.ECCTL2.bit.TSCTRSTOP = 1;  // 启动计数
-    ECap1Regs.ECCLR.bit.CEVT1 = 1;
-    ECap1Regs.ECEINT.bit.CEVT1 = 1;      // 事件1中断
-
-    PieVectTable.ECAP1_INT = &PPS_Master_ISR;
-    PieCtrlRegs.PIECTRL.bit.ENPIE = 1;
-    PieCtrlRegs.PIEIER4.bit.INTx1 = 1;
-
-    IER |= M_INT4;
-    EDIS;
-}
-
-// PPS ISR
-__interrupt void PPS_Master_ISR(void)
-{
-    ECap1Regs.ECCLR.bit.CEVT1 = 1;
-    ECap1Regs.ECCLR.bit.INT   = 1;
-
-    g_masterPpsIsrCount++;
-
-    // 在CM核完成PTP同步后，才进行一次对齐
-    if (Cpu1Ipc_cm2cpu.PtpSynced == 1)
-    {
-        // 在PPS上升沿直接把TBCTR置为基准相位
-        EPwm1Regs.TBCTR = g_masterPwmBasePhase;
-    }
-
-    PieCtrlRegs.PIEACK.all = PIEACK_GROUP4;
-}
-
-#endif

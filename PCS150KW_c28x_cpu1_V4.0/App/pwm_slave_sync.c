@@ -6,165 +6,190 @@
  */
 
 #include "pwm_slave_sync.h"
-#include <Driver/device/device.h>
-#include <Driver/device/driverlib.h>
-
-//#include "f2838x_device.h"
-//#include "f2838x_epwm_defines.h"
-//#include "f2838x_pie_defines.h"
-//#include "f2838x_globalprototypes.h"
-
-#if 0
-#include "f28x_project.h"
 #include "bsp.h"
+#include <math.h>
 
-// PI Params
-#define SLAVE_PWM_KP          (0.1f)
-#define SLAVE_PWM_KI          (0.01f)
-#define SLAVE_PHASE_MAX_STEP  (100U)
+/*============================ PI控制器参数 ============================*/
 
-// PPS上升沿PWM的TBCTR相位
-static const uint16_t g_slavePwmBasePhase = 0;
+// PI参数
+#define SLAVE_PWM_KP                0.1f    // 比例增益
+#define SLAVE_PWM_KI                0.01f   // 积分增益
+#define SLAVE_PHASE_MAX_STEP        100U    // 最大相位调整步长
 
+// PWM基准相位（PPS到来时PWM的目标TBCTR值）
+// 上下计数模式下，0是周期中点
+#define SLAVE_PWM_BASE_PHASE        0U
+#define MAX_INTERGRAL_THRESHOLD     500.0f
+
+// PPS中断计数
+static volatile uint32_t g_slavePpsIsrCount = 0;
+// 相位误差
 static volatile int32_t  g_slavePhaseError = 0;
-static volatile float32_t  g_slavePhaseIntegral = 0.0f;
-static volatile uint32_t g_slavePpsIsrCount   = 0;
+// 积分项
+static volatile float  g_slavePhaseIntegral = 0.0f;
+// PWM基准相位
+static uint16_t g_slavePwmBasePhase = SLAVE_PWM_BASE_PHASE;
 
-extern IPC_DATA_CPU2CM         Cpu1Ipc_cpu2cm;
-extern IPC_DATA_CM2CPU         Cpu1Ipc_cm2cpu;
+// 从CM核获取PTP同步状态
+extern IPC_DATA_CPU2CM    Cpu1Ipc_cpu2cm;
+extern IPC_DATA_CM2CPU    Cpu1Ipc_cm2cpu;
 
 
-static void Slave_InitSystemClock(void);
 static void Slave_InitEPwm1(void);
-static void Slave_InitPPS_Input_ECAP(void);
 
-void InitEPwm1Gpio(void);
-void InitPieCtrl(void);
-void InitPieVectTable(void);
-void InitSysCtrl(void);
+static void Slave_InitPPS_Input_GPIO(void);
 
 
-// 初始化
+/*============================ 初始化函数 ============================*/
 void PWM_SlaveSync_Init(void)
 {
-    Slave_InitSystemClock();
-
-    DINT;
-    InitPieCtrl();
-    IER = 0x0000;
-    IFR = 0x0000;
-    InitPieVectTable();
-
+    // 1. 配置PWM1同步功能
     Slave_InitEPwm1();
-    Slave_InitPPS_Input_ECAP();
 
-    EINT;
-    ERTM;
+    // 2.配置GPIO47作为PPS输入中断
+    Slave_InitPPS_Input_GPIO();
 }
 
-// system clock
-static void Slave_InitSystemClock(void)
-{
-    InitSysCtrl();
-}
-
-// Slave EPWMS Configuration
+// Slave PWM1同步配置
 static void Slave_InitEPwm1(void)
 {
     EALLOW;
-    InitEPwm1Gpio();
 
-    // PWM Frequency (10kHz)
-    EPwm1Regs.TBCTL.bit.CTRMODE   = TB_COUNT_UPDOWN;
-    EPwm1Regs.TBCTL.bit.PHSEN     = TB_ENABLE;
-    EPwm1Regs.TBCTL.bit.PRDLD     = TB_SHADOW;
-    EPwm1Regs.TBCTL.bit.HSPCLKDIV = TB_DIV1;
-    EPwm1Regs.TBCTL.bit.CLKDIV    = TB_DIV1;
+//    // 配置PWM1同步输入, EPWM1使用EXTSYNCIN1作为同步输入源
+//    SysCtl_setSyncInputConfig(SYSCTL_SYNC_IN_EPWM1, SYSCTL_SYNC_IN_SRC_EXTSYNCIN1);
+//    //配置同步源EPWM1，使其作为同步链的起点
+//    EPWM_setSyncInPulseSource(EPWM1_BASE, EPWM_SYNC_IN_PULSE_SRC_DISABLE);
+//    // 配置同步后计数模式
+//    EPWM_setCountModeAfterSync(EPWM1_BASE, EPWM_COUNT_MODE_UP_AFTER_SYNC);
+//    // 使能相位加载
+//    EPWM_enablePhaseShiftLoad(EPWM1_BASE);
+//    // 初始相位置0
+//    EPWM_setPhaseShift(EPWM1_BASE, 0);
 
-    EPwm1Regs.TBPRD = 5000;  // 100MHz / (2*5000) = 10kHz
-    EPwm1Regs.TBPHS.bit.TBPHS = 0;
-    EPwm1Regs.TBCTR = 0;
+    // 1.禁止所有EPWM模块的时基时钟
+    SysCtl_disablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
 
-    EPwm1Regs.CMPA.bit.CMPA  = 2500;
-    EPwm1Regs.AQCTLA.bit.CAU = AQ_CLEAR;
-    EPwm1Regs.AQCTLA.bit.CAD = AQ_SET;
+    // 2.配置与EPWM1同步的从机模块, 配置EPWM1接收同步输入并加载相位
+    EPWM_setSyncInPulseSource(EPWM1_BASE, EPWM_SYNC_IN_PULSE_SRC_SYNCOUT_EPWM1);
 
-    //EPwm1Regs.TBCTL.bit.SYNCOSEL = TB_CTR_ZERO;
+    // 3.配置同步后计数模式
+    EPWM_setCountModeAfterSync(EPWM1_BASE, EPWM_COUNT_MODE_UP_AFTER_SYNC);
+
+    // 4.初始相位偏移
+    EPWM_setPhaseShift(EPWM1_BASE, 0U);
+
+    // 5.使能相位加载
+    EPWM_enablePhaseShiftLoad(EPWM1_BASE);
+
+    // 6.禁用EPWM1自身的同步输出
+    EPWM_disableSyncOutPulseSource(EPWM1_BASE, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
+
+    // 7.解冻时基时钟
+    SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
 
     EDIS;
 }
 
-// PPS -> ECAP1 触发PI控制
-static void Slave_InitPPS_Input_ECAP(void)
+// PPS_OUT输入中断配置，在CPU1端配置为GPIO输入中断
+static void Slave_InitPPS_Input_GPIO(void)
 {
     EALLOW;
 
-    GpioCtrlRegs.GPBPUD.bit.GPIO47   = 0;
-    GpioCtrlRegs.GPBQSEL1.bit.GPIO47 = 0;
-    GpioCtrlRegs.GPBMUX1.bit.GPIO47  = 3; // ECAP1
+    // Slave端配置GPIO47为GPIO输入
+    GPIO_setPinConfig(GPIO_47_GPIO47);
+    GPIO_setDirectionMode(47, GPIO_DIR_MODE_IN);
+    GPIO_setPadConfig(47, GPIO_PIN_TYPE_STD);
+    GPIO_setQualificationMode(47, GPIO_QUAL_ASYNC); // 异步输入，减少延迟
 
-    ECap1Regs.ECEINT.all = 0x0000;
-    ECap1Regs.ECCLR.all  = 0xFFFF;
-    ECap1Regs.ECCTL1.all = 0x0000;
-    ECap1Regs.ECCTL2.all = 0x0000;
+    // 配置GPIO47上升沿中断
+    GPIO_setInterruptPin(47, GPIO_INT_XINT4);
+    GPIO_setInterruptType(GPIO_INT_XINT4, GPIO_INT_TYPE_RISING_EDGE); // Interrupt on rising edge
 
-    ECap1Regs.ECCTL1.bit.CAPLDEN = 1;
-    ECap1Regs.ECCTL1.bit.CAP1POL = 0;  // 上升沿
-    ECap1Regs.ECCTL1.bit.CTRRST1 = 1;
+    // 清除中断标志
+    GPIO_disableInterrupt(GPIO_INT_XINT4);
 
-    ECap1Regs.ECCTL2.bit.TSCTRSTOP = 1;
-
-    ECap1Regs.ECCLR.bit.CEVT1 = 1;
-    ECap1Regs.ECEINT.bit.CEVT1 = 1;
-
-    PieVectTable.ECAP1_INT = &PPS_Slave_ISR;
-    PieCtrlRegs.PIECTRL.bit.ENPIE = 1;
-    PieCtrlRegs.PIEIER4.bit.INTx1 = 1;
-
-    IER |= M_INT4;
+    // 注册中断服务
+    Interrupt_register(INT_XINT4, PPS_Slave_ISR);
 
     EDIS;
 }
 
-// PPS ISR (Slave PWM phase PI sync)
+/*============================ PPS中断服务 ============================*/
 __interrupt void PPS_Slave_ISR(void)
 {
-    ECap1Regs.ECCLR.bit.CEVT1 = 1;
-    ECap1Regs.ECCLR.bit.INT   = 1;
+    // 清除GPIO中断标志
+    GPIO_disableInterrupt(GPIO_INT_XINT4);
 
+    // PPS中断计数
     g_slavePpsIsrCount++;
 
-    // 只有CM侧PTP同步完成后才闭环
+    // 检查CM核PTP同步是否完成
     if (Cpu1Ipc_cm2cpu.PtpSynced == 1)
     {
-        uint16_t tbctr = EPwm1Regs.TBCTR;
+        //1. 读取当前PWM计数器值
+        uint16_t tbctr = EPWM_getTimeBaseCounterValue(EPWM1_BASE);
 
-        // 相位误差: 当前计数 - 期望相位
-        int32_t error = (int32_t)tbctr - (int32_t)g_slavePwmBasePhase;
-        g_slavePhaseError = error;
+        //2. 计算相位误差，当前计数器值 - 目标相位
+        int32_t err = (int32_t)tbctr - (int32_t)g_slavePwmBasePhase;
 
-        // PI调节
-        g_slavePhaseIntegral += SLAVE_PWM_KI * (float)error;
+        // 处理环绕
+        uint16_t tbprd = EPWM_getTimeBasePeriod(EPWM1_BASE);
+        if (err > tbprd / 2)
+        {
+            err -= tbprd;
+        }
+        else if (err < -(int32_t)(tbprd / 2))
+        {
+            err += tbprd;
+        }
 
-        float delta = SLAVE_PWM_KP * (float)error + g_slavePhaseIntegral;
+        g_slavePwmBasePhase = err;
 
-        // 限幅
+        //3.PI计算调节相位误差
+        //3.1积分项
+        g_slavePhaseIntegral += SLAVE_PWM_KI * (float)err;
+
+        // 边界限定，防止过饱和
+        if (g_slavePhaseIntegral > MAX_INTERGRAL_THRESHOLD)
+        {
+            g_slavePhaseIntegral = MAX_INTERGRAL_THRESHOLD;
+        }
+        else if (g_slavePhaseIntegral < -MAX_INTERGRAL_THRESHOLD)
+        {
+            g_slavePhaseIntegral = -MAX_INTERGRAL_THRESHOLD;
+        }
+
+        //3.2比例项
+        float g_slavePhaseProportional = SLAVE_PWM_KP * (float)err;
+
+        //3.3总的增益
+        float delta = g_slavePhaseProportional + g_slavePhaseIntegral;
+
+        //3.4 限制调整stride
         if (delta > (float)SLAVE_PHASE_MAX_STEP)
+        {
             delta = (float)SLAVE_PHASE_MAX_STEP;
-        if (delta < -(float)SLAVE_PHASE_MAX_STEP)
+        }
+        else if (delta < -(float)SLAVE_PHASE_MAX_STEP)
+        {
             delta = -(float)SLAVE_PHASE_MAX_STEP;
+        }
 
+        //4.计算新的相位差
         int32_t newPhase = (int32_t)g_slavePwmBasePhase - (int32_t)delta;
 
+        //处理环绕
         if (newPhase < 0)
-            newPhase += EPwm1Regs.TBPRD;
-        else if (newPhase >= EPwm1Regs.TBPRD)
-            newPhase -= EPwm1Regs.TBPRD;
+        {
+            newPhase += tbprd;
+        }
+        else if (newPhase >= tbprd)
+        {
+            newPhase -= tbprd;
+        }
 
-        EPwm1Regs.TBPHS.bit.TBPHS = (uint16_t)newPhase;
+        // 写入相位寄存器
+        EPWM_setPhaseShift(EPWM1_BASE, (uint16_t)newPhase);
     }
-
-    PieCtrlRegs.PIEACK.all = PIEACK_GROUP4;
 }
 
-#endif

@@ -28,21 +28,17 @@ extern uint32_t Ethernet_numGetPacketBufferCallback;
 extern Ethernet_Pkt_Desc pktDescriptorRXCustom[NUM_PACKET_DESC_RX_APPLICATION];
 
 
-// ptpd release packet callback
-extern void Ethernet_releaseTxPacketBufferPtp(
-        Ethernet_Handle handleApplication,
-        Ethernet_Pkt_Desc *pPacket);
+extern Ethernet_Pkt_Desc* Ethernet_getPacketBufferCustom(void);
 
 // Ptp接收回调
 extern Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackPtp(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket);
 
-
-extern void sendMessage(Octet *buf,
-                        Enumeration4 msgType,
-                        void *ptpState,
-                        Ethernet_Pkt_Desc *pktDesc);
+// Ptp release packet callback
+extern void Ethernet_releaseTxPacketBufferPtp(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
 
 
 #endif /* DRIVER_ETHERNET_DISPATCH_H_ */
