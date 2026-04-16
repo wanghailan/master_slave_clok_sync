@@ -38,7 +38,7 @@
 #include "ptp_master_sync.h"
 #include "ptp_slave_sync.h"
 
-#define  PTP_MODE_MASTER 0    // 1=Master，0=Slave
+#define  PTP_MODE_MASTER 1    // 1=Master，0=Slave
 
 uint32_t systickPeriodValue = 125000; //15000000;
 		
@@ -68,7 +68,6 @@ main(void)
 #else
     g_ptpMode = 1;   // Slave
 #endif
-
 
     // Initialize device clock and peripherals
     CM_init();

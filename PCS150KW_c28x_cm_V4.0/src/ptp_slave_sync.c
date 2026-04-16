@@ -263,67 +263,68 @@ void ptp_slave_adjust_clock(void)
 void ptp_slave_init(void)
 {
     uint32_t varPtpConfig = 0;
+    uint32_t timeSec;
+    uint32_t timeNanosec;
     float subSecondInc;
-    uint32_t tsCtrl;
-    uint32_t ptpClkHz;
-    uint32_t ppsPeriodTicks;
-    uint32_t ppsWidthTicks;
-    uint32_t sec, nsec;
 
-    // 1.关闭时间戳
-    tsCtrl = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL);
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) = tsCtrl & ~ETHERNET_MAC_TIMESTAMP_CONTROL_TSENA;
-
-    // 2.PTP时钟配置（配置PTP时间戳为Slave模式）
+    // ptp configuration time control register
     varPtpConfig = (0U << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
+                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;
 
+    //
+    // Subsecond increment is added to the systime counter every ptp clock tick
+    // hence for Digital rollover, it is simply the time period of the clock tick.
+    //
     subSecondInc = PTP_REF_CLOCK_PERIOD;
+
     Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
     Ethernet_enableSysTimePTP(EMAC_BASE);
 
-    // 3.初始化系统时间
-    Ethernet_setSysTimePTP(EMAC_BASE, 0x00000000U, 0x00000000U);
+    // Set Digital Rollover mode
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |= ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
 
-    // 4.配置PTP多播MAC地址
+    //
+    // Start the system with a random value.
+    //
+    Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCA, 0x25a5a5a5);
+
+    //
+    // We need to program this standard multicast address so that this device
+    // identifies PTP over Ethernet packets correctly. "01:1B:19:00:00:00"
+    //
     Ethernet_setMACAddr(EMAC_BASE,
                         1U,
                         0x00000000U,
                         0x00191B01U, // 01:1B:19:00:00:00
                         ETHERNET_CHANNEL_0);
 
-    // 5.初始化Slave状态
+    // Set PPS output to Purlse mode.
+    // Interrupt mode: ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT
+    // Purlse mode: ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE
+    Ethernet_selectTargetInterruptOrPulsePPS(
+                        EMAC_BASE,
+                        ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                        ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
+
+    // Forbbiden using PPS
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) &= ~ETHERNET_MAC_PPS_CONTROL_PPSEN0;
+
+    // Set PPS Interval and Width(1Hz,10ms)
+    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_INTERVAL) = PTP_REF_CLOCK_FREQ - 1;
+    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_WIDTH) = PTP_REF_CLOCK_FREQ / 100;
+
+    // Set PPSCTRL=1,PPSEN0=0, TRGTMODSEL=3
+    uint32_t ppsCtrl = ETHERNET_MAC_PPS_CONTROL_PPSCTRL_PPS_OUTPUT_1HZ;
+    ppsCtrl |= (0x3U << ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL0_S);
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = ppsCtrl; // 0x61
+
+    // // init Slave state
     memset(&gPtpSlaveState, 0, sizeof(PTPSlaveState));
     InitSlaveConstants(&gPtpSlaveState);
-
-    // 6.配置PPS输出为脉冲模式
-    Ethernet_selectTargetInterruptOrPulsePPS(
-            EMAC_BASE,
-            ETHERNET_MAC_PPS_OUT_INSTANCE_0,
-            ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
-
-    // 7.PPS周期与脉宽
-    ptpClkHz = (uint32_t)(1.0f / PTP_REF_CLOCK_PERIOD);
-    ppsPeriodTicks = ptpClkHz * 1U;
-    ppsWidthTicks  = ptpClkHz / 100U;
-    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_INTERVAL) = ppsPeriodTicks;
-    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_WIDTH)    = ppsWidthTicks;
-
-    // 8.开启时间戳模块
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) = tsCtrl | ETHERNET_MAC_TIMESTAMP_CONTROL_TSENA;
-
-    // 9.设置初始PPS目标时间
-    Ethernet_getSysTimePTP(EMAC_BASE, &sec, &nsec);
-    Ethernet_setTargetTimePPS(EMAC_BASE,
-                              ETHERNET_MAC_PPS_OUT_INSTANCE_0,
-                              sec + 1U,
-                              0U);
-
-    // 10.打开PP0输出
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) |= ETHERNET_MAC_PPS_CONTROL_PPSEN0;
 }
 
 void ptp_slave_run(void)

@@ -17,8 +17,12 @@
 #include "Eth_mii.h"
 #include "bsp.h"
 
-
 #define ETHERNET_MAC_TIMESTAMP_CONTROL_TSCFUPDT 0x00000020U
+
+#define ETHERNET_O_MAC_PPS_TARGET_TIME_SECONDS  0x00000704U
+#define ETHERNET_O_MAC_PPS_TARGET_TIME_NANOSECONDS  0x00000708U
+#define ETHERNET_O_MAC_PPS_INTERVAL             0x0000070CU
+#define ETHERNET_O_MAC_PPS_WIDTH                0x00000710U
 
 static uint32_t gSyncIntervalNs = 1000000000UL; // 1s
 static uint32_t gLastSyncTimeNs = 0;
@@ -175,74 +179,70 @@ void ptp_master_init()
 {
     uint32_t i;
     uint32_t varPtpConfig = 0;
+    uint32_t timeSec;
+    uint32_t timeNanosec;
     float subSecondInc;
-    uint32_t tsCtrl;
-    uint32_t ptpClkHz;
-    uint32_t ppsPeriodTicks;
-    uint32_t ppsWidthTicks;
 
-    // 1.强制设置以太网MAC为100Mbps模式
-    Ethernet_setMACConfiguration(EMAC_BASE, ETHERNET_MAC_CONFIGURATION_100MBIT);
+    // ptp configuration time control register
+    varPtpConfig = (0 << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
+                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |   // Timestamp Digital or Binary Rollover
+                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |   // Master or Slave mode
+                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |   // ptp enable
+                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |   // IEEE1588 v2 support
+                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;      // timestamp insert enable
 
-    // 2.禁用时间戳模块，避免配置过程中与PPS冲突
-    tsCtrl = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL);
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) = tsCtrl & ~ETHERNET_MAC_TIMESTAMP_CONTROL_TSENA;
-
-
-    // 3.PTP相关配置时间控制寄存器（IEEE1588-2008，数字回绕，Event使能）
-    varPtpConfig = (0U << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
-                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
-                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
-                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
-                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
-                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;
-
+    // Subsecond incrSement is added to the systime counter every ptp clock tick
+    // hence for Digital rollover, it is simply the time period of the clock tick.
     subSecondInc = PTP_REF_CLOCK_PERIOD;
+
     Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
     Ethernet_enableSysTimePTP(EMAC_BASE);
 
-    // 4.设置初始系统时间
+    // Set Digital Rollover mode
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |= ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
+
+    // Start the system with a random value
     Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCA, 0x25a5a5a5);
 
-    // 5.配置标准PTP多播MAC地址: 01:1B:19:00:00:00
+    // configuration normal ptp mac addr: 01:1B:19:00:00:00
     Ethernet_setMACAddr(EMAC_BASE,
                         1,
                         0x00000000,
                         0x00191B01,
                         ETHERNET_CHANNEL_0);
 
-    // 6.配置PPS输出为脉冲模式
-    // ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT:中断模式
-    // ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE:脉冲模式
+    // Set PPS output to Purlse mode.
+    // Interrupt mode: ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT
+    // Purlse mode: ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE
     Ethernet_selectTargetInterruptOrPulsePPS(
-            EMAC_BASE,
-            ETHERNET_MAC_PPS_OUT_INSTANCE_0,
-            ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
+                        EMAC_BASE,
+                        ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                        ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
 
-    // 7.设置PPS周期和脉宽(1Hz,10ms脉宽)
-    ptpClkHz = (uint32_t)(1.0f / PTP_REF_CLOCK_PERIOD);
-    ppsPeriodTicks = ptpClkHz * 1U;   // 1s
-    ppsWidthTicks  = ptpClkHz / 100U; // 10ms脉宽
+    // Forbbiden using PPS
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) &= ~ETHERNET_MAC_PPS_CONTROL_PPSEN0;
 
-    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_INTERVAL) = ppsPeriodTicks;
-    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_WIDTH)    = ppsWidthTicks;
+    // Set PPS Interval and Width(1Hz,10ms)
+    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_INTERVAL) = PTP_REF_CLOCK_FREQ - 1;
+    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_WIDTH) = PTP_REF_CLOCK_FREQ / 100;
 
-    // 8.启用时间戳模块
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) =
-            tsCtrl | ETHERNET_MAC_TIMESTAMP_CONTROL_TSENA;
+    // Set PPSCTRL=1,PPSEN0=0, TRGTMODSEL=3
+    uint32_t ppsCtrl = ETHERNET_MAC_PPS_CONTROL_PPSCTRL_PPS_OUTPUT_1HZ;
+    ppsCtrl |= (0x3U << ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL0_S);  // 0x61
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = ppsCtrl;      // 0x61
 
-    // 9.启用PPS0输出
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) |= ETHERNET_MAC_PPS_CONTROL_PPSEN0;
+    //
+    // We need to set a standard defined Multicast address : 01:1B:19:00:00:00
+    // as the Destination address in the ethernet frame and that is how the
+    // receiver will recognize it as a valid PTP over Ethernet packet.
+    //
+    i=0; *((uint32_t *)gMsgBuf + i) = 0x00191B01;
+    i++; *((uint32_t *)gMsgBuf + i)  = 0xF7880000;
 
-    // 10.初始化PTP帧的多播目的地址
-    i = 0U;
-    *((uint32_t *)gMsgBuf + i) = 0x00191B01U;
-    i++;
-    *((uint32_t *)gMsgBuf + i)  = 0xF7880000U;
-
-    // 11.初始化Master状态
+    // init Master state
     InitConstants(&gPtpMasterState);
     gLastSyncTimeNs = 0;
+
 }
 
 void ptp_master_run()
@@ -252,25 +252,49 @@ void ptp_master_run()
     const uint32_t TIMEOUT_MAX = 2000000U;
     uint32_t timeout = 0U;
 
-    // 1.获取当前PTP系统时间，计算下一秒目标
+    //
+    // Use the system time counter to send the sync + followup messages
+    // every one second.
+    //
     Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
-    uint32_t now = ((uint32_t)timeSec * 1000000000ULL) + timeNanosec;
-    if ((now - lastSyncTime) < gSyncIntervalNs)
-        return;
-    lastSyncTime = now;
+    Ethernet_setTargetTimePPS(EMAC_BASE, ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                              timeSec + 1, timeNanosec);
+
+    // Set Digital Rollover mode
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |= ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
+
+    //
+    // Waiting till the target time that we set above is reached.
+    // We're using the PPSOUT instance 0 as the timer.
+    //
+    while((((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS)) &
+             (ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0)) == 0) &&
+             (timeout < TIMEOUT_MAX))
+    {
+        timeout++;
+    }
+
+//    if(timeout >= TIMEOUT_MAX)
+//    {
+//        CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1;
+//        return;
+//    }
+
+    // clear flag
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS) = ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0;
 
     // 3.发送SYNC报文（捕获t1）
     gPtpMasterState.syncTimestampAvailable = FALSE;
     sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
 
     // 4.等待时间戳捕获
-    timeout = 0U;
+    timeout = 0;
     while((gPtpMasterState.syncTimestampAvailable == FALSE) && (timeout < TIMEOUT_MAX))
     {
         timeout++;
     }
 
-    // 超时后填充估算时间戳到syncTimestamp
+    // 超时后填充估算时间戳到syncTimestampdd
     if(timeout >= TIMEOUT_MAX)
     {
         CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1U;
