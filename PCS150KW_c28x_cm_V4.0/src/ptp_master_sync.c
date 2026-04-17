@@ -190,9 +190,11 @@ void ptp_master_init()
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |   // ptp enable
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |   // IEEE1588 v2 support
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;      // timestamp insert enable
-
+	
+	//
     // Subsecond incrSement is added to the systime counter every ptp clock tick
     // hence for Digital rollover, it is simply the time period of the clock tick.
+	//
     subSecondInc = PTP_REF_CLOCK_PERIOD;
 
     Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
@@ -219,7 +221,7 @@ void ptp_master_init()
                         ETHERNET_MAC_PPS_OUT_INSTANCE_0,
                         ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
 
-    // Forbbiden using PPS
+    // Disable PPS for configuration
     HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) &= ~ETHERNET_MAC_PPS_CONTROL_PPSEN0;
 
     // Set PPS Interval and Width(1Hz,10ms)
@@ -274,20 +276,14 @@ void ptp_master_run()
         timeout++;
     }
 
-//    if(timeout >= TIMEOUT_MAX)
-//    {
-//        CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1;
-//        return;
-//    }
-
     // clear flag
     HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS) = ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0;
 
-    // 3.发送SYNC报文（捕获t1）
+    // Send SYNC message （captured t1）
     gPtpMasterState.syncTimestampAvailable = FALSE;
     sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
 
-    // 4.等待时间戳捕获
+    // Wait captured timestamp
     timeout = 0;
     while((gPtpMasterState.syncTimestampAvailable == FALSE) && (timeout < TIMEOUT_MAX))
     {

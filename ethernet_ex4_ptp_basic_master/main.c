@@ -65,15 +65,15 @@
 #include "string.h"
 #include "cm.h"
 #include "gpio.h"
+
 //
 // This frequency is actually set in the c28x side code. If it is changed
 // there, then the following value also needs to be updated since the
 // timestamping module is initialized with the following values.
 // Default value is 100 MHz.
 //
-//#define PTP_REF_CLOCK_FREQ   100000000
-#define PTP_REF_CLOCK_FREQ   25000000   // 25MHz for MII 100Mbps
-#define PTP_REF_CLOCK_PERIOD 1000000000 / PTP_REF_CLOCK_FREQ
+#define PTP_REF_CLOCK_FREQ   100000000
+#define PTP_REF_CLOCK_PERIOD 1000000000/PTP_REF_CLOCK_FREQ
 
 static Ethernet_Handle emac_handle;
 #define PACKET_LENGTH 200
@@ -137,11 +137,16 @@ uint8_t Ethernet_rxBuffer[ETHERNET_NO_OF_RX_PACKETS *
 #define PDELAY_RESP_FOLLOW_UP_LENGTH            54
 #define MANAGEMENT_LENGTH                       48
 
-// ǿ��������̫��MACΪ100Mbpsģʽ
-#define ETHERNET_MAC_CONFIGURATION_100MBIT      0x4000U
+///////////////////////////////////////////////////////
+#define ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL0_S              5U
+#define ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL0_M              3U
 
-// GPIO number for LD1
-#define DEVICE_GPIO_PIN_LED3                    33U
+#define ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT               0x0U
+#define ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_RESERVED                0x1U
+#define ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT_PULSE         0x2U
+#define ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE                   0x3U
+#define DEVICE_GPIO_PIN_LED3   33U
+
 
 typedef enum {FALSE=0, TRUE} Boolean;
 typedef char Octet;
@@ -241,6 +246,8 @@ enum {
     DELAY_RESP = 0x9,
 };
 
+static uint32_t gSyncIntervalNs = 1000000000UL; //1s
+
 //
 // Function prototypes used in this example
 //
@@ -274,17 +281,8 @@ void Ethernet_releaseTxPacketBufferCustom(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket);
 
-// ��ʱ��
-static uint32_t m_u32_Clk500msCnt = 0;  //500ms��ʱ��
-static uint16_t u16_b500ms = 1;         //500ms��ʱ��־
-		
-void ipc_init(void)
-{
-      // Clear any IPC flags if set already
-      IPC_clearFlagLtoR(IPC_CM_L_CPU1_R, IPC_FLAG_ALL);
-      // Synchronize both the cores.
-      IPC_sync(IPC_CM_L_CPU1_R, IPC_FLAG31);
-}
+
+#define DEVICE_GPIO_PIN_LED3                    33U
 
 void Drv_Led_toggle(void)
 {
@@ -294,8 +292,6 @@ void Drv_Led_toggle(void)
 
 main(void)
 {
-    //ipc_init();
-	
     Ethernet_InitConfig *pInitCfg;
     uint32_t i;
     uint32_t varPtpConfig = 0;
@@ -304,23 +300,25 @@ main(void)
     uint32_t timeNanosec;
     float subSecondInc;
 
+    //
     // Initialize device clock and peripherals
+    //
     CM_init();
 
     initInterfaceConfig.ssbase = EMAC_SS_BASE;
     initInterfaceConfig.enet_base = EMAC_BASE;
-    initInterfaceConfig.phyMode = ETHERNET_SS_PHY_INTF_SEL_MII;    // ����ΪMIIģʽ
-    initInterfaceConfig.clockSel = ETHERNET_SS_CLK_SRC_EXTERNAL;   // ʱ��Դ�ⲿ�ṩ
-
+    initInterfaceConfig.phyMode = ETHERNET_SS_PHY_INTF_SEL_MII;
     initInterfaceConfig.ptrPlatformInterruptDisable = &Platform_disableInterrupt;
     initInterfaceConfig.ptrPlatformInterruptEnable = &Platform_enableInterrupt;
     initInterfaceConfig.ptrPlatformPeripheralEnable = &Platform_enablePeripheral;
     initInterfaceConfig.ptrPlatformPeripheralReset = &Platform_resetPeripheral;
-
+    //
     //Assign the peripheral number at the SoC
+    //
     initInterfaceConfig.peripheralNum = SYSCTL_PERIPH_CLK_ENET;
-
+    //
     //Assign the default SoC specific interrupt numbers of Ethernet interrupts
+    //
     initInterfaceConfig.interruptNum[0] = INT_EMAC;
     initInterfaceConfig.interruptNum[1] = INT_EMAC_TX0;
     initInterfaceConfig.interruptNum[2] = INT_EMAC_TX1;
@@ -329,83 +327,103 @@ main(void)
 
     pInitCfg = Ethernet_initInterface(initInterfaceConfig);
 
-    // ǿ��������̫��MACΪ100Mbpsģʽ
-    Ethernet_setMACConfiguration(EMAC_BASE, ETHERNET_MAC_CONFIGURATION_100MBIT);
-
-    // ��ȡ�����ĳ�ʼ������
     Ethernet_getInitConfig(pInitCfg);
 
     pInitCfg->pfcbFreePacket = &Ethernet_releaseTxPacketBufferCustom;
     pInitCfg->pfcbRxPacket = &Ethernet_receivePacketCallbackCustom;
     pInitCfg->pfcbGetPacket = &Ethernet_getPacketBufferCustom;
 
-    // PTP�������
     varPtpConfig = (0 << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
-                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
+                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |  //Timestamp Digital or Binary Rollover
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;
 
+    //
     // Subsecond increment is added to the systime counter every ptp clock tick
     // hence for Digital rollover, it is simply the time period of the clock
     // tick.
+    //
     subSecondInc = PTP_REF_CLOCK_PERIOD;
 
     Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
     Ethernet_enableSysTimePTP(EMAC_BASE);
 
+    // set Digital Rollover mode
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |= ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
+    uint32_t tsCtrlVerify = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL);
+    if ((tsCtrlVerify & ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR) == 0)
+    {
+        HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |= ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
+        tsCtrlVerify = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL);
+    }
+
+    //
     // Start the system with a random value.
+    //
     Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCA, 0x25a5a5a5);
 
+    //
     //Assign the Buffer to be used by the Low level driver for receiving
     //Packets. This should be accessible by the Ethernet DMA
-    // ������ջ�����
+    //
     pInitCfg->rxBuffer = Ethernet_rxBuffer;
     Ethernet_getHandle((Ethernet_Handle)1,pInitCfg , &emac_handle);
-
+    //
     //Do global Interrupt Enable
-    // ʹ���ж�
+    //
     (void)Interrupt_enableInProcessor();
-
+    //
     //Assign default ISRs
+    //
     Interrupt_registerHandler(INT_EMAC_TX0, Ethernet_transmitISR);
     Interrupt_registerHandler(INT_EMAC_RX0, Ethernet_receiveISR);
-
+    //
     //Enable the default interrupt handlers
+    //
     Interrupt_enable(INT_EMAC_TX0);
     Interrupt_enable(INT_EMAC_RX0);
 
-    // ����MAC��ַ
     Ethernet_setMACAddr(EMAC_BASE,
                         0,
                         0x00000506U,
                         0x01030304U,
                         ETHERNET_CHANNEL_0);
 
+    //
     // We need to program this standard multicast address so that this device
     // identifies PTP over Ethernet packets correctly. "01:1B:19:00:00:00"
+    //
     Ethernet_setMACAddr(EMAC_BASE,
                         1,
                         0x00000000,
                         0x00191B01,
                         ETHERNET_CHANNEL_0);
 
-    ////////////////////////////////////////
-    // ����1:�Ƚ��� TX/RX��Ȼ�������ٶȺ�˫��ģʽ, ֱ��ǿ������Ϊ100Mbpsȫ˫��
-    Ethernet_setMACConfiguration(EMAC_BASE, ((uint32_t)1 << 14));  // ���� FES = 1 (100Mbps)
-    Ethernet_setMACConfiguration(EMAC_BASE, ((uint32_t)1 << 13));  // ���� DM = 1 (ȫ˫��ģʽ)
-
-    // ����2:����ʹ��TX/RX
-    Ethernet_setMACConfiguration(EMAC_BASE, 0x2);  // ʹ��TX
-    Ethernet_setMACConfiguration(EMAC_BASE, 0x1);  // ʹ��RX
-
-    ////////////////////////////////////////
-
+    // 设置为PULSE模式
+    // Interrupt：ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT
+    // PULSE: ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE
     Ethernet_selectTargetInterruptOrPulsePPS(
                         EMAC_BASE,
                         ETHERNET_MAC_PPS_OUT_INSTANCE_0,
-                        ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT);
+                        ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
+
+    // 禁用PPS, 进入配置模式
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) &= ~ETHERNET_MAC_PPS_CONTROL_PPSEN0;
+
+    // 设置间隔和脉宽
+    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_INTERVAL) = PTP_REF_CLOCK_FREQ - 1;
+    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_WIDTH) = PTP_REF_CLOCK_FREQ / 100;
+
+    // 设置PPSCTRL=1，PPSEN0=0，TRGTMODSEL=3
+    // bits 3:0  = PPSCTRL (0-15)
+    // bit 4     = PPSEN0 (模式选择位,0-1)
+    // bits 6:5  = TRGTMODSEL (0-3)
+    // PPSEN0:模式选择位，0：固定模式，1：灵活模式
+    uint32_t ppsCtrl = ETHERNET_MAC_PPS_CONTROL_PPSCTRL_PPS_OUTPUT_1HZ;  // 0x01
+    ppsCtrl |= (0x3U << ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL0_S);  // 0x61
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = ppsCtrl;  // = 0x61
 
     //
     // We need to set a standard defined Multicast address : 01:1B:19:00:00:00
@@ -419,13 +437,10 @@ main(void)
 
     while(1)
     {
-        if (u16_b500ms == 1)
-        {
-            Drv_Led_toggle();
-        }
-
+        //
         // Use the system time counter to send the sync + followup messages
         // every one second.
+        //
         Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
         Ethernet_setTargetTimePPS(EMAC_BASE, ETHERNET_MAC_PPS_OUT_INSTANCE_0,
                                   timeSec + 1, timeNanosec);
@@ -436,6 +451,9 @@ main(void)
         //
         while(((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS)) &
                 (ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0)) == 0);
+
+        // 清除标志
+        HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS) = ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0;
 
         //
         // Save the state. We want to capture the timestamp of the next SYNC
@@ -462,6 +480,7 @@ main(void)
         sendMessage((Octet *)gMsgBuf, FOLLOW_UP, &gPtpMasterState, &gPktDesc);
     }
 }
+
 
 void
 fromInternalTime(TimeInternal * internal, Timestamp * external)
@@ -940,3 +959,4 @@ void Ethernet_releaseTxPacketBufferCustom(
     Ethernet_releaseTxCount++;
 #endif
 }
+

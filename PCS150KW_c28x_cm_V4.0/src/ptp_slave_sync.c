@@ -25,7 +25,6 @@
 #define OFFSET_THRESHOLD_NS         100000      // 100us，大于此值直接调整相位
 #define LOCK_THRESHOLD_NS           1000        // 1us，小于此值认为已锁定
 
-//PTPSlaveState gPtpSlaveState;
 
 static uint8_t  delayReqMsg[PACKET_LENGTH] = {0};
 
@@ -48,7 +47,7 @@ static void InitSlaveConstants(PTPSlaveState *ptpSlaveState)
     ptpSlaveState->port_uuid_field[4] = pucTemp[0];
     ptpSlaveState->port_uuid_field[5] = pucTemp[1];
 
-    // 初始化ClockIdentity
+    // Init ClockIdentity
     for (i = 0, j = 0; i < CLOCK_IDENTITY_LENGTH; i++)
     {
         if (i == 3) ptpSlaveState->portIdentity.clockIdentity[i] = 0xFF;
@@ -66,6 +65,7 @@ static void InitSlaveConstants(PTPSlaveState *ptpSlaveState)
     ptpSlaveState->syncReceived = FALSE;
     ptpSlaveState->followUpReceived = FALSE;
     ptpSlaveState->delayRespReceived = FALSE;
+    ptpSlaveState->waitingDelayResp = FALSE;
     ptpSlaveState->clockUpdateCount = 0;
     ptpSlaveState->lockCount = 0;
     ptpSlaveState->isLocked = FALSE;
@@ -146,30 +146,28 @@ static void msgPackDelayReq(Octet *buf, void *ptpState)
 }
 
 /*============================ 消息发送函数 ============================*/
-static void sendDelayReqMessage(void)
+static void sendDelayReqMessage(Ethernet_Pkt_Desc *pktDesc)
 {
-    Ethernet_Pkt_Desc pktDesc;
-
-    memset(&pktDesc, 0, sizeof(Ethernet_Pkt_Desc));
-    pktDesc.bufferLength = PACKET_LENGTH;
-    pktDesc.dataOffset = 0;
-    pktDesc.dataBuffer = (uint8_t *)delayReqMsg;
-    pktDesc.nextPacketDesc = 0;
-    pktDesc.flags = ETHERNET_PKT_FLAG_TTSE |
-                    ETHERNET_PKT_FLAG_SOP |
-                    ETHERNET_PKT_FLAG_EOP |
-                    ETHERNET_PKT_FLAG_SA_INS |
-                    ETHERNET_PKT_FLAG_CRC_PAD_INS;
-    pktDesc.pktChannel = ETHERNET_DMA_CHANNEL_NUM_0;
-    pktDesc.numPktFrags = 1;
+    memset(pktDesc, 0, sizeof(Ethernet_Pkt_Desc));
+    pktDesc->bufferLength = PACKET_LENGTH;
+    pktDesc->dataOffset = 0;
+    pktDesc->dataBuffer = (uint8_t *)delayReqMsg;
+    pktDesc->nextPacketDesc = 0;
+    pktDesc->flags = ETHERNET_PKT_FLAG_TTSE |
+                     ETHERNET_PKT_FLAG_SOP |
+                     ETHERNET_PKT_FLAG_EOP |
+                     ETHERNET_PKT_FLAG_SA_INS |
+                     ETHERNET_PKT_FLAG_CRC_PAD_INS;
+    pktDesc->pktChannel = ETHERNET_DMA_CHANNEL_NUM_0;
+    pktDesc->numPktFrags = 1;
 
     memset(delayReqMsg + 8, 0, PACKET_LENGTH - 8);
     msgPackDelayReq(delayReqMsg + 8, &gPtpSlaveState);
 
-    pktDesc.pktLength = DELAY_REQ_LENGTH + 6 + 2;
-    pktDesc.validLength = pktDesc.pktLength;
+    pktDesc->pktLength = DELAY_REQ_LENGTH + 6 + 2;
+    pktDesc->validLength = pktDesc->pktLength;
 
-    Ethernet_sendPacket(emac_handle, &pktDesc);
+    Ethernet_sendPacket(emac_handle, pktDesc);
 }
 
 /*============================ 时钟调整函数 ============================*/
@@ -240,20 +238,29 @@ void ptp_slave_adjust_clock(void)
         CmIpc_cm2cpu.PtpSynced = 1U;
         firstSyncDone = true;
     }
+}
 
-    // 9.更新PPS目标时间（确保PPS与整秒对齐）
+/*============================ PPS目标时间更新函数 ============================*/
+// 更新PPS目标时间到下一秒整秒
+static void updatePPSTargetTime(void)
+{
     uint32_t sec, nsec;
     Ethernet_getSysTimePTP(EMAC_BASE, &sec, &nsec);
 
-    // 设置下一个整秒为目标时间
+    // set next whole second target time
+    // if current nanosec > 500ms, set sec=sec + 2
     if (nsec > 500000000U)
     {
-        sec++;
+        sec += 2;
+    }
+    else
+    {
+        sec += 1;
     }
 
     Ethernet_setTargetTimePPS(EMAC_BASE,
                               ETHERNET_MAC_PPS_OUT_INSTANCE_0,
-                              sec + 1,
+                              sec,
                               0);
 }
 
@@ -262,13 +269,14 @@ void ptp_slave_adjust_clock(void)
 // Slave端PTP初始化
 void ptp_slave_init(void)
 {
+    uint32_t i;
     uint32_t varPtpConfig = 0;
     uint32_t timeSec;
     uint32_t timeNanosec;
     float subSecondInc;
 
     // ptp configuration time control register
-    varPtpConfig = (0U << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
+    varPtpConfig = (0 << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
@@ -299,21 +307,19 @@ void ptp_slave_init(void)
     Ethernet_setMACAddr(EMAC_BASE,
                         1U,
                         0x00000000U,
-                        0x00191B01U, // 01:1B:19:00:00:00
+                        0x00191B01U,
                         ETHERNET_CHANNEL_0);
 
-    // Set PPS output to Purlse mode.
-    // Interrupt mode: ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT
-    // Purlse mode: ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE
+    // Set PPS output to Pulse mode.
     Ethernet_selectTargetInterruptOrPulsePPS(
                         EMAC_BASE,
                         ETHERNET_MAC_PPS_OUT_INSTANCE_0,
                         ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
 
-    // Forbbiden using PPS
+    // Disable PPS for configuration
     HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) &= ~ETHERNET_MAC_PPS_CONTROL_PPSEN0;
 
-    // Set PPS Interval and Width(1Hz,10ms)
+    // Set PPS Interval and Width(1Hz,10ms pulse width)
     HWREG(EMAC_BASE + ETHERNET_MAC_PPS_INTERVAL) = PTP_REF_CLOCK_FREQ - 1;
     HWREG(EMAC_BASE + ETHERNET_MAC_PPS_WIDTH) = PTP_REF_CLOCK_FREQ / 100;
 
@@ -322,47 +328,101 @@ void ptp_slave_init(void)
     ppsCtrl |= (0x3U << ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL0_S);
     HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = ppsCtrl; // 0x61
 
-    // // init Slave state
+    //
+    // We need to set a standard defined Multicast address : 01:1B:19:00:00:00
+    // as the Destination address in the ethernet frame and that is how the
+    // receiver will recognize it as a valid PTP over Ethernet packet.
+    //
+    i=0; *((uint32_t *)gMsgBuf + i) = 0x00191B01;
+    i++; *((uint32_t *)gMsgBuf + i)  = 0xF7880000;
+
+    // init Slave state
     memset(&gPtpSlaveState, 0, sizeof(PTPSlaveState));
     InitSlaveConstants(&gPtpSlaveState);
 }
 
 void ptp_slave_run(void)
 {
-    // 1.已收到Sync, 需要等待Follow_Up
-    if (gPtpSlaveState.syncReceived && !gPtpSlaveState.followUpReceived)
+    uint32_t timeSec, timeNanosec;
+    static uint32_t delayReqSendTime = 0;
+    static bool waitingForDelayResp = false;
+    static bool ppsTargetSet = false;
+    const uint32_t DELAYREQ_TIMEOUT_MS = 500;
+
+    // Get current time and set PPS target time
+    Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+    Ethernet_setTargetTimePPS(EMAC_BASE,
+                              ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                              timeSec + 1,
+                              0);
+
+    // Set Digital Rollover mode
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |= ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
+
+    //
+    // Waiting till the target time that we set above is reached.
+    // We're using the PPSOUT instance 0 as the timer.
+    //
+    if (((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS)) &
+          (ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0)) != 0)
+    {
+        // PPS target time arrived, clear state
+        HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS) = ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0;
+
+        // Set next second PPS target time
+        updatePPSTargetTime();
+        ppsTargetSet = true;
+    }
+
+    // 1.Waiting receive Sync message
+    if (!gPtpSlaveState.syncReceived)
+        return;
+
+    // 2.Received Sync, waiting FollowUp message
+    if (!gPtpSlaveState.followUpReceived)
     {
         return;
     }
 
-    // 2.已收到Follow_Up, 还没Delay_Resp, 开始发送Delay_Req报文（并记录发送时间t3）
-    if (gPtpSlaveState.followUpReceived && !gPtpSlaveState.delayRespReceived)
+    // 3.Received Follow_Up, sending Delay_Req message（record sending time t3）
+    if (gPtpSlaveState.followUpReceived && !gPtpSlaveState.delayRespReceived && !waitingForDelayResp)
     {
-
-        // 记录Delay_Req发送时间（t3）
-        TimeInternal t3;
-        getTime(&t3);
-        gPtpSlaveState.delayReqSentTimestamp.secondsField.lsb = t3.seconds;
-        gPtpSlaveState.delayReqSentTimestamp.secondsField.msb = 0;
-        gPtpSlaveState.delayReqSentTimestamp.nanosecondsField = t3.nanoseconds;
-
-        // 发送Delay_Req报文
-        sendDelayReqMessage();
+        // 发送Delay_Req报文(硬件会自动捕获发送时间戳t3)
+        sendDelayReqMessage(&gPktDesc);
         gPtpSlaveState.delayReqSeqId++;
+        gPtpSlaveState.waitingDelayResp = TRUE;
+        waitingForDelayResp = true;
+        delayReqSendTime = 0;
         return;
     }
 
-    // 3.如果收到Delay_Resp，调整时钟
+    // 4.Waiting Delay_Resp
+    if (waitingForDelayResp && !gPtpSlaveState.delayRespReceived)
+    {
+        delayReqSendTime++;
+        if (delayReqSendTime > DELAYREQ_TIMEOUT_MS)
+        {
+            // timeout, send DelayReq agin
+            gPtpSlaveState.waitingDelayResp = FALSE;
+            waitingForDelayResp = false;
+            delayReqSendTime = 0;
+        }
+        return;
+    }
+
+    // 5.Received Delay_Resp, adjust clock
     if (gPtpSlaveState.delayRespReceived)
     {
         ptp_slave_adjust_clock();
 
-        // 复位状态，准备下一轮
+        // Reset and prepare next iteration
         gPtpSlaveState.syncReceived      = FALSE;
         gPtpSlaveState.followUpReceived  = FALSE;
         gPtpSlaveState.delayRespReceived = FALSE;
+        gPtpSlaveState.waitingDelayResp  = FALSE;
+        waitingForDelayResp = false;
+        delayReqSendTime = 0;
     }
-
 }
 
 

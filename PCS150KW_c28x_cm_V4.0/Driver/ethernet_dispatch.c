@@ -30,6 +30,8 @@ Ethernet_Pkt_Desc pktDescriptorRXCustom[NUM_PACKET_DESC_RX_APPLICATION] = {0};
 
 uint8_t delayReqMsg[PACKET_LENGTH] = {0};
 
+Ethernet_Pkt_Desc gPktDesc;
+
 
 /*========================== 时间处理函数 =========================*/
 static void fromInternalTime(TimeInternal *internal, Timestamp *external);
@@ -110,31 +112,42 @@ void Ethernet_releaseTxPacketBufferPtp(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket)
 {
+    uint8_t *data;
+    uint8_t msgType;
+
     if (pPacket == NULL)
     {
         return;
     }
 
+    // get message type
+    data = pPacket->dataBuffer + pPacket->dataOffset;
+    msgType = data[PTP_HEADER_OFFSET] & 0x0F;
+
     if(g_ptpMode == 0) // Master模式
     {
-        // 捕获DelayResp时间戳
-        if(gPtpMasterState.sendingDelayResp == TRUE)
-        {
-            gPtpMasterState.sendingDelayResp = FALSE;
-        }
-        else if(gPtpMasterState.syncTimestampAvailable == FALSE)
+        // Master: 捕获Sync发送时间戳t1
+        if (msgType == SYNC && gPtpMasterState.syncTimestampAvailable == FALSE)
         {
             gPtpMasterState.syncTimestamp.nanosecondsField = pPacket->timeStampLow;
             gPtpMasterState.syncTimestamp.secondsField.lsb = pPacket->timeStampHigh;
             gPtpMasterState.syncTimestamp.secondsField.msb = 0;
             gPtpMasterState.syncTimestampAvailable = TRUE;
         }
+        else if(msgType == DELAY_RESP) // Master: DelayResp发送完成，清除标志
+        {
+            gPtpMasterState.sendingDelayResp = FALSE;
+        }
     }
-    else  // Slave模式, 捕获Delay_Req发送时间戳
+    else  // Slave模式
     {
-        gPtpSlaveState.delayReqSentTimestamp.nanosecondsField = pPacket->timeStampLow;
-        gPtpSlaveState.delayReqSentTimestamp.secondsField.lsb = pPacket->timeStampHigh;
-        gPtpSlaveState.delayReqSentTimestamp.secondsField.msb = 0;
+        // 捕获Delay_Req发送时间戳t3
+        if (msgType == DELAY_REQ)
+        {
+            gPtpSlaveState.delayReqSentTimestamp.nanosecondsField = pPacket->timeStampLow;
+            gPtpSlaveState.delayReqSentTimestamp.secondsField.lsb = pPacket->timeStampHigh;
+            gPtpSlaveState.delayReqSentTimestamp.secondsField.msb = 0;
+        }
     }
 
     // Increment the book-keeping counter.
@@ -151,14 +164,31 @@ Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackPtp(
     MsgHeader msgHeader;
     TimeInternal recvTime;
     TimeInternal sendTime;
+    uint8_t *data;
+    uint16_t ethertype;
+
+    if (pPacket == NULL)
+    {
+        return pPacket;
+    }
+
+    data = pPacket->dataBuffer + pPacket->dataOffset;
+
+    // 检查Ethertype是否为PTP(0x88F7)
+    ethertype = ((uint16_t)data[12] << 8) | data[13];
+    if (ethertype != 0x88F7)
+    {
+        // 非PTP报文，直接返回
+        return pPacket;
+    }
 
     if (g_ptpMode == 0)
     {
         // ==================== Master模式 ====================
-        msgUnpackHeader((Octet *)(pPacket->dataBuffer + PTP_HEADER_OFFSET), &gPtpMasterState.delayReqHeader);
+        msgUnpackHeader((Octet *)(data + PTP_HEADER_OFFSET), &gPtpMasterState.delayReqHeader);
 
         switch (gPtpMasterState.delayReqHeader.messageType) {
-            case DELAY_REQ:
+            case DELAY_REQ: // 捕获DelayReq接收时间戳t4
                 gPtpMasterState.delayReqRecvTimestamp.nanosecondsField = pPacket->timeStampLow;
                 gPtpMasterState.delayReqRecvTimestamp.secondsField.lsb = pPacket->timeStampHigh;
                 gPtpMasterState.delayReqRecvTimestamp.secondsField.msb = 0;
@@ -175,11 +205,11 @@ Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackPtp(
     else
     {
         // ==================== Slave模式 ====================
-        msgUnpackHeader((Octet *)(pPacket->dataBuffer + PTP_HEADER_OFFSET), &msgHeader);
+        msgUnpackHeader((Octet *)(data + PTP_HEADER_OFFSET), &msgHeader);
 
         switch (msgHeader.messageType)
         {
-            case SYNC:
+            case SYNC:  // 捕获Sync接收时间戳t2
                 gPtpSlaveState.syncRecvTimestamp.nanosecondsField = pPacket->timeStampLow;
                 gPtpSlaveState.syncRecvTimestamp.secondsField.lsb = pPacket->timeStampHigh;
                 gPtpSlaveState.syncRecvTimestamp.secondsField.msb = 0;
@@ -188,7 +218,7 @@ Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackPtp(
                 gPtpSlaveState.followUpReceived = FALSE;
                 break;
 
-            case FOLLOW_UP:
+            case FOLLOW_UP:  // 提取FollowUp中的t1时间戳
                 if (msgHeader.sequenceId == gPtpSlaveState.lastSyncSeqId)
                 {
                     gPtpSlaveState.syncOriginTimestamp.secondsField.msb =
@@ -206,7 +236,7 @@ Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackPtp(
                 }
                 break;
 
-            case DELAY_RESP:
+            case DELAY_RESP:  // 提取DelayResp中的t4时间戳
                 if (gPtpSlaveState.followUpReceived)
                 {
                     gPtpSlaveState.delayReqRecvTimestamp.secondsField.msb =
@@ -330,8 +360,6 @@ void msgPackDelayResp(Octet *buf, void *ptpState)
 }
 
 
-
-
 /*============================ 消息发送函数 ============================*/
 void sendMessage(Octet *msg, uint8_t msgType, void *ptpState, Ethernet_Pkt_Desc *pktDesc)
 {
@@ -363,12 +391,12 @@ void sendMessage(Octet *msg, uint8_t msgType, void *ptpState, Ethernet_Pkt_Desc 
             pktLen = FOLLOW_UP_LENGTH;
             ((PTPMasterState*)ptpState)->syncSeqId++;
             break;
-        case DELAY_REQ:  // Master收到Delay_Req
+        case DELAY_REQ:  // Slave发送Delay_Req
             msgPackDelayReq(msg + 8, ptpState);
             pktLen = DELAY_REQ_LENGTH;
             ((PTPSlaveState*)ptpState)->delayReqSeqId++;
             break;
-        case DELAY_RESP: // Slave收到DelayResp
+        case DELAY_RESP: // Master发送DelayResp
             msgPackDelayResp(msg + 8, ptpState);
             pktLen = DELAY_RESP_LENGTH;
             break;

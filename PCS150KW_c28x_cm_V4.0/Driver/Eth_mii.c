@@ -307,7 +307,7 @@ void Ethernet_init(const unsigned char *mac)
     initInterfaceConfig.ssbase = EMAC_SS_BASE;
     initInterfaceConfig.enet_base = EMAC_BASE;
     initInterfaceConfig.phyMode = ETHERNET_SS_PHY_INTF_SEL_MII;
-    initInterfaceConfig.clockSel = ETHERNET_SS_CLK_SRC_EXTERNAL;
+    //initInterfaceConfig.clockSel = ETHERNET_SS_CLK_SRC_EXTERNAL;
 
     //
     // Assign SoC specific functions for Enabling,Disabling interrupts

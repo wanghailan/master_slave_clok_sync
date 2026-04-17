@@ -11,8 +11,9 @@
 #include "string.h"
 #include "cm.h"
 
-#define PTP_REF_CLOCK_FREQ   25000000UL   // 25MHz for MII 100Mbps
-#define PTP_REF_CLOCK_PERIOD 1000000000UL / PTP_REF_CLOCK_FREQ  // 40ns
+#define PTP_REF_CLOCK_FREQ   100000000   // 100MHz
+#define PTP_REF_CLOCK_PERIOD (1000000000 / PTP_REF_CLOCK_FREQ)  // 10ns
+
 #define NUM_PACKET_DESC_RX_APPLICATION  8U
 
 
@@ -156,6 +157,7 @@ typedef struct {
     Boolean syncReceived;
     Boolean followUpReceived;
     Boolean delayRespReceived;
+    Boolean waitingDelayResp;   // µÈ´ýDelayResp±êÖ¾
 
     uint32_t  lockCount;
     bool      isLocked;
@@ -170,7 +172,8 @@ enum {
     DELAY_RESP = 0x9,
 };
 
-Ethernet_Pkt_Desc gPktDesc;
+
+extern Ethernet_Pkt_Desc gPktDesc;
 
 extern uint8_t g_ptpMode;   // 0=Master, 1=Slave
 
