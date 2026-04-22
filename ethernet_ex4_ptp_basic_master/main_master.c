@@ -72,7 +72,7 @@
 // timestamping module is initialized with the following values.
 // Default value is 100 MHz.
 //
-#define PTP_REF_CLOCK_FREQ   100000000
+#define PTP_REF_CLOCK_FREQ   200000000
 #define PTP_REF_CLOCK_PERIOD 1000000000/PTP_REF_CLOCK_FREQ
 
 static Ethernet_Handle emac_handle;
@@ -299,6 +299,8 @@ main(void)
     uint32_t timeSec;
     uint32_t timeNanosec;
     float subSecondInc;
+    const uint32_t TIMEOUT_MAX = 2000000U;
+    uint32_t timeout = 0U;
 
     //
     // Initialize device clock and peripherals
@@ -336,7 +338,7 @@ main(void)
     varPtpConfig = (0 << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |  //Timestamp Digital or Binary Rollover
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
-                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
+                    //ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
                     ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;
 
@@ -350,26 +352,18 @@ main(void)
     Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
     Ethernet_enableSysTimePTP(EMAC_BASE);
 
-    // set Digital Rollover mode
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |= ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
-    uint32_t tsCtrlVerify = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL);
-    if ((tsCtrlVerify & ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR) == 0)
-    {
-        HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |= ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
-        tsCtrlVerify = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL);
-    }
-
     //
     // Start the system with a random value.
     //
-    Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCA, 0x25a5a5a5);
+//    Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCA, 0x25a5a5a5);
+    Ethernet_setSysTimePTP(EMAC_BASE, 0, 0);
 
     //
     //Assign the Buffer to be used by the Low level driver for receiving
     //Packets. This should be accessible by the Ethernet DMA
     //
     pInitCfg->rxBuffer = Ethernet_rxBuffer;
-    Ethernet_getHandle((Ethernet_Handle)1,pInitCfg , &emac_handle);
+    Ethernet_getHandle((Ethernet_Handle)1, pInitCfg , &emac_handle);
     //
     //Do global Interrupt Enable
     //
@@ -401,31 +395,39 @@ main(void)
                         0x00191B01,
                         ETHERNET_CHANNEL_0);
 
-    // 设置为PULSE模式
-    // Interrupt：ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT
-    // PULSE: ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE
+    // set Digital Rollover mode
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |=
+            ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
+
+    while((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) &
+           ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR) == 0U)
+    {
+        HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |=
+                ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
+    }
+
+    //
+    // Configure PPS0 as fixed 1Hz waveform output.
+    // Do NOT use PPS0 target-time pulse for Sync scheduling.
+    //
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = 0x00U;
+
+    // Set PULSE mode
     Ethernet_selectTargetInterruptOrPulsePPS(
                         EMAC_BASE,
                         ETHERNET_MAC_PPS_OUT_INSTANCE_0,
                         ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
 
-    // 禁用PPS, 进入配置模式
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) &= ~ETHERNET_MAC_PPS_CONTROL_PPSEN0;
+    // Set interval and purlse width
+    Ethernet_setPeriodPPS(EMAC_BASE,
+                          ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                          PTP_REF_CLOCK_FREQ / 100U,
+                          PTP_REF_CLOCK_FREQ - 1U);
 
-    // 设置间隔和脉宽
-    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_INTERVAL) = PTP_REF_CLOCK_FREQ - 1;
-    HWREG(EMAC_BASE + ETHERNET_MAC_PPS_WIDTH) = PTP_REF_CLOCK_FREQ / 100;
+    Ethernet_setFixedModePPS(EMAC_BASE,
+                             ETHERNET_MAC_PPS_CONTROL_PPSCTRL_PPS_OUTPUT_1HZ);
 
-    // 设置PPSCTRL=1，PPSEN0=0，TRGTMODSEL=3
-    // bits 3:0  = PPSCTRL (0-15)
-    // bit 4     = PPSEN0 (模式选择位,0-1)
-    // bits 6:5  = TRGTMODSEL (0-3)
-    // PPSEN0:模式选择位，0：固定模式，1：灵活模式
-    uint32_t ppsCtrl = ETHERNET_MAC_PPS_CONTROL_PPSCTRL_PPS_OUTPUT_1HZ;  // 0x01
-    ppsCtrl |= (0x3U << ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL0_S);  // 0x61
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = ppsCtrl;  // = 0x61
 
-    //
     // We need to set a standard defined Multicast address : 01:1B:19:00:00:00
     // as the Destination address in the ethernet frame and that is how the
     // receiver will recognize it as a valid PTP over Ethernet packet.
@@ -435,49 +437,144 @@ main(void)
 
     InitConstants(&gPtpMasterState);
 
+//    while(1)
+//    {
+//        //
+//        // Use the system time counter to send the sync + followup messages
+//        // every one second.
+//        //
+//        Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+//        Ethernet_setTargetTimePPS(EMAC_BASE, ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+//                                  timeSec + 1, timeNanosec);
+//
+//        //
+//        // Waiting till the target time that we set above is reached.
+//        // We're using the PPSOUT instance 0 as the timer.
+//        //
+//        while((((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS)) &
+//                 (ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0)) == 0) &&
+//                 (timeout < TIMEOUT_MAX))
+//        {
+//            timeout++;
+//        }
+//
+//
+//        // �����־
+//        HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS) = ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0;
+//
+//        //
+//        // Save the state. We want to capture the timestamp of the next SYNC
+//        // packet that is being sent.
+//        //
+//        gPtpMasterState.syncTimestampAvailable = FALSE;
+//
+//        //
+//        // Send out the SYNC packet.
+//        //
+//        sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
+//
+//        //
+//        //  Wait till the latest sync timestamp is captured. As soon as the
+//        //  timestamp for the SYNC packet going out is captured, this flag
+//        //  will be set to TRUE by the application.
+//        //
+//        //while(gPtpMasterState.syncTimestampAvailable == FALSE);
+//
+//        // Wait captured timestamp
+//        timeout = 0;
+//        while((gPtpMasterState.syncTimestampAvailable == FALSE) && (timeout < TIMEOUT_MAX))
+//        {
+//            timeout++;
+//        }
+//
+//        if(timeout >= TIMEOUT_MAX)
+//        {
+//            uint32_t estSec, estNs;
+//            Ethernet_getSysTimePTP(EMAC_BASE, &estSec, &estNs);
+//            gPtpMasterState.syncTimestamp.secondsField.lsb = estSec;
+//            gPtpMasterState.syncTimestamp.secondsField.msb = 0;
+//            gPtpMasterState.syncTimestamp.nanosecondsField = estNs;
+//            gPtpMasterState.syncTimestampAvailable = TRUE;
+//        }
+//
+//        //
+//        // Since the timestamp for the last SYNC packet has been captured,
+//        // send out the associated FOLLOW-UP packet.
+//        //
+//        sendMessage((Octet *)gMsgBuf, FOLLOW_UP, &gPtpMasterState, &gPktDesc);
+//    }
+
+
+    /////////////////////////////////////////////
+    uint32_t nextSyncSec = 0U;
+    Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+    nextSyncSec = timeSec + 1U;
+
     while(1)
     {
-        //
-        // Use the system time counter to send the sync + followup messages
-        // every one second.
-        //
         Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
-        Ethernet_setTargetTimePPS(EMAC_BASE, ETHERNET_MAC_PPS_OUT_INSTANCE_0,
-                                  timeSec + 1, timeNanosec);
 
         //
-        // Waiting till the target time that we set above is reached.
-        // We're using the PPSOUT instance 0 as the timer.
+        // Send Sync/Follow_Up once each second when system time
+        // crosses the integer-second boundary.
         //
-        while(((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS)) &
-                (ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0)) == 0);
+        if((timeSec > nextSyncSec) ||
+           ((timeSec == nextSyncSec) && (timeNanosec < 1000000U)))
+        {
+            //
+            // Save the state. We want to capture the timestamp of the next
+            // SYNC packet that is being sent.
+            //
+            gPtpMasterState.syncTimestampAvailable = FALSE;
 
-        // 清除标志
-        HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS) = ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0;
+            //
+            // Send out the SYNC packet.
+            //
+            sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
 
-        //
-        // Save the state. We want to capture the timestamp of the next SYNC
-        // packet that is being sent.
-        //
-        gPtpMasterState.syncTimestampAvailable = FALSE;
+            //
+            // Wait till the latest sync timestamp is captured.
+            //
+            timeout = 0U;
+            while((gPtpMasterState.syncTimestampAvailable == FALSE) &&
+                  (timeout < TIMEOUT_MAX))
+            {
+                timeout++;
+            }
 
-        //
-        // Send out the SYNC packet.
-        //
-        sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
+            //
+            // Fallback if hardware timestamp callback is delayed.
+            //
+            if(timeout >= TIMEOUT_MAX)
+            {
+                uint32_t estSec, estNs;
+                Ethernet_getSysTimePTP(EMAC_BASE, &estSec, &estNs);
+                gPtpMasterState.syncTimestamp.secondsField.lsb = estSec;
+                gPtpMasterState.syncTimestamp.secondsField.msb = 0;
+                gPtpMasterState.syncTimestamp.nanosecondsField = estNs;
+                gPtpMasterState.syncTimestampAvailable = TRUE;
+            }
 
-        //
-        //  Wait till the latest sync timestamp is captured. As soon as the
-        //  timestamp for the SYNC packet going out is captured, this flag
-        //  will be set to TRUE by the application.
-        //
-        while(gPtpMasterState.syncTimestampAvailable == FALSE);
+            //
+            // Since the timestamp for the last SYNC packet has been
+            // captured, send out the associated FOLLOW_UP packet.
+            //
+            sendMessage((Octet *)gMsgBuf, FOLLOW_UP, &gPtpMasterState, &gPktDesc);
 
-        //
-        // Since the timestamp for the last SYNC packet has been captured,
-        // send out the associated FOLLOW-UP packet.
-        //
-        sendMessage((Octet *)gMsgBuf, FOLLOW_UP, &gPtpMasterState, &gPktDesc);
+            //
+            // Schedule next second.
+            //
+            nextSyncSec = timeSec + 1U;
+
+            //
+            // Avoid re-entering multiple times inside the same second.
+            //
+            do
+            {
+                Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+            }
+            while(timeSec < nextSyncSec);
+        }
     }
 }
 
@@ -760,6 +857,8 @@ void InitConstants(PTPMasterState *ptpMasterState)
            j++;
        }
     }
+
+    ptpMasterState->portIdentity.portNumber = 1U;
 }
 
 

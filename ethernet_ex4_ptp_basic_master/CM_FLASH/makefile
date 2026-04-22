@@ -10,7 +10,7 @@ GEN_OPTS__FLAG :=
 GEN_CMDS__FLAG := 
 
 ORDERED_OBJS += \
-"./main.obj" \
+"./main_master.obj" \
 "./startup_cm.obj" \
 "./device/cm.obj" \
 "../2838x_FLASH_lnk_cm.cmd" \
@@ -146,8 +146,8 @@ ethernet_ex4_ptp_basic_master.out: $(OBJS) $(CMD_SRCS) $(LIB_SRCS) $(GEN_CMDS)
 # Other Targets
 clean:
 	-$(RM) $(EXE_OUTPUTS__QUOTED)
-	-$(RM) "main.obj" "startup_cm.obj" "device\cm.obj" 
-	-$(RM) "main.d" "startup_cm.d" "device\cm.d" 
+	-$(RM) "main_master.obj" "startup_cm.obj" "device\cm.obj" 
+	-$(RM) "main_master.d" "startup_cm.d" "device\cm.d" 
 	-@echo 'Finished clean'
 	-@echo ' '
 

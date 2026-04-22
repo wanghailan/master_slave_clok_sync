@@ -1,4 +1,4 @@
-"./main.obj"
+"./main_master.obj"
 "./startup_cm.obj"
 "./device/cm.obj"
 "../2838x_FLASH_lnk_cm.cmd"

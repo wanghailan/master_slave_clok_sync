@@ -11,6 +11,7 @@
 	<rts value="libc.a"/>
 	<createSlaveProjects value=""/>
 	<templateProperties value="id=ethernet_ex4_ptp_basic_master.projectspec.ethernet_ex4_ptp_basic_master"/>
-	<origin value="C:\ti\c2000\C2000Ware_5_01_00_00\driverlib\f2838x\examples\cm\ethernet\CCS\ethernet_ex4_ptp_basic_master.projectspec"/>
 	<filesToOpen value=""/>
+	<connection value="common/targetdb/connections/TIXDS100v3_Dot7_Connection.xml"/>
+	<isTargetManual value="false"/>
 </projectOptions>
