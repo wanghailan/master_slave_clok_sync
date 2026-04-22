@@ -4,7 +4,6 @@
 "./Driver/Drv_LED.obj"
 "./Driver/Drv_Timer.obj"
 "./Driver/Eth_mii.obj"
-"./Driver/ethernet_dispatch.obj"
 "./Driver/f2838xif.obj"
 "./Driver/W5500/socket.obj"
 "./Driver/W5500/utility.obj"
@@ -22,8 +21,8 @@
 "./src/obj_debug.obj"
 "./src/ptp_master_sync.obj"
 "./src/ptp_slave_sync.obj"
-"./src/startup_cm.obj"
-"../2838x_FLASH_lnk_cm.cmd"
+"./src/startup_ccs.obj"
+"../2838x_flash_lnk_cm_lwip.cmd"
 "../Driver/device/driverlib_cm.lib"
 -l"D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/driverlib_cm.lib"
 -llibc.a

@@ -1,35 +1,10 @@
-//#############################################################################
-//
-// FILE:   ethernet_ex4_ptp_basic_master.c
-//
-// TITLE:  Ethernet PTP Basic Master Example
-//
-//! \addtogroup driver_example_cm_list
-//! <h1> Ethernet PTP Basic Master </h1>
-//!
-//! This example configures the device in IEEE PTPv2 Master mode and then
-//! periodically sends Sync packets to the slave. On receiving the DelayReq
-//! packets from the slave, the master also sends out the DelayResp packets.
-//!
-//! \b External \b Connections \n
-//! This example programs the Ethernet module in PTP Basic Master mode.
-//! The example project \e Ethernet \e PTP \e Basic \e Slave is intended to
-//! be used along with this project to see the whole PTP Protocol state in
-//! action. The second device is configured as \e Slave and both devices in
-//! conjunction exchange Sync, DelayReq and DelayResp packets.
-//!
-//! Refer to the C28x CPU1 code of ethernet_config_c28x project for configuring
-//! the PTP clock that drives the system time counter on the Ethernet module.
-//!
-//! \b Watch \b Variables \n
-//!  - gPtpMasterState
-//!
 
 #include <string.h>
 
 #include "driverlib_cm.h"
 #include "cm.h"
 #include "utils/lwiplib.h"
+
 
 #include "lwipopts.h"
 #include "Eth_mii.h"
@@ -38,11 +13,17 @@
 #include "ptp_master_sync.h"
 #include "ptp_slave_sync.h"
 
-#define  PTP_MODE_MASTER 0    // 1=Masterï¼Œ0=Slave
+
+#define  PTP_MODE_MASTER 1    // 1=Master£¬0=Slave
 
 uint32_t systickPeriodValue = 125000; //15000000;
-		
+
 extern void sys_check_timeouts(void);
+
+
+#define DEVICE_FLASH_WAITSTATES 2
+
+extern uint8_t g_ptpMode;
 
 
 //*****************************************************************************
@@ -54,14 +35,13 @@ void
 SysTickIntHandler(void)
 {
     // Call the lwIP timer handler.
-    //lwIPTimer(systickPeriodValue);
-    lwIPTimer(1);
+ //   lwIPTimer(systickPeriodValue);
+	   lwIPTimer(1);
 }
 
-
-main(void)
+int main(void)
 {
-    uint8_t tempData[50];
+    uint8_t tempData[50];                 //¶¨ÒåµÄ´«ÊäBuffer
 
 #if PTP_MODE_MASTER
     g_ptpMode = 0;   // Master
@@ -69,7 +49,7 @@ main(void)
     g_ptpMode = 1;   // Slave
 #endif
 
-    // Initialize device clock and peripherals
+    // Initializing the CM. Loading the required functions to SRAM.
     CM_init();
 
     SYSTICK_setPeriod(systickPeriodValue);
@@ -88,7 +68,7 @@ main(void)
     // Lwip param init
     Lwip_ParamInit();
 
-    // PTPä¸»ä»Žæœºåˆå§‹åŒ–
+    // PTP Master/Slave init
     if (g_ptpMode == 0)
         ptp_master_init();
     else
@@ -98,12 +78,12 @@ main(void)
     MbTcp1_Init();
     w5500_init();
 
-    while(1)
+    while (1)
     {
         Drv_Timer_ClockMaintain();
         upDataHoldingCBReg();
 
-        if (m_st_TimerFlag.u16_b500ms == 1)
+        if(m_st_TimerFlag.u16_b500ms == 1)
             Drv_Led_toggle();
 
         if(m_st_TimerFlag.u16_b500ms == 1)
@@ -119,7 +99,7 @@ main(void)
         {
             IpcCpu2Cm_ErrCnt++;
 
-            if(IpcCpu2Cm_ErrCnt >= 100) //1s
+            if(IpcCpu2Cm_ErrCnt >= 100)//1s
             {
                 IpcCpu2Cm_ErrCnt = 100;
                 CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1;
@@ -139,8 +119,8 @@ main(void)
         {
             if(CmIpc_cm2cpu.debugData_TxEn == 1)
             {
-                memcpy(tempData, (uint8_t *)ipcRx_DebugData, 40);
-                tempData[40] = 0x00;
+                memcpy(tempData, (uint8_t *)ipcRx_DebugData, 40);//Í¨¹ý¿½±´°ÑÊý¾ÝÖØÐÂÕûÀí
+                tempData[40] = 0x00;                    //Ð´Èç½áÎ²Êý¾Ý
                 tempData[41] = 0x00;
                 tempData[42] = 0x80;
                 tempData[43] = 0x7f;
@@ -150,11 +130,12 @@ main(void)
         }
         sys_check_timeouts();
 
-        // PTPä¸»/ä»Žå¾ªçŽ¯
+        // PTP Master/Slave process
         if (g_ptpMode == 0)
             ptp_master_run();
         else
             ptp_slave_run();
     }
 }
+
 

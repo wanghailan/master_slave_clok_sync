@@ -11,10 +11,23 @@
 #include "string.h"
 #include "cm.h"
 
-#define PTP_REF_CLOCK_FREQ   100000000   // 100MHz
-#define PTP_REF_CLOCK_PERIOD (1000000000 / PTP_REF_CLOCK_FREQ)  // 10ns
+#define PTP_REF_CLOCK_FREQ             200000000
+#define PTP_REF_CLOCK_PERIOD           (1000000000 / PTP_REF_CLOCK_FREQ)  // 10ns
 
+#define PACKET_LENGTH                   200
+#define ETHERNET_NO_OF_RX_PACKETS       8U
+#define ETHERNET_MAX_PACKET_LENGTH      PACKET_LENGTH
 #define NUM_PACKET_DESC_RX_APPLICATION  8U
+#define PTP_HEADER_OFFSET               14U
+
+//
+// Definition of 1 Billion or 10^9
+//
+#define ONE_BILLION    1000000000
+
+// Update clock if the offset from master wanders off further than this cutoff.
+//
+#define PTP_OFM_NANOSECONDS_CUTOFF  50000U    // 50us
 
 
 // Network related definitions as follows
@@ -149,18 +162,13 @@ typedef struct {
     TimeInternal meanPathDelay;
 
     uint16_t lastSyncSeqId;
-    uint16_t followUpSeqId;
     uint16_t delayReqSeqId;
     uint16_t portNumber;
     uint32_t clockUpdateCount;
 
-    Boolean syncReceived;
-    Boolean followUpReceived;
-    Boolean delayRespReceived;
-    Boolean waitingDelayResp;   // µÈ´ýDelayResp±êÖ¾
-
-    uint32_t  lockCount;
-    bool      isLocked;
+    Boolean waitingForFollowup;
+    Boolean waitingForDelayResp;
+    Boolean meanPathDelayValid;
 } PTPSlaveState;
 
 
@@ -172,7 +180,10 @@ enum {
     DELAY_RESP = 0x9,
 };
 
+extern Ethernet_Handle emac_handle;
 
+extern uint8_t delayReqMsg[PACKET_LENGTH];
+extern uint8_t gMsgBuf[PACKET_LENGTH];
 extern Ethernet_Pkt_Desc gPktDesc;
 
 extern uint8_t g_ptpMode;   // 0=Master, 1=Slave

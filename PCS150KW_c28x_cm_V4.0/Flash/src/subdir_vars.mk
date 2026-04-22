@@ -15,7 +15,7 @@ C_SRCS += \
 ../src/obj_debug.c \
 ../src/ptp_master_sync.c \
 ../src/ptp_slave_sync.c \
-../src/startup_cm.c 
+../src/startup_ccs.c 
 
 C_DEPS += \
 ./src/ModbusRtu.d \
@@ -27,7 +27,7 @@ C_DEPS += \
 ./src/obj_debug.d \
 ./src/ptp_master_sync.d \
 ./src/ptp_slave_sync.d \
-./src/startup_cm.d 
+./src/startup_ccs.d 
 
 OBJS += \
 ./src/ModbusRtu.obj \
@@ -39,7 +39,7 @@ OBJS += \
 ./src/obj_debug.obj \
 ./src/ptp_master_sync.obj \
 ./src/ptp_slave_sync.obj \
-./src/startup_cm.obj 
+./src/startup_ccs.obj 
 
 OBJS__QUOTED += \
 "src\ModbusRtu.obj" \
@@ -51,7 +51,7 @@ OBJS__QUOTED += \
 "src\obj_debug.obj" \
 "src\ptp_master_sync.obj" \
 "src\ptp_slave_sync.obj" \
-"src\startup_cm.obj" 
+"src\startup_ccs.obj" 
 
 C_DEPS__QUOTED += \
 "src\ModbusRtu.d" \
@@ -63,7 +63,7 @@ C_DEPS__QUOTED += \
 "src\obj_debug.d" \
 "src\ptp_master_sync.d" \
 "src\ptp_slave_sync.d" \
-"src\startup_cm.d" 
+"src\startup_ccs.d" 
 
 C_SRCS__QUOTED += \
 "../src/ModbusRtu.c" \
@@ -75,6 +75,6 @@ C_SRCS__QUOTED += \
 "../src/obj_debug.c" \
 "../src/ptp_master_sync.c" \
 "../src/ptp_slave_sync.c" \
-"../src/startup_cm.c" 
+"../src/startup_ccs.c" 
 
 

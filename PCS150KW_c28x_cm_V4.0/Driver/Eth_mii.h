@@ -1,18 +1,17 @@
 /*
  * Eth_mii.h
  *
- *  Created on: 2026年3月31日
- *      Author: whl
+ *  Created on: 2025年6月26日
+ *      Author: guowei
  */
 
-#ifndef DRIVER_ETH_MII_H_
-#define DRIVER_ETH_MII_H_
-
-#include "ethernet_dispatch.h"
+#ifndef SRC_ETH_MII_H_
+#define SRC_ETH_MII_H_
 
 void Lwip_ParamInit(void);
 void Ethernet_init(const unsigned char *mac);
 void lwIPHostTimerHandler(void);
 
+extern uint8_t g_ptpMode;
 
-#endif /* DRIVER_ETH_MII_H_ */
+#endif /* SRC_ETH_MII_H_ */

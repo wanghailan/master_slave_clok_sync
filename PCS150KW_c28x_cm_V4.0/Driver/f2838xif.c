@@ -212,7 +212,7 @@ tDriverStats g_sDriverStats = {0};
  */
 static struct f2838xif f2838xif_data;
 
-extern Ethernet_Handle emac_handle;
+Ethernet_Handle emac_handle;
 extern uint32_t sendPacketFailedCount;
 
 /**

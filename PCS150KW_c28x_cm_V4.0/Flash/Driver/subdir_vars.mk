@@ -12,7 +12,6 @@ C_SRCS += \
 ../Driver/Drv_LED.c \
 ../Driver/Drv_Timer.c \
 ../Driver/Eth_mii.c \
-../Driver/ethernet_dispatch.c \
 ../Driver/f2838xif.c 
 
 C_DEPS += \
@@ -22,7 +21,6 @@ C_DEPS += \
 ./Driver/Drv_LED.d \
 ./Driver/Drv_Timer.d \
 ./Driver/Eth_mii.d \
-./Driver/ethernet_dispatch.d \
 ./Driver/f2838xif.d 
 
 OBJS += \
@@ -32,7 +30,6 @@ OBJS += \
 ./Driver/Drv_LED.obj \
 ./Driver/Drv_Timer.obj \
 ./Driver/Eth_mii.obj \
-./Driver/ethernet_dispatch.obj \
 ./Driver/f2838xif.obj 
 
 OBJS__QUOTED += \
@@ -42,7 +39,6 @@ OBJS__QUOTED += \
 "Driver\Drv_LED.obj" \
 "Driver\Drv_Timer.obj" \
 "Driver\Eth_mii.obj" \
-"Driver\ethernet_dispatch.obj" \
 "Driver\f2838xif.obj" 
 
 C_DEPS__QUOTED += \
@@ -52,7 +48,6 @@ C_DEPS__QUOTED += \
 "Driver\Drv_LED.d" \
 "Driver\Drv_Timer.d" \
 "Driver\Eth_mii.d" \
-"Driver\ethernet_dispatch.d" \
 "Driver\f2838xif.d" 
 
 C_SRCS__QUOTED += \
@@ -62,7 +57,6 @@ C_SRCS__QUOTED += \
 "../Driver/Drv_LED.c" \
 "../Driver/Drv_Timer.c" \
 "../Driver/Eth_mii.c" \
-"../Driver/ethernet_dispatch.c" \
 "../Driver/f2838xif.c" 
 
 
