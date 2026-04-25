@@ -139,7 +139,6 @@ Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackCustom(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket)
 {
-
     Ethernet_Pkt_Desc* temp_eth_pkt;
     //
     // Book-keeping to maintain number of callbacks received.
@@ -147,29 +146,24 @@ Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackCustom(
 #ifdef ETHERNET_DEBUG
     Ethernet_numRxCallbackCustom++;
 #endif
-
-
-
-      Ethernet_disableRxDMAReception(EMAC_BASE,0);
-      if(Ethernet_isPtpRxPacket(pPacket))
-      {
-          ptp_master_receive_packet(handleApplication, pPacket);
-          ptp_slave_receive_packet(handleApplication, pPacket);
-      }
-
+    if(Ethernet_isPtpRxPacket(pPacket))
+    {
+        //
+        // Keep PTP event/general packets on the same path as the TI examples.
+        // Feeding them through lwIP adds extra work in the callback and can
+        // break the back-to-back Sync/FollowUp receive sequence.
+        //
+        ptp_master_receive_packet(handleApplication, pPacket);
+        ptp_slave_receive_packet(handleApplication, pPacket);
+        return Ethernet_getPacketBufferCustom();
+    }
 
     //
-    // This is a placeholder for Application specific handling
-    // We are replenishing the buffer received with another buffer
+    // Non-PTP traffic continues to be handled by lwIP.
     //
-  //  return lwIPEthernetIntHandler(pPacket);
+    temp_eth_pkt = lwIPEthernetIntHandler(pPacket);
 
-      temp_eth_pkt=lwIPEthernetIntHandler(pPacket);
-
-
-      Ethernet_enableRxDMAReception(EMAC_BASE,0);
-
-      return temp_eth_pkt;
+    return temp_eth_pkt;
 }
 
 void Ethernet_releaseTxPacketBufferCustom(
@@ -435,7 +429,7 @@ void Ethernet_init(const unsigned char *mac)
     // Receive packet callback on Receive packet completion interrupt
     //
     pInitCfg->pfcbRxPacket = &Ethernet_receivePacketCallbackCustom;
-    pInitCfg->pfcbGetPacket = &Ethernet_getPacketBuffer;    //custom
+    pInitCfg->pfcbGetPacket = &Ethernet_getPacketBufferCustom;
     pInitCfg->pfcbFreePacket = &Ethernet_releaseTxPacketBufferCustom;
 
     //

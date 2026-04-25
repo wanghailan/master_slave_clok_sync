@@ -94,7 +94,7 @@ typedef struct {
     uint16_t portNumber;
     uint32_t clockUpdateCount;
     Boolean waitingForFollowup;
-    Boolean waitingForDelayResp;
+    volatile Boolean waitingForDelayResp;
     Boolean meanPathDelayValid;
 } PTPSlaveState;
 
@@ -160,6 +160,7 @@ void ptp_slave_init(void)
 
     varPtpConfig = (0U << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
+                   ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;
 

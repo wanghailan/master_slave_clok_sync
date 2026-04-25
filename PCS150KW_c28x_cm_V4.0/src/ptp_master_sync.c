@@ -85,8 +85,8 @@ typedef struct {
     Timestamp delayReqRecvTimestamp;
     uint16_t syncSeqId;
     uint16_t portNumber;
-    Boolean syncTimestampAvailable;
-    Boolean sendingDelayResp;
+    volatile Boolean syncTimestampAvailable;
+    volatile Boolean sendingDelayResp;
     MsgHeader delayReqHeader;
 } PTPMasterState;
 
@@ -123,6 +123,7 @@ static void sendMessage(Octet *msg,
                         PTPMasterState *ptpMasterState,
                         Ethernet_Pkt_Desc *pktDesc);
 
+
 void ptp_master_init(void)
 {
     uint32_t varPtpConfig;
@@ -133,13 +134,14 @@ void ptp_master_init(void)
     varPtpConfig = (0U << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
+                   ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;
 
     subSecondInc = PTP_REF_CLOCK_PERIOD;
     Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
     Ethernet_enableSysTimePTP(EMAC_BASE);
-    Ethernet_setSysTimePTP(EMAC_BASE, 0U, 0U);
+    Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCAU, 0x25a5a5a5U);
 
     Ethernet_setMACAddr(EMAC_BASE,
                         1U,
@@ -187,8 +189,6 @@ void ptp_master_run(void)
 {
     uint32_t timeSec;
     uint32_t timeNanosec;
-    uint32_t timeout;
-
     if(ptpMasterInitialized == false)
     {
         return;
@@ -204,27 +204,23 @@ void ptp_master_run(void)
 
         sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
 
-        timeout = 0U;
-        while((gPtpMasterState.syncTimestampAvailable == FALSE) &&
-              (timeout < PTP_TX_TIMESTAMP_TIMEOUT_MAX))
+        while(gPtpMasterState.syncTimestampAvailable == FALSE)
         {
-            timeout++;
         }
 
-        if(timeout >= PTP_TX_TIMESTAMP_TIMEOUT_MAX)
-        {
-            uint32_t estSec;
-            uint32_t estNs;
-
-            Ethernet_getSysTimePTP(EMAC_BASE, &estSec, &estNs);
-            gPtpMasterState.syncTimestamp.secondsField.lsb = estSec;
-            gPtpMasterState.syncTimestamp.secondsField.msb = 0U;
-            gPtpMasterState.syncTimestamp.nanosecondsField = estNs;
-            gPtpMasterState.syncTimestampAvailable = TRUE;
-        }
+        gPtpMasterState.syncTimestampAvailable = TRUE;
 
         sendMessage((Octet *)gMsgBuf, FOLLOW_UP, &gPtpMasterState, &gPktDesc);
         ptpMasterNextSyncSec = timeSec + 1U;
+
+        //
+        // Avoid re-entering multiple times inside the same second.
+        //
+        do
+        {
+            Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+        }
+        while (timeSec < ptpMasterNextSyncSec);
     }
 }
 
