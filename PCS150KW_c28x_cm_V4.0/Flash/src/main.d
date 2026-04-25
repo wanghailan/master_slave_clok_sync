@@ -155,7 +155,6 @@ src/main.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/W5500/Types.h
 src/main.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/W5500/w5500_conf.h
 src/main.obj: ../src/obj_debug.h
 src/main.obj: ../src/ptp_master_sync.h
-src/main.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h
 src/main.obj: ../src/ptp_slave_sync.h
 
 ../src/main.c:
@@ -467,8 +466,6 @@ D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/W5500/w5500_conf.h:
 ../src/obj_debug.h:
 
 ../src/ptp_master_sync.h:
-
-D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h:
 
 ../src/ptp_slave_sync.h:
 

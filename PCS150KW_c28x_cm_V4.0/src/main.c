@@ -14,8 +14,6 @@
 #include "ptp_slave_sync.h"
 
 
-#define  PTP_MODE_MASTER 1    // 1=Master，0=Slave
-
 uint32_t systickPeriodValue = 125000; //15000000;
 
 extern void sys_check_timeouts(void);
@@ -23,7 +21,13 @@ extern void sys_check_timeouts(void);
 
 #define DEVICE_FLASH_WAITSTATES 2
 
-extern uint8_t g_ptpMode;
+#define PTP_SYNC_ROLE_NONE   0   // Normal
+#define PTP_SYNC_ROLE_MASTER 1   // PTP Master
+#define PTP_SYNC_ROLE_SLAVE  2   // PTP Slave
+
+#ifndef PTP_SYNC_ROLE
+#define PTP_SYNC_ROLE  PTP_SYNC_ROLE_SLAVE
+#endif
 
 
 //*****************************************************************************
@@ -43,12 +47,7 @@ int main(void)
 {
     uint8_t tempData[50];                 //定义的传输Buffer
 
-#if PTP_MODE_MASTER
-    g_ptpMode = 0;   // Master
-#else
-    g_ptpMode = 1;   // Slave
-#endif
-
+    //  ////////////////////////////////////////
     // Initializing the CM. Loading the required functions to SRAM.
     CM_init();
 
@@ -64,23 +63,26 @@ int main(void)
     do{
         DEVICE_DELAY_US(100);
     } while(cpuIpc_flag == 0);
-
-    // Lwip param init
     Lwip_ParamInit();
 
-    // PTP Master/Slave init
-    if (g_ptpMode == 0)
-        ptp_master_init();
-    else
-        ptp_slave_init();
+#if (PTP_SYNC_ROLE == PTP_SYNC_ROLE_MASTER)
+    ptp_master_init();
+#elif (PTP_SYNC_ROLE == PTP_SYNC_ROLE_SLAVE)
+    ptp_slave_init();
+#endif
 
     udpDebug_Init();
     MbTcp1_Init();
     w5500_init();
-
     while (1)
     {
         Drv_Timer_ClockMaintain();
+
+#if (PTP_SYNC_ROLE == PTP_SYNC_ROLE_MASTER)
+        ptp_master_run();
+#elif (PTP_SYNC_ROLE == PTP_SYNC_ROLE_SLAVE)
+        ptp_slave_run();
+#endif
         upDataHoldingCBReg();
 
         if(m_st_TimerFlag.u16_b500ms == 1)
@@ -129,12 +131,6 @@ int main(void)
             flag_ipcRx = 0;
         }
         sys_check_timeouts();
-
-        // PTP Master/Slave process
-        if (g_ptpMode == 0)
-            ptp_master_run();
-        else
-            ptp_slave_run();
     }
 }
 

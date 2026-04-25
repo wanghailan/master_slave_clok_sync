@@ -1,99 +1,154 @@
-/*
- * ptp_master_sync.c
- *
- * TMS320F28388D PTP Master 实现
- *
- *  功能：
- *    1. PTP主时钟初始化
- *    2. 周期性发送Sync消息（捕获t1）
- *    3. 发送FollowUp消息（携带t1）
- *    4. 响应DelayReq消息发送DelayResp（携带t4）
- *    5. 输出PPS信号（通过MAC PPS功能到GPIO47）
- *
- *  Created on: 2026年3月31日
- *      Author: whl
- */
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
+
 #include "ptp_master_sync.h"
-#include "eth_common.h"
 
+#define ONE_BILLION             1000000000UL
+#define PTP_REF_CLOCK_FREQ      200000000UL
+#define PTP_REF_CLOCK_PERIOD    (ONE_BILLION / PTP_REF_CLOCK_FREQ)
 
-#define ETHERNET_MAC_TIMESTAMP_CONTROL_TSCFUPDT     0x00000020U
+#define PACKET_LENGTH           200U
+#define PTP_HEADER_OFFSET       14U
 
-#define ETHERNET_O_MAC_PPS_TARGET_TIME_SECONDS      0x00000704U
-#define ETHERNET_O_MAC_PPS_TARGET_TIME_NANOSECONDS  0x00000708U
-#define ETHERNET_O_MAC_PPS_INTERVAL                 0x0000070CU
-#define ETHERNET_O_MAC_PPS_WIDTH                    0x00000710U
+#define PTP_TWO_STEP            0x02U
+#define PTP_UUID_LENGTH         6U
+#define CLOCK_IDENTITY_LENGTH   8U
+#define FLAG_FIELD_LENGTH       2U
+
+#define SYNC_LENGTH             44U
+#define FOLLOW_UP_LENGTH        44U
+#define DELAY_REQ_LENGTH        44U
+#define DELAY_RESP_LENGTH       54U
+
+#define PTP_SYNC_WINDOW_NS      1000000UL
+#define PTP_TX_TIMESTAMP_TIMEOUT_MAX 2000000UL
 
 extern Ethernet_Handle emac_handle;
-extern uint8_t gMsgBuf[PACKET_LENGTH];
-extern Ethernet_Pkt_Desc gPktDesc;
-extern PTPMasterState gPtpMasterState;
 
-static uint32_t nextSyncSec = 0U;
+typedef enum { FALSE = 0, TRUE } Boolean;
+typedef char Octet;
+typedef signed char Integer8;
+typedef signed int Integer32;
+typedef unsigned char UInteger8;
+typedef unsigned short UInteger16;
+typedef unsigned int UInteger32;
+typedef unsigned char Enumeration4;
+typedef unsigned char UInteger4;
+typedef unsigned char Nibble;
 
+typedef struct {
+    unsigned int lsb;
+    int msb;
+} Integer64;
 
-//
-// Function prototypes used in this example
-//
-static void msgPackHeader(Octet * buf, PTPMasterState *ptpMasterState);
+typedef struct {
+    unsigned int lsb;
+    unsigned short msb;
+} UInteger48;
 
-static void msgPackSync(Octet * buf, PTPMasterState *ptpMasterState);
+typedef struct {
+    UInteger48 secondsField;
+    UInteger32 nanosecondsField;
+} Timestamp;
 
-static void msgPackFollowUp(Octet * buf, PTPMasterState *ptpMasterState);
+typedef struct {
+    Integer32 seconds;
+    Integer32 nanoseconds;
+} TimeInternal;
 
-static void msgPackDelayResp(Octet * buf, PTPMasterState *ptpMasterState);
+typedef Octet ClockIdentity[CLOCK_IDENTITY_LENGTH];
 
+typedef struct {
+    ClockIdentity clockIdentity;
+    UInteger16 portNumber;
+} PortIdentity;
+
+typedef struct {
+    Nibble transportSpecific;
+    Enumeration4 messageType;
+    UInteger4 versionPTP;
+    UInteger16 messageLength;
+    UInteger8 domainNumber;
+    Octet flagField[FLAG_FIELD_LENGTH];
+    Integer64 correctionfield;
+    PortIdentity sourcePortIdentity;
+    UInteger16 sequenceId;
+    UInteger8 controlField;
+    Integer8 logMessageInterval;
+} MsgHeader;
+
+typedef struct {
+    PortIdentity portIdentity;
+    Octet port_uuid_field[PTP_UUID_LENGTH];
+    Timestamp syncTimestamp;
+    Timestamp delayReqRecvTimestamp;
+    uint16_t syncSeqId;
+    uint16_t portNumber;
+    Boolean syncTimestampAvailable;
+    Boolean sendingDelayResp;
+    MsgHeader delayReqHeader;
+} PTPMasterState;
+
+enum {
+    SYNC = 0x0,
+    DELAY_REQ = 0x1,
+    FOLLOW_UP = 0x8,
+    DELAY_RESP = 0x9,
+};
+
+#define PP_HTONS(x) ((uint16_t)((((x) & (uint16_t)0x00ffU) << 8) | \
+                     (((x) & (uint16_t)0xff00U) >> 8)))
+#define PP_HTONL(x) ((((x) & (uint32_t)0x000000ffUL) << 24) | \
+                     (((x) & (uint32_t)0x0000ff00UL) <<  8) | \
+                     (((x) & (uint32_t)0x00ff0000UL) >>  8) | \
+                     (((x) & (uint32_t)0xff000000UL) >> 24))
+#define flip16(x) PP_HTONS(x)
+#define flip32(x) PP_HTONL(x)
+
+static PTPMasterState gPtpMasterState = {0};
+static uint8_t gMsgBuf[PACKET_LENGTH] = {0};
+static Ethernet_Pkt_Desc gPktDesc;
+static bool ptpMasterInitialized = false;
+static uint32_t ptpMasterNextSyncSec = 0U;
+
+static void msgPackHeader(Octet *buf, PTPMasterState *ptpMasterState);
+static void msgPackSync(Octet *buf, PTPMasterState *ptpMasterState);
+static void msgPackFollowUp(Octet *buf, PTPMasterState *ptpMasterState);
+static void msgPackDelayResp(Octet *buf, PTPMasterState *ptpMasterState);
+static void msgUnpackHeader(Octet *buf, MsgHeader *header);
 static void InitConstants(PTPMasterState *ptpMasterState);
-
 static void sendMessage(Octet *msg,
                         uint32_t messageType,
                         PTPMasterState *ptpMasterState,
                         Ethernet_Pkt_Desc *pktDesc);
 
-
-/*=============== PTP Master API ==================*/
-void ptp_master_init()
+void ptp_master_init(void)
 {
-    uint32_t i;
-    uint32_t varPtpConfig = 0;
+    uint32_t varPtpConfig;
     uint32_t timeSec;
     uint32_t timeNanosec;
     float subSecondInc;
 
-    // ptp configuration time control register
-    varPtpConfig = (0 << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
-                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |   // Timestamp Digital or Binary Rollover
-                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |   // Master or Slave mode
-                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
-                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
-                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;
+    varPtpConfig = (0U << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
+                   ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
+                   ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
+                   ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
+                   ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;
 
-    //
-    // Subsecond incrSement is added to the systime counter every ptp clock tick
-    // hence for Digital rollover, it is simply the time period of the clock tick.
-    //
     subSecondInc = PTP_REF_CLOCK_PERIOD;
-
     Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
     Ethernet_enableSysTimePTP(EMAC_BASE);
+    Ethernet_setSysTimePTP(EMAC_BASE, 0U, 0U);
 
-    //
-    // Start the system with a random value.
-    //
-    Ethernet_setSysTimePTP(EMAC_BASE, 0, 0);
-
-    //
-    // We need to program this standard multicast address so that this device
-    // identifies PTP over Ethernet packets correctly. "01:1B:19:00:00:00"
-    //
     Ethernet_setMACAddr(EMAC_BASE,
-                        1,
-                        0x00000000,
-                        0x00191B01,
+                        1U,
+                        0x00000000U,
+                        0x00191B01U,
                         ETHERNET_CHANNEL_0);
 
-    // set Digital Rollover mode
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |= ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |=
+            ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
 
     while((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) &
            ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR) == 0U)
@@ -102,114 +157,223 @@ void ptp_master_init()
                 ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
     }
 
-    //
-    // Configure PPS0 as fixed 1Hz waveform output.
-    // Do NOT use PPS0 target-time pulse for Sync scheduling.
-    //
     HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = 0x00U;
 
-    // Set Purlse mode
     Ethernet_selectTargetInterruptOrPulsePPS(
                         EMAC_BASE,
                         ETHERNET_MAC_PPS_OUT_INSTANCE_0,
                         ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
 
-    // Set interval and purlse width
     Ethernet_setPeriodPPS(EMAC_BASE,
                           ETHERNET_MAC_PPS_OUT_INSTANCE_0,
                           PTP_REF_CLOCK_FREQ / 100U,
                           PTP_REF_CLOCK_FREQ - 1U);
 
-    // We need to set a standard defined Multicast address : 01:1B:19:00:00:00
-    // as the Destination address in the ethernet frame and that is how the
-    // receiver will recognize it as a valid PTP over Ethernet packet.
-    //
-    i=0; *((uint32_t *)gMsgBuf + i) = 0x00191B01;
-    i++; *((uint32_t *)gMsgBuf + i)  = 0xF7880000;
+    Ethernet_setFixedModePPS(EMAC_BASE,
+                             ETHERNET_MAC_PPS_CONTROL_PPSCTRL_PPS_OUTPUT_1HZ);
 
+    *((uint32_t *)gMsgBuf + 0U) = 0x00191B01U;
+    *((uint32_t *)gMsgBuf + 1U) = 0xF7880000U;
+
+    memset(&gPtpMasterState, 0, sizeof(gPtpMasterState));
     InitConstants(&gPtpMasterState);
 
     Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
-    nextSyncSec = timeSec + 1U;
+    ptpMasterNextSyncSec = timeSec + 1U;
+    ptpMasterInitialized = true;
 }
 
-void ptp_master_run()
+void ptp_master_run(void)
 {
-    uint32_t timeSec, timeNanosec;
-    const uint32_t TIMEOUT_MAX = 2000000U;
-    uint32_t timeout = 0U;
+    uint32_t timeSec;
+    uint32_t timeNanosec;
+    uint32_t timeout;
+
+    if(ptpMasterInitialized == false)
+    {
+        return;
+    }
 
     Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
 
-    //
-    // Send Sync/Follow_Up once each second when system time
-    // crosses the integer-second boundary.
-    //
-    if ((timeSec > nextSyncSec) || ((timeSec == nextSyncSec) && (timeNanosec < 1000000U)))
+    if((timeSec > ptpMasterNextSyncSec) ||
+       ((timeSec == ptpMasterNextSyncSec) &&
+        (timeNanosec < PTP_SYNC_WINDOW_NS)))
     {
-        //
-        // Save the state. We want to capture the timestamp of the next
-        // SYNC packet that is being sent.
-        //
         gPtpMasterState.syncTimestampAvailable = FALSE;
 
-        //
-        // Send out the SYNC packet.
-        //
         sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
 
-        //
-        // Wait till the latest sync timestamp is captured.
-        //
         timeout = 0U;
         while((gPtpMasterState.syncTimestampAvailable == FALSE) &&
-              (timeout < TIMEOUT_MAX))
+              (timeout < PTP_TX_TIMESTAMP_TIMEOUT_MAX))
         {
             timeout++;
         }
 
-        //
-        // Fallback if hardware timestamp callback is delayed.
-        //
-        if(timeout >= TIMEOUT_MAX)
+        if(timeout >= PTP_TX_TIMESTAMP_TIMEOUT_MAX)
         {
-            uint32_t estSec, estNs;
+            uint32_t estSec;
+            uint32_t estNs;
+
             Ethernet_getSysTimePTP(EMAC_BASE, &estSec, &estNs);
             gPtpMasterState.syncTimestamp.secondsField.lsb = estSec;
-            gPtpMasterState.syncTimestamp.secondsField.msb = 0;
+            gPtpMasterState.syncTimestamp.secondsField.msb = 0U;
             gPtpMasterState.syncTimestamp.nanosecondsField = estNs;
             gPtpMasterState.syncTimestampAvailable = TRUE;
         }
 
-        //
-        // Since the timestamp for the last SYNC packet has been
-        // captured, send out the associated FOLLOW_UP packet.
-        //
         sendMessage((Octet *)gMsgBuf, FOLLOW_UP, &gPtpMasterState, &gPktDesc);
-
-        //
-        // Schedule next second.
-        //
-        nextSyncSec = timeSec + 1U;
-
-        //
-        // Avoid re-entering multiple times inside the same second.
-        //
-        do
-        {
-            Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
-        }
-        while(timeSec < nextSyncSec);
+        ptpMasterNextSyncSec = timeSec + 1U;
     }
 }
 
+void ptp_master_receive_packet(Ethernet_Handle handleApplication,
+                               Ethernet_Pkt_Desc *pPacket)
+{
+    (void)handleApplication;
+
+    if((ptpMasterInitialized == false) || (pPacket == 0))
+    {
+        return;
+    }
+
+    msgUnpackHeader((Octet *)(pPacket->dataBuffer + pPacket->dataOffset +
+                    PTP_HEADER_OFFSET),
+                    &gPtpMasterState.delayReqHeader);
+
+    if(gPtpMasterState.delayReqHeader.messageType == DELAY_REQ)
+    {
+        gPtpMasterState.delayReqRecvTimestamp.nanosecondsField =
+                pPacket->timeStampLow;
+        gPtpMasterState.delayReqRecvTimestamp.secondsField.lsb =
+                pPacket->timeStampHigh;
+        gPtpMasterState.delayReqRecvTimestamp.secondsField.msb = 0U;
+
+        gPtpMasterState.sendingDelayResp = TRUE;
+        sendMessage((Octet *)gMsgBuf, DELAY_RESP, &gPtpMasterState, &gPktDesc);
+    }
+}
+
+bool ptp_master_release_tx_packet(Ethernet_Handle handleApplication,
+                                  Ethernet_Pkt_Desc *pPacket)
+{
+    (void)handleApplication;
+
+    if((ptpMasterInitialized == false) || (pPacket == 0) ||
+       (pPacket->dataBuffer != gMsgBuf))
+    {
+        return false;
+    }
+
+    if(gPtpMasterState.sendingDelayResp == TRUE)
+    {
+        gPtpMasterState.sendingDelayResp = FALSE;
+    }
+    else if(gPtpMasterState.syncTimestampAvailable == FALSE)
+    {
+        gPtpMasterState.syncTimestamp.nanosecondsField = pPacket->timeStampLow;
+        gPtpMasterState.syncTimestamp.secondsField.lsb = pPacket->timeStampHigh;
+        gPtpMasterState.syncTimestamp.secondsField.msb = 0U;
+        gPtpMasterState.syncTimestampAvailable = TRUE;
+    }
+
+    return true;
+}
+
+static void msgPackHeader(Octet *buf, PTPMasterState *ptpMasterState)
+{
+    *(UInteger8 *)(buf + 0U) = 0x80U;
+    *(UInteger4 *)(buf + 1U) = 0x2U;
+    *(UInteger8 *)(buf + 4U) = 0U;
+    *(UInteger8 *)(buf + 6U) = PTP_TWO_STEP;
+    memset((buf + 8U), 0, 8U);
+    memcpy((buf + 20U), ptpMasterState->portIdentity.clockIdentity,
+           CLOCK_IDENTITY_LENGTH);
+    *(UInteger16 *)(buf + 28U) =
+            flip16(ptpMasterState->portIdentity.portNumber);
+    *(UInteger8 *)(buf + 33U) = 0x7FU;
+}
+
+static void msgPackSync(Octet *buf, PTPMasterState *ptpMasterState)
+{
+    msgPackHeader(buf, ptpMasterState);
+    *(char *)(buf + 0U) = (*(char *)(buf + 0U) & 0xF0) | 0x00;
+    *(UInteger16 *)(buf + 2U) = flip16(SYNC_LENGTH);
+    *(UInteger16 *)(buf + 30U) = flip16(ptpMasterState->syncSeqId);
+    *(UInteger8 *)(buf + 32U) = 0x00U;
+    *(Integer8 *)(buf + 33U) = 0;
+}
+
+static void msgPackFollowUp(Octet *buf, PTPMasterState *ptpMasterState)
+{
+    msgPackHeader(buf, ptpMasterState);
+    *(char *)(buf + 0U) = (*(char *)(buf + 0U) & 0xF0) | 0x08;
+    *(UInteger16 *)(buf + 2U) = flip16(FOLLOW_UP_LENGTH);
+    *(UInteger16 *)(buf + 30U) = flip16(ptpMasterState->syncSeqId);
+    *(UInteger8 *)(buf + 32U) = 0x02U;
+    *(Integer8 *)(buf + 33U) = 0;
+    *(UInteger16 *)(buf + 34U) =
+            flip16(ptpMasterState->syncTimestamp.secondsField.msb);
+    *(UInteger32 *)(buf + 36U) =
+            flip32(ptpMasterState->syncTimestamp.secondsField.lsb);
+    *(UInteger32 *)(buf + 40U) =
+            flip32(ptpMasterState->syncTimestamp.nanosecondsField);
+}
+
+static void msgPackDelayResp(Octet *buf, PTPMasterState *ptpMasterState)
+{
+    msgPackHeader(buf, ptpMasterState);
+    *(char *)(buf + 0U) = (*(char *)(buf + 0U) & 0xF0) | 0x09;
+    *(UInteger16 *)(buf + 2U) = flip16(DELAY_RESP_LENGTH);
+    *(UInteger8 *)(buf + 4U) = ptpMasterState->delayReqHeader.domainNumber;
+    *(UInteger16 *)(buf + 30U) =
+            flip16(ptpMasterState->delayReqHeader.sequenceId);
+    *(UInteger8 *)(buf + 32U) = 0x03U;
+    *(Integer8 *)(buf + 33U) = 0;
+    *(UInteger16 *)(buf + 34U) =
+            flip16(ptpMasterState->delayReqRecvTimestamp.secondsField.msb);
+    *(UInteger32 *)(buf + 36U) =
+            flip32(ptpMasterState->delayReqRecvTimestamp.secondsField.lsb);
+    *(UInteger32 *)(buf + 40U) =
+            flip32(ptpMasterState->delayReqRecvTimestamp.nanosecondsField);
+    memcpy((buf + 44U),
+           ptpMasterState->delayReqHeader.sourcePortIdentity.clockIdentity,
+           CLOCK_IDENTITY_LENGTH);
+    *(UInteger16 *)(buf + 52U) =
+            flip16(ptpMasterState->delayReqHeader.sourcePortIdentity.portNumber);
+}
+
+static void msgUnpackHeader(Octet *buf, MsgHeader *header)
+{
+    header->transportSpecific = (*(Nibble *)(buf + 0U)) >> 4;
+    header->messageType = (*(Enumeration4 *)(buf + 0U)) & 0x0F;
+    header->versionPTP = (*(UInteger4 *)(buf + 1U)) & 0x0F;
+    header->messageLength = flip16(*(UInteger16 *)(buf + 2U));
+    header->domainNumber = (*(UInteger8 *)(buf + 4U));
+    memcpy(header->flagField, (buf + 6U), FLAG_FIELD_LENGTH);
+    memcpy(&header->correctionfield.msb, (buf + 8U), 4U);
+    memcpy(&header->correctionfield.lsb, (buf + 12U), 4U);
+    header->correctionfield.msb = flip32(header->correctionfield.msb);
+    header->correctionfield.lsb = flip32(header->correctionfield.lsb);
+    memcpy(header->sourcePortIdentity.clockIdentity, (buf + 20U),
+           CLOCK_IDENTITY_LENGTH);
+    header->sourcePortIdentity.portNumber =
+            flip16(*(UInteger16 *)(buf + 28U));
+    header->sequenceId = flip16(*(UInteger16 *)(buf + 30U));
+    header->controlField = (*(UInteger8 *)(buf + 32U));
+    header->logMessageInterval = (*(Integer8 *)(buf + 33U));
+}
 
 static void InitConstants(PTPMasterState *ptpMasterState)
 {
-    uint32_t mac_low,mac_high, i, j;
+    uint32_t mac_low;
+    uint32_t mac_high;
+    uint32_t i;
+    uint32_t j;
     uint8_t *pucTemp;
 
-    Ethernet_getMACAddr(EMAC_BASE, 0, &mac_high, &mac_low);
+    Ethernet_getMACAddr(EMAC_BASE, 0U, &mac_high, &mac_low);
 
     pucTemp = (uint8_t *)&mac_low;
     ptpMasterState->port_uuid_field[0] = pucTemp[0];
@@ -221,141 +385,74 @@ static void InitConstants(PTPMasterState *ptpMasterState)
     ptpMasterState->port_uuid_field[4] = pucTemp[0];
     ptpMasterState->port_uuid_field[5] = pucTemp[1];
 
-    //
-    // Init global constants.
-    //
-    for (i = 0, j = 0; i < CLOCK_IDENTITY_LENGTH; i++)
+    for(i = 0U, j = 0U; i < CLOCK_IDENTITY_LENGTH; i++)
     {
-       if (i == 3) ptpMasterState->portIdentity.clockIdentity[i] = 0xFF;
-       else if (i == 4) ptpMasterState->portIdentity.clockIdentity[i] = 0xFE;
-       else
-       {
-           ptpMasterState->portIdentity.clockIdentity[i] =
-                   ptpMasterState->port_uuid_field[j];
-           j++;
-       }
+        if(i == 3U)
+        {
+            ptpMasterState->portIdentity.clockIdentity[i] = 0xFF;
+        }
+        else if(i == 4U)
+        {
+            ptpMasterState->portIdentity.clockIdentity[i] = 0xFE;
+        }
+        else
+        {
+            ptpMasterState->portIdentity.clockIdentity[i] =
+                    ptpMasterState->port_uuid_field[j];
+            j++;
+        }
     }
 
     ptpMasterState->portIdentity.portNumber = 1U;
 }
 
-//
-// Pack header message into OUT buffer of ptpClock
-//
-static void msgPackHeader(Octet *buf, PTPMasterState *ptpMasterState)
-{
-    *(UInteger8 *)(buf + 0) = 0x80;
-    *(UInteger4 *)(buf + 1) = 0x02;
-    *(UInteger8 *)(buf + 4) = 0;
-    *(UInteger8 *)(buf + 6) = PTP_TWO_STEP ? 0x02 : 0;
-    *(UInteger8 *)(buf + 7) = 0;
-    memset((buf + 8), 0, 8);
-
-    memcpy((buf + 20), ptpMasterState->portIdentity.clockIdentity, CLOCK_IDENTITY_LENGTH);
-    *(UInteger16 *)(buf + 28) = flip16(ptpMasterState->portIdentity.portNumber);
-    *(Integer8 *)(buf + 33) = 0x7F;
-}
-
-//
-// Pack SYNC message into OUT buffer of ptpClock
-//
-static void msgPackSync(Octet *buf, PTPMasterState *ptpMasterState)
-{
-    msgPackHeader(buf, ptpMasterState);
-    *(char *)(buf + 0) = (*(char *)(buf + 0) & 0xF0) | 0x00;
-    *(UInteger16 *)(buf + 2) = flip16(SYNC_LENGTH);
-    *(UInteger16 *)(buf + 30) = flip16(ptpMasterState->syncSeqId);
-    *(UInteger8 *)(buf + 32) = 0x00;
-    *(Integer8 *)(buf + 33) = 0;
-
-    if (!PTP_TWO_STEP) {
-        *(UInteger16 *)(buf + 34) = flip16(ptpMasterState->syncTimestamp.secondsField.msb);
-        *(UInteger32 *)(buf + 36) = flip32(ptpMasterState->syncTimestamp.secondsField.lsb);
-        *(UInteger32 *)(buf + 40) = flip32(ptpMasterState->syncTimestamp.nanosecondsField);
-    }
-}
-
-//
-// pack Follow_up message into OUT buffer of ptpClock
-//
-static void msgPackFollowUp(Octet *buf, PTPMasterState *ptpMasterState)
-{
-    msgPackHeader(buf, ptpMasterState);
-    *(char *)(buf + 0) = (*(char *)(buf + 0) & 0xF0) | 0x08;
-    *(UInteger16 *)(buf + 2) = flip16(FOLLOW_UP_LENGTH);
-    *(UInteger16 *)(buf + 30) = flip16(ptpMasterState->syncSeqId);
-    *(UInteger8 *)(buf + 32) = 0x02;
-    *(Integer8 *)(buf + 33) = 0;
-
-    *(UInteger16 *)(buf + 34) = flip16(ptpMasterState->syncTimestamp.secondsField.msb);
-    *(UInteger32 *)(buf + 36) = flip32(ptpMasterState->syncTimestamp.secondsField.lsb);
-    *(UInteger32 *)(buf + 40) = flip32(ptpMasterState->syncTimestamp.nanosecondsField);
-}
-
-//
-// pack delayResp message into OUT buffer of ptpClock
-//
-static void msgPackDelayResp(Octet *buf, PTPMasterState *ptpMasterState)
-{
-    msgPackHeader(buf, ptpMasterState);
-    *(char *)(buf + 0) = (*(char *)(buf + 0) & 0xF0) | 0x09;
-    *(UInteger16 *)(buf + 2) = flip16(DELAY_RESP_LENGTH);
-    *(UInteger8 *)(buf + 4) = ptpMasterState->delayReqHeader.domainNumber;
-    *(UInteger16 *)(buf + 30) = flip16(ptpMasterState->delayReqHeader.sequenceId);
-    *(UInteger8 *)(buf + 32) = 0x03;
-    *(Integer8 *)(buf + 33) = 0;
-
-    *(UInteger16 *)(buf + 34) = flip16(ptpMasterState->delayReqRecvTimestamp.secondsField.msb);
-    *(UInteger32 *)(buf + 36) = flip32(ptpMasterState->delayReqRecvTimestamp.secondsField.lsb);
-    *(UInteger32 *)(buf + 40) = flip32(ptpMasterState->delayReqRecvTimestamp.nanosecondsField);
-
-    memcpy((buf + 44), ptpMasterState->delayReqHeader.sourcePortIdentity.clockIdentity, CLOCK_IDENTITY_LENGTH);
-    *(UInteger16 *)(buf + 52) = flip16(ptpMasterState->delayReqHeader.sourcePortIdentity.portNumber);
-}
-
 static void sendMessage(Octet *msg,
                         uint32_t messageType,
-                        PTPMasterState * ptpMasterState,
+                        PTPMasterState *ptpMasterState,
                         Ethernet_Pkt_Desc *pktDesc)
 {
-    uint32_t pktLen;
+    uint32_t pktLen = 0U;
 
     memset(pktDesc, 0, sizeof(Ethernet_Pkt_Desc));
+
     pktDesc->bufferLength = PACKET_LENGTH;
-    pktDesc->dataOffset = 0;
+    pktDesc->dataOffset = 0U;
     pktDesc->dataBuffer = (uint8_t *)msg;
-    pktDesc->nextPacketDesc = 0;
+    pktDesc->nextPacketDesc = 0U;
     pktDesc->flags = ETHERNET_PKT_FLAG_SOP |
                      ETHERNET_PKT_FLAG_EOP |
                      ETHERNET_PKT_FLAG_SA_INS |
                      ETHERNET_PKT_FLAG_CRC_PAD_INS;
     pktDesc->pktChannel = ETHERNET_DMA_CHANNEL_NUM_0;
-    pktDesc->numPktFrags = 1;
+    pktDesc->numPktFrags = 1U;
 
-    memset(msg + 8, 0, PACKET_LENGTH - 8);
+    memset(msg + 8U, 0, PACKET_LENGTH - 8U);
 
-    switch(messageType) {
-        case SYNC:
-            pktDesc->flags |= ETHERNET_PKT_FLAG_TTSE;
-            msgPackSync(msg + 8, ptpMasterState);
-            pktLen = SYNC_LENGTH;
-            break;
-        case FOLLOW_UP:
-            msgPackFollowUp(msg + 8, ptpMasterState);
-            pktLen = FOLLOW_UP_LENGTH;
-            ptpMasterState->syncSeqId++;
-            break;
-        case DELAY_RESP:
-            msgPackDelayResp(msg + 8, ptpMasterState);
-            pktLen = DELAY_RESP_LENGTH;
-            break;
-        default:
-            return;
+    switch(messageType)
+    {
+    case SYNC:
+        pktDesc->flags |= ETHERNET_PKT_FLAG_TTSE;
+        msgPackSync(msg + 8U, ptpMasterState);
+        pktLen = SYNC_LENGTH;
+        break;
+
+    case FOLLOW_UP:
+        msgPackFollowUp(msg + 8U, ptpMasterState);
+        pktLen = FOLLOW_UP_LENGTH;
+        gPtpMasterState.syncSeqId++;
+        break;
+
+    case DELAY_RESP:
+        msgPackDelayResp(msg + 8U, ptpMasterState);
+        pktLen = DELAY_RESP_LENGTH;
+        break;
+
+    default:
+        return;
     }
 
-    pktDesc->pktLength = pktLen + 6 + 2;
+    pktDesc->pktLength = pktLen + 6U + 2U;
     pktDesc->validLength = pktDesc->pktLength;
 
     Ethernet_sendPacket(emac_handle, pktDesc);
 }
-

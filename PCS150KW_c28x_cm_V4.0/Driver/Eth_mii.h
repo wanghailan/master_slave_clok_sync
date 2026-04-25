@@ -12,6 +12,4 @@ void Lwip_ParamInit(void);
 void Ethernet_init(const unsigned char *mac);
 void lwIPHostTimerHandler(void);
 
-extern uint8_t g_ptpMode;
-
 #endif /* SRC_ETH_MII_H_ */

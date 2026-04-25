@@ -5,12 +5,13 @@
  *      Author: guowei
  */
 
+#include <stdbool.h>
+
 #include "driverlib_cm/ethernet.h"
 #include "lwipopts.h"
 #include "bsp.h"
 #include "utils/lwiplib.h"
 #include "lwipopts.h"
-#include "eth_common.h"
 
 #define ETHERNET_NO_OF_RX_PACKETS   2U
 #define ETHERNET_MAX_PACKET_LENGTH 1538U
@@ -21,9 +22,6 @@
 
 Ethernet_Handle emac_handle;
 Ethernet_InitConfig *pInitCfg;
-
-PTPMasterState gPtpMasterState = {0};
-PTPSlaveState gPtpSlaveState = {0};
 
 uint32_t Ethernet_numRxCallbackCustom = 0;
 uint32_t releaseTxCount = 0;
@@ -39,30 +37,6 @@ uint8_t Ethernet_rxBuffer[ETHERNET_NO_OF_RX_PACKETS *
 
 uint32_t sendPacketFailedCount = 0;
 
-uint8_t g_ptpMode;
-uint8_t delayReqMsg[PACKET_LENGTH] = {0};
-uint8_t gMsgBuf[PACKET_LENGTH] = {0};
-Ethernet_Pkt_Desc gPktDesc;
-
-
-#define ETHERNET_DEBUG
-#ifdef ETHERNET_DEBUG
-volatile uint32_t debug_tx_callback_cnt = 0;      // 发送回调次数
-volatile uint32_t debug_delayreq_tx_cnt = 0;      // DelayReq发送次数
-volatile uint32_t debug_delayresp_rx_cnt = 0;     // DelayResp接收次数
-volatile uint8_t  debug_last_msg_type = 0;        // 最后发送的消息类型
-volatile uint16_t debug_delayreq_seqid = 0;       // DelayReq的sequenceId
-
-volatile TimeInternal debug_t1;                   // 主机发送Sync时间
-volatile TimeInternal debug_t2;                   // 从机接收Sync时间
-volatile TimeInternal debug_t3;                   // 从机发送DelayReq时间
-volatile TimeInternal debug_t4;                   // 主机接收DelayReq时间
-volatile TimeInternal debug_delayMS;              // t2 - t1
-volatile TimeInternal debug_delaySM;              // t4 - t3;
-volatile TimeInternal debug_meanPathDelay;        // 路径延迟时间
-#endif
-
-
 //uint32_t IPAddr =  0xC0A80004; // 0xC0A80004; //192.168.0.4
 //uint32_t NetMask = 0xFFFFFF00;
 //uint32_t GWAddr = 0x00000000;
@@ -71,32 +45,35 @@ volatile TimeInternal debug_meanPathDelay;        // 路径延迟时间
 extern uint32_t Ethernet_numGetPacketBufferCallback;
 extern Ethernet_Device Ethernet_device_struct;
 
-
 extern Ethernet_Pkt_Desc*
 lwIPEthernetIntHandler(Ethernet_Pkt_Desc *pPacket);
+extern void ptp_master_receive_packet(Ethernet_Handle handleApplication,
+                                      Ethernet_Pkt_Desc *pPacket);
+extern bool ptp_master_release_tx_packet(Ethernet_Handle handleApplication,
+                                         Ethernet_Pkt_Desc *pPacket);
+extern void ptp_slave_receive_packet(Ethernet_Handle handleApplication,
+                                     Ethernet_Pkt_Desc *pPacket);
+extern bool ptp_slave_release_tx_packet(Ethernet_Handle handleApplication,
+                                        Ethernet_Pkt_Desc *pPacket);
 
-//
-// Function prototypes used in this example
-//
-static void msgPackHeader(Octet * buf, void *ptpState);
-static void msgPackSync(Octet * buf, void *ptpState);
-static void msgPackFollowUp(Octet * buf, void *ptpState);
-static void msgPackDelayResp(Octet * buf, void *ptpState);
-static void msgUnpackHeader(Octet * buf, MsgHeader * header);
-static void msgPackDelayReq(Octet * buf, void *ptpState);
-static void sendMessage(Octet *msg, uint32_t messageType, void *ptpState, Ethernet_Pkt_Desc *pktDesc);
+#define ETHERNET_TYPE_PTP_HIGH 0x88U
+#define ETHERNET_TYPE_PTP_LOW  0xF7U
+#define ETHERNET_TYPE_OFFSET   12U
 
-static void fromInternalTime(TimeInternal * internal, Timestamp * external);
-static void normalizeTime(TimeInternal * r);
-static void subTime(TimeInternal * r, const TimeInternal * x, const TimeInternal * y);
-static void addTime(TimeInternal * r, const TimeInternal * x, const TimeInternal * y);
-static void div2Time(TimeInternal *r);
-static void toInternalTime(TimeInternal * internal, Timestamp * external);
-static void getTime(TimeInternal *time);
-static void setTime(TimeInternal *time);
-static void updateClock(void);
+static bool Ethernet_isPtpRxPacket(const Ethernet_Pkt_Desc *pPacket)
+{
+    const uint8_t *data;
 
+    if((pPacket == 0) || (pPacket->dataBuffer == 0) ||
+       (pPacket->pktLength < (ETHERNET_TYPE_OFFSET + 2U)))
+    {
+        return false;
+    }
 
+    data = pPacket->dataBuffer + pPacket->dataOffset;
+    return ((data[ETHERNET_TYPE_OFFSET] == ETHERNET_TYPE_PTP_HIGH) &&
+            (data[ETHERNET_TYPE_OFFSET + 1U] == ETHERNET_TYPE_PTP_LOW));
+}
 //*****************************************************************************
 //
 //  This function is a callback function called by the example to
@@ -171,13 +148,21 @@ Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackCustom(
     Ethernet_numRxCallbackCustom++;
 #endif
 
+
+
       Ethernet_disableRxDMAReception(EMAC_BASE,0);
+      if(Ethernet_isPtpRxPacket(pPacket))
+      {
+          ptp_master_receive_packet(handleApplication, pPacket);
+          ptp_slave_receive_packet(handleApplication, pPacket);
+      }
+
 
     //
     // This is a placeholder for Application specific handling
     // We are replenishing the buffer received with another buffer
     //
-    // return lwIPEthernetIntHandler(pPacket);
+  //  return lwIPEthernetIntHandler(pPacket);
 
       temp_eth_pkt=lwIPEthernetIntHandler(pPacket);
 
@@ -191,6 +176,14 @@ void Ethernet_releaseTxPacketBufferCustom(
         Ethernet_Handle handleApplication,
         Ethernet_Pkt_Desc *pPacket)
 {
+    if(ptp_master_release_tx_packet(handleApplication, pPacket) ||
+       ptp_slave_release_tx_packet(handleApplication, pPacket))
+    {
+#ifdef ETHERNET_DEBUG
+        releaseTxCount++;
+#endif
+        return;
+    }
     //
     // Once the packet is sent, reuse the packet memory to avoid
     // memory leaks. Call this interrupt handler function which will take care
@@ -254,318 +247,6 @@ void Ethernet_clearMACConfigurationCustom(uint32_t base, uint32_t flags)
     HWREG(base + ETHERNET_O_MAC_CONFIGURATION) &= ~flags;
 
 }
-
-// PTP Release TX PackerBuffer
-void Ethernet_releaseTxPacketBufferPTP(
-        Ethernet_Handle handleApplication,
-        Ethernet_Pkt_Desc *pPacket)
-{
-    uint8_t *data;
-    uint8_t msgType;
-    if (pPacket == NULL)
-        return;
-
-    if (g_ptpMode == 0)  // Master mode
-    {
-        // capture the timestamp for the SYNC packet only
-        if (gPtpMasterState.sendingDelayResp == TRUE)
-        {
-            gPtpMasterState.sendingDelayResp = FALSE;
-        }
-        else if (gPtpMasterState.syncTimestampAvailable == FALSE)
-        {
-            gPtpMasterState.syncTimestamp.nanosecondsField = pPacket->timeStampLow;
-            gPtpMasterState.syncTimestamp.secondsField.lsb = pPacket->timeStampHigh;
-            gPtpMasterState.syncTimestamp.secondsField.msb = 0;
-
-            gPtpMasterState.syncTimestampAvailable = TRUE;
-        }
-    }
-    else  // Slave mode
-    {
-        uint8_t *data = pPacket->dataBuffer + pPacket->dataOffset;
-        uint8_t msgType = data[8] & 0x0F;
-
-        if (msgType == DELAY_REQ)  // 0x01
-        {
-            gPtpSlaveState.delayReqSentTimestamp.nanosecondsField = pPacket->timeStampLow;
-            gPtpSlaveState.delayReqSentTimestamp.secondsField.lsb = pPacket->timeStampHigh;
-            gPtpSlaveState.delayReqSentTimestamp.secondsField.msb = 0;
-
-            gPtpSlaveState.waitingForDelayResp = TRUE;
-        }
-
-#ifdef ETHERNET_DEBUG
-    debug_tx_callback_cnt++;
-    if (msgType == DELAY_REQ)  // 0x01
-    {
-        debug_delayreq_tx_cnt++;
-        debug_delayreq_seqid = gPtpSlaveState.delayReqSeqId;
-    }
-    debug_last_msg_type = msgType;
-#endif
-    }
-
-    // Increment the book-keeping counter.
-#ifdef ETHERNET_DEBUG
-    releaseTxCount++;
-#endif
-}
-
-// PTP Receive message callback func
-Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackPTP(
-        Ethernet_Handle handleApplication,
-        Ethernet_Pkt_Desc *pPacket)
-{
-    uint8_t *data = pPacket->dataBuffer;
-
-    if (pPacket == NULL)
-    {
-        return;
-    }
-
-    if (g_ptpMode == 0)  // Master mode
-    {
-        msgUnpackHeader((Octet*)(data + PTP_HEADER_OFFSET), &gPtpMasterState.delayReqHeader);
-        switch(gPtpMasterState.delayReqHeader.messageType)
-        {
-        case DELAY_REQ:
-            gPtpMasterState.delayReqRecvTimestamp.nanosecondsField =
-                    pPacket->timeStampLow;
-            gPtpMasterState.delayReqRecvTimestamp.secondsField.lsb =
-                    pPacket->timeStampHigh;
-            gPtpMasterState.delayReqRecvTimestamp.secondsField.msb = 0;
-
-            gPtpMasterState.sendingDelayResp = TRUE;
-            sendMessage((Octet *)gMsgBuf, DELAY_RESP, &gPtpMasterState, &gPktDesc);
-            break;
-        default:
-            break;
-        }
-    }
-    else  // Slave mode
-    {
-        MsgHeader header;
-        TimeInternal recvTime;
-        TimeInternal sendTime;
-        uint32_t i;
-
-        msgUnpackHeader((Octet*)(data + PTP_HEADER_OFFSET), &header);
-
-        switch(header.messageType)
-        {
-        case SYNC:
-            gPtpSlaveState.syncRecvTimestamp.nanosecondsField =
-                    pPacket->timeStampLow;
-            gPtpSlaveState.syncRecvTimestamp.secondsField.lsb =
-                    pPacket->timeStampHigh;
-            gPtpSlaveState.syncRecvTimestamp.secondsField.msb = 0;
-
-            gPtpSlaveState.lastSyncSeqId = header.sequenceId;
-            break;
-        case FOLLOW_UP:  // Retrieve Sync origin timestamp t1
-            if (header.sequenceId == gPtpSlaveState.lastSyncSeqId)
-            {
-                gPtpSlaveState.syncOriginTimestamp.secondsField.msb =
-                    flip16(*(UInteger16 *) (pPacket->dataBuffer + PTP_HEADER_OFFSET + 34 ));
-                gPtpSlaveState.syncOriginTimestamp.secondsField.lsb =
-                    flip32(*(UInteger32 *) (pPacket->dataBuffer + PTP_HEADER_OFFSET + 36));
-                gPtpSlaveState.syncOriginTimestamp.nanosecondsField =
-                    flip32(*(UInteger32 *) (pPacket->dataBuffer + PTP_HEADER_OFFSET + 40));
-
-                //
-                // converting the origin timestamp to internal time.
-                //
-                toInternalTime(&sendTime, &gPtpSlaveState.syncOriginTimestamp);
-#ifdef ETHERNET_DEBUG
-                debug_t1.seconds     = sendTime.seconds;
-                debug_t1.nanoseconds = sendTime.nanoseconds;
-#endif
-
-                //
-                // converting the sync receive timestamp to internal time (t2)
-                //
-                toInternalTime(&recvTime, &gPtpSlaveState.syncRecvTimestamp);
-#ifdef ETHERNET_DEBUG
-                debug_t2.seconds     = recvTime.seconds;
-                debug_t2.nanoseconds = recvTime.nanoseconds;
-#endif
-
-                //
-                // Calculate Master to slave delay. (delayMS=t2 - t1)
-                //
-                subTime(&gPtpSlaveState.delayMS, &recvTime, &sendTime);
-#ifdef ETHERNET_DEBUG
-                debug_delayMS.seconds     = gPtpSlaveState.delayMS.seconds;
-                debug_delayMS.nanoseconds = gPtpSlaveState.delayMS.nanoseconds;
-#endif
-
-                //
-                // Calculate offset from master only after meanPathDelay is valid.
-                //
-                if (gPtpSlaveState.meanPathDelayValid == TRUE)
-                {
-                    subTime(&gPtpSlaveState.offsetFromMaster,
-                            &gPtpSlaveState.delayMS,
-                            &gPtpSlaveState.meanPathDelay);
-
-                    updateClock();
-                }
-
-                //
-                // Send a DelayReq every 10 Syncs.
-                //
-                if(!((gPtpSlaveState.lastSyncSeqId + 1) % 10))
-                {
-                    i=0; *((uint32_t *)delayReqMsg + i) = 0x00191B01;
-                    i++; *((uint32_t *)delayReqMsg + i)  = 0xF7880000;
-
-                    memset(delayReqMsg+8, 0, PACKET_LENGTH-8);
-                    msgPackDelayReq((Octet *)delayReqMsg + 8, &gPtpSlaveState);
-
-                    gPktDesc.bufferLength = PACKET_LENGTH;
-                    gPktDesc.dataOffset = 0;
-                    gPktDesc.dataBuffer = delayReqMsg;
-                    gPktDesc.nextPacketDesc = 0;
-                    gPktDesc.flags = ETHERNET_PKT_FLAG_TTSE |
-                                     ETHERNET_PKT_FLAG_SOP |
-                                     ETHERNET_PKT_FLAG_EOP |
-                                     ETHERNET_PKT_FLAG_SA_INS |
-                                     ETHERNET_PKT_FLAG_CRC_PAD_INS;
-                    gPktDesc.pktChannel = ETHERNET_DMA_CHANNEL_NUM_0;
-                    gPktDesc.pktLength = DELAY_REQ_LENGTH + 6 + 2;
-                    gPktDesc.validLength = gPktDesc.pktLength;
-                    gPktDesc.numPktFrags = 1;
-
-                    Ethernet_sendPacket(emac_handle,&gPktDesc);
-
-                    gPtpSlaveState.delayReqSeqId++;
-                }
-            }
-            break;
-
-        case DELAY_RESP:
-            //
-            // Match only the expected DelayResp for the latest DelayReq.
-            //
-            if(gPtpSlaveState.waitingForDelayResp == TRUE &&
-              (header.sequenceId == (uint16_t)(gPtpSlaveState.delayReqSeqId - 1U)))
-            {
-                gPtpSlaveState.waitingForDelayResp = FALSE;
-#ifdef ETHERNET_DEBUG
-                debug_delayresp_rx_cnt++;
-#endif
-
-                gPtpSlaveState.delayReqRecvTimestamp.secondsField.msb =
-                    flip16(*(UInteger16 *) (pPacket->dataBuffer + PTP_HEADER_OFFSET + 34 ));
-                gPtpSlaveState.delayReqRecvTimestamp.secondsField.lsb =
-                    flip32(*(UInteger32 *) (pPacket->dataBuffer + PTP_HEADER_OFFSET + 36));
-                gPtpSlaveState.delayReqRecvTimestamp.nanosecondsField =
-                    flip32(*(UInteger32 *) (pPacket->dataBuffer + PTP_HEADER_OFFSET + 40));
-
-                //
-                // t3 = DelayReq transmit timestamp
-                //
-                toInternalTime(&sendTime, &gPtpSlaveState.delayReqSentTimestamp);
-#ifdef ETHERNET_DEBUG
-                debug_t3.seconds     = sendTime.seconds;
-                debug_t3.nanoseconds = sendTime.nanoseconds;
-#endif
-
-                //
-                // t4 = Master receive timestamp carried in DelayResp
-                //
-                toInternalTime(&recvTime, &gPtpSlaveState.delayReqRecvTimestamp);
-#ifdef ETHERNET_DEBUG
-                debug_t4.seconds     = recvTime.seconds;
-                debug_t4.nanoseconds = recvTime.nanoseconds;
-#endif
-
-                //
-                // delaySM = t4 - t3
-                //
-                subTime(&gPtpSlaveState.delaySM, &recvTime, &sendTime);
-#ifdef ETHERNET_DEBUG
-                debug_delaySM.seconds     = gPtpSlaveState.delaySM.seconds;
-                debug_delaySM.nanoseconds = gPtpSlaveState.delaySM.nanoseconds;
-#endif
-
-                //
-                // meanPathDelay = (delayMS + delaySM) / 2
-                //
-                addTime(&gPtpSlaveState.meanPathDelay,
-                        &gPtpSlaveState.delaySM,
-                        &gPtpSlaveState.delayMS);
-
-                div2Time(&gPtpSlaveState.meanPathDelay);
-
-                //
-                // Mean path delay must not be negative.
-                // Clamp it to zero if numerical error or timestamp skew makes it
-                // slightly negative.
-                //
-                if ((gPtpSlaveState.meanPathDelay.seconds < 0) ||
-                     ((gPtpSlaveState.meanPathDelay.seconds == 0) &&
-                      (gPtpSlaveState.meanPathDelay.nanoseconds < 0)))
-                {
-                    gPtpSlaveState.meanPathDelay.seconds = 0;
-                    gPtpSlaveState.meanPathDelay.nanoseconds = 0;
-                }
-
-#ifdef ETHERNET_DEBUG
-                debug_meanPathDelay.seconds     = gPtpSlaveState.meanPathDelay.seconds;
-                debug_meanPathDelay.nanoseconds = gPtpSlaveState.meanPathDelay.nanoseconds;
-#endif
-
-                // 标记meanPathDelayValid已有效
-                gPtpSlaveState.meanPathDelayValid = TRUE;
-            }
-            break;
-
-        default:
-            break;
-        }
-    }
-
-    //
-    // Book-keeping to maintain number of callbacks received.
-    //
-#ifdef ETHERNET_DEBUG
-    Ethernet_numRxCallbackCustom++;
-#endif
-    return Ethernet_getPacketBufferCustom();
-}
-
-
-void Ethernet_ReleaseTxPacketBufferCombine(
-        Ethernet_Handle handleApplication,
-        Ethernet_Pkt_Desc *pPacket)
-{
-    if (pPacket == NULL)
-        return;
-
-    // Lwip release tx buffer
-    Ethernet_releaseTxPacketBufferCustom(handleApplication, pPacket);
-
-    // PTP Capture sending massage
-    Ethernet_releaseTxPacketBufferPTP(handleApplication, pPacket);
-}
-
-Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackCombine(
-        Ethernet_Handle handleApplication,
-        Ethernet_Pkt_Desc *pPacket)
-{
-    if (pPacket == NULL)
-        return NULL;
-
-    // Lwip receive callback
-    pPacket = Ethernet_receivePacketCallbackCustom(handleApplication, pPacket);
-
-    // PTP receive callback
-    pPacket = Ethernet_receivePacketCallbackPTP(handleApplication, pPacket);
-    return pPacket;
-}
-
 
 interrupt void Ethernet_genericISRCustom(void)
 {
@@ -753,9 +434,9 @@ void Ethernet_init(const unsigned char *mac)
     // Releasing the TxPacketBuffer on Transmit interrupt callbacks
     // Receive packet callback on Receive packet completion interrupt
     //
-    pInitCfg->pfcbRxPacket = &Ethernet_receivePacketCallbackCombine;
+    pInitCfg->pfcbRxPacket = &Ethernet_receivePacketCallbackCustom;
     pInitCfg->pfcbGetPacket = &Ethernet_getPacketBuffer;    //custom
-    pInitCfg->pfcbFreePacket = &Ethernet_ReleaseTxPacketBufferCombine;
+    pInitCfg->pfcbFreePacket = &Ethernet_releaseTxPacketBufferCustom;
 
     //
     //Assign the Buffer to be used by the Low level driver for receiving
@@ -880,308 +561,5 @@ void lwIPHostTimerHandler(void)
     cnt_ms_lwip_Htimer++;
 }
 
-//
-// Pack header message into OUT buffer of ptpClock
-//
-static void msgPackHeader(Octet * buf, void *ptpState)
-{
-    Nibble transport = 0x80;
-    PTPMasterState *ptpMasterState = (PTPMasterState*)ptpState;
 
-    *(UInteger8 *) (buf + 0) = transport;
-    *(UInteger4 *) (buf + 1) = 0x2;
-    *(UInteger8 *) (buf + 4) = 0;
-
-    if (PTP_TWO_STEP)
-        *(UInteger8 *) (buf + 6) = PTP_TWO_STEP;
-
-    memset((buf + 8), 0, 8);
-    memcpy((buf + 20), ptpMasterState->portIdentity.clockIdentity,
-           CLOCK_IDENTITY_LENGTH);
-
-    *(UInteger16 *) (buf + 28) =
-            flip16(ptpMasterState->portIdentity.portNumber);
-
-    *(UInteger8 *) (buf + 33) = 0x7F;
-}
-
-//
-// Pack SYNC message into OUT buffer of ptpClock
-//
-static void msgPackSync(Octet * buf, void *ptpState)
-{
-    PTPMasterState *ptpMasterState = (PTPMasterState*)ptpState;
-    msgPackHeader(buf, ptpState);
-
-    *(char *)(buf + 0) = *(char *)(buf + 0) & 0xF0;
-    *(char *)(buf + 0) = *(char *)(buf + 0) | 0x00; /* Table 19 */
-
-    *(UInteger16 *) (buf + 2) = flip16(SYNC_LENGTH);
-    *(UInteger16 *) (buf + 30) =
-            flip16(ptpMasterState->syncSeqId);
-
-    *(UInteger8 *) (buf + 32) = 0x00;   /* Table 23 */
-    *(Integer8 *) (buf + 33) = 0; // We'll send sync every second
-
-    if(!PTP_TWO_STEP)
-    {
-        *(UInteger16 *) (buf + 34) =
-                flip16(ptpMasterState->syncTimestamp.secondsField.msb);
-        *(UInteger32 *) (buf + 36) =
-                flip32(ptpMasterState->syncTimestamp.secondsField.lsb);
-        *(UInteger32 *) (buf + 40) =
-                flip32(ptpMasterState->syncTimestamp.nanosecondsField);
-    }
-}
-
-//
-// pack Follow_up message into OUT buffer of ptpClock
-//
-static void msgPackFollowUp(Octet * buf, void *ptpState)
-{
-    PTPMasterState *ptpMasterState = (PTPMasterState*)ptpState;
-    msgPackHeader(buf, ptpState);
-
-    *(char *)(buf + 0) = *(char *)(buf + 0) & 0xF0;
-    *(char *)(buf + 0) = *(char *)(buf + 0) | 0x08; /* Table 19 */
-
-    *(UInteger16 *) (buf + 2) = flip16(FOLLOW_UP_LENGTH);
-    *(UInteger16 *) (buf + 30) =
-            flip16(ptpMasterState->syncSeqId);
-
-    *(UInteger8 *) (buf + 32) = 0x02;   /* Table 23 */
-    *(Integer8 *) (buf + 33) = 0;   // we're sending sync every one second.
-
-    *(UInteger16 *) (buf + 34) =
-            flip16(ptpMasterState->syncTimestamp.secondsField.msb);
-    *(UInteger32 *) (buf + 36) =
-            flip32(ptpMasterState->syncTimestamp.secondsField.lsb);
-    *(UInteger32 *) (buf + 40) =
-            flip32(ptpMasterState->syncTimestamp.nanosecondsField);
-}
-
-//
-// pack delayResp message into OUT buffer of ptpClock
-//
-static void msgPackDelayResp(Octet * buf, void *ptpState)
-{
-    PTPMasterState *ptpMasterState = (PTPMasterState*)ptpState;
-    msgPackHeader(buf, ptpMasterState);
-
-    *(char *)(buf + 0) = *(char *)(buf + 0) & 0xF0;
-    *(char *)(buf + 0) = *(char *)(buf + 0) | 0x09; /* Table 19 */
-
-    *(UInteger16 *) (buf + 2) = flip16(DELAY_RESP_LENGTH);
-    *(UInteger8 *) (buf + 4) = ptpMasterState->delayReqHeader.domainNumber;
-
-    *(UInteger16 *) (buf + 30) =
-            flip16(ptpMasterState->delayReqHeader.sequenceId);
-
-    *(UInteger8 *) (buf + 32) = 0x03; /* Table 23 */
-    *(Integer8 *) (buf + 33) = 0; /* Table 24 */
-
-    *(UInteger16 *) (buf + 34) =
-        flip16(ptpMasterState->delayReqRecvTimestamp.secondsField.msb);
-    *(UInteger32 *) (buf + 36) =
-        flip32(ptpMasterState->delayReqRecvTimestamp.secondsField.lsb);
-    *(UInteger32 *) (buf + 40) =
-       flip32(ptpMasterState->delayReqRecvTimestamp.nanosecondsField);
-    memcpy((buf + 44),
-           ptpMasterState->delayReqHeader.sourcePortIdentity.clockIdentity,
-           CLOCK_IDENTITY_LENGTH);
-    *(UInteger16 *) (buf + 52) =
-        flip16(ptpMasterState->delayReqHeader.sourcePortIdentity.portNumber);
-}
-
-//
-// Unpack Header from IN buffer to msgTmpHeader field
-//
-static void msgUnpackHeader(Octet * buf, MsgHeader * header)
-{
-    header->transportSpecific = (*(Nibble *) (buf + 0)) >> 4;
-    header->messageType = (*(Enumeration4 *) (buf + 0)) & 0x0F;
-    header->versionPTP = (*(UInteger4 *) (buf + 1)) & 0x0F;
-
-    //
-    // force reserved bit to zero if not
-    //
-    header->messageLength = flip16(*(UInteger16 *) (buf + 2));
-    header->domainNumber = (*(UInteger8 *) (buf + 4));
-    memcpy(header->flagField, (buf + 6), FLAG_FIELD_LENGTH);
-    memcpy(&header->correctionfield.msb, (buf + 8), 4);
-    memcpy(&header->correctionfield.lsb, (buf + 12), 4);
-    header->correctionfield.msb = flip32(header->correctionfield.msb);
-    header->correctionfield.lsb = flip32(header->correctionfield.lsb);
-    memcpy(header->sourcePortIdentity.clockIdentity, (buf + 20),
-           CLOCK_IDENTITY_LENGTH);
-    header->sourcePortIdentity.portNumber =
-        flip16(*(UInteger16 *) (buf + 28));
-    header->sequenceId = flip16(*(UInteger16 *) (buf + 30));
-    header->controlField = (*(UInteger8 *) (buf + 32));
-    header->logMessageInterval = (*(Integer8 *) (buf + 33));
-}
-
-static void msgPackDelayReq(Octet * buf, void *ptpState)
-{
-    PTPSlaveState *ptpSlaveState = (PTPSlaveState*)ptpState;
-    msgPackHeader(buf, ptpSlaveState);
-
-    *(char *)(buf + 0) = *(char *)(buf + 0) & 0xF0;
-    *(char *)(buf + 0) = *(char *)(buf + 0) | 0x01; /* Table 19 */
-    *(UInteger16 *) (buf + 2) = flip16(DELAY_REQ_LENGTH);
-
-    *(UInteger16 *) (buf + 30) = flip16(ptpSlaveState->delayReqSeqId);
-    *(UInteger8 *) (buf + 32) = 0x01; /* Table 23 */
-    *(Integer8 *) (buf + 33) = 0x7F; /* Table 24 */
-}
-
-static void sendMessage(Octet *msg, uint32_t messageType, void *ptpState, Ethernet_Pkt_Desc *pktDesc)
-{
-    uint32_t pktLen;
-    PTPMasterState *ptpMasterState = (PTPMasterState*)ptpState;
-
-    memset(pktDesc, 0, sizeof(Ethernet_Pkt_Desc));
-
-    pktDesc->bufferLength = PACKET_LENGTH;
-    pktDesc->dataOffset = 0;
-    pktDesc->dataBuffer = (uint8_t *)msg;
-    pktDesc->nextPacketDesc = 0;
-    pktDesc->flags = ETHERNET_PKT_FLAG_SOP |
-                     ETHERNET_PKT_FLAG_EOP |
-                     ETHERNET_PKT_FLAG_SA_INS |
-                     ETHERNET_PKT_FLAG_CRC_PAD_INS;
-    pktDesc->pktChannel = ETHERNET_DMA_CHANNEL_NUM_0;
-    pktDesc->numPktFrags = 1;
-
-    //
-    // Reset the buffer
-    //
-    memset(msg + 8, 0, PACKET_LENGTH - 8);
-
-    switch(messageType)
-    {
-    case SYNC:
-        pktDesc->flags |= ETHERNET_PKT_FLAG_TTSE;
-        msgPackSync(msg + 8, ptpMasterState);
-        pktLen = SYNC_LENGTH;
-        break;
-    case FOLLOW_UP:
-        msgPackFollowUp(msg + 8, ptpMasterState);
-        pktLen = FOLLOW_UP_LENGTH;
-        gPtpMasterState.syncSeqId++;
-        break;
-    case DELAY_RESP:
-        msgPackDelayResp(msg + 8, ptpMasterState);
-        pktLen = DELAY_RESP_LENGTH;
-        break;
-    default:
-        break;
-    }
-
-    pktDesc->pktLength = pktLen + 6 + 2;
-    pktDesc->validLength = pktDesc->pktLength;
-
-    Ethernet_sendPacket(emac_handle, pktDesc);
-}
-
-
-static void fromInternalTime(TimeInternal * internal, Timestamp * external)
-{
-    external->secondsField.lsb = internal->seconds;
-    external->nanosecondsField = internal->nanoseconds;
-    external->secondsField.msb = 0;
-}
-
-static void normalizeTime(TimeInternal * r)
-{
-    r->seconds += r->nanoseconds / ONE_BILLION;
-    r->nanoseconds -= r->nanoseconds / ONE_BILLION * ONE_BILLION;
-
-    if (r->seconds > 0 && r->nanoseconds < 0) {
-        r->seconds -= 1;
-        r->nanoseconds += ONE_BILLION;
-    }
-    else if (r->seconds < 0 && r->nanoseconds > 0) {
-        r->seconds += 1;
-        r->nanoseconds -= ONE_BILLION;
-    }
-}
-
-static void subTime(TimeInternal * r, const TimeInternal * x, const TimeInternal * y)
-{
-    r->seconds = x->seconds - y->seconds;
-    r->nanoseconds = x->nanoseconds - y->nanoseconds;
-
-    normalizeTime(r);
-}
-
-static void addTime(TimeInternal * r, const TimeInternal * x, const TimeInternal * y)
-{
-    r->seconds = x->seconds + y->seconds;
-    r->nanoseconds = x->nanoseconds + y->nanoseconds;
-
-    normalizeTime(r);
-}
-
-static void div2Time(TimeInternal *r)
-{
-    r->nanoseconds += r->seconds % 2 * ONE_BILLION;
-    r->seconds /= 2;
-    r->nanoseconds /= 2;
-
-    normalizeTime(r);
-}
-
-static void toInternalTime(TimeInternal * internal, Timestamp * external)
-{
-    //
-    // Program will not run after 2038...
-    //
-    if (external->secondsField.lsb < INT_MAX) {
-        internal->seconds = external->secondsField.lsb;
-        internal->nanoseconds = external->nanosecondsField;
-    }
-    else
-    {
-        return;
-    }
-}
-
-static void getTime(TimeInternal *time)
-{
-    //
-    // Fetch the current system time.
-    //
-    Ethernet_getSysTimePTP(EMAC_BASE, (uint32_t *)&time->seconds,
-                          (uint32_t *)&time->nanoseconds);
-}
-
-static void setTime(TimeInternal *time)
-{
-    //
-    // Set the new system time.
-    //
-    Ethernet_setSysTimePTP(EMAC_BASE, (uint32_t)time->seconds,
-                            (uint32_t)time->nanoseconds);
-}
-
-static void updateClock(void)
-{
-    TimeInternal timeTmp;
-
-    if(gPtpSlaveState.meanPathDelayValid == FALSE)
-    {
-        return;
-    }
-
-    if((gPtpSlaveState.offsetFromMaster.seconds != 0) ||
-       (llabs((long long)gPtpSlaveState.offsetFromMaster.nanoseconds) >
-        PTP_OFM_NANOSECONDS_CUTOFF))
-    {
-        getTime(&timeTmp);
-        subTime(&timeTmp, &timeTmp, &gPtpSlaveState.offsetFromMaster);
-        setTime(&timeTmp);
-        gPtpSlaveState.clockUpdateCount++;
-    }
-}
 

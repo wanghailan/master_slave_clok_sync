@@ -1,19 +1,21 @@
 /*
  * ptp_slave_sync.h
- *
- *  Created on: 2026Äê3ÔÂ31ÈÕ
- *      Author: whl
  */
 
 #ifndef SRC_PTP_SLAVE_SYNC_H_
 #define SRC_PTP_SLAVE_SYNC_H_
+
+#include <stdbool.h>
 #include "driverlib_cm.h"
-#include "limits.h"
-#include "string.h"
 
 void ptp_slave_init(void);
 
 void ptp_slave_run(void);
 
+void ptp_slave_receive_packet(Ethernet_Handle handleApplication,
+                              Ethernet_Pkt_Desc *pPacket);
+
+bool ptp_slave_release_tx_packet(Ethernet_Handle handleApplication,
+                                 Ethernet_Pkt_Desc *pPacket);
 
 #endif /* SRC_PTP_SLAVE_SYNC_H_ */
