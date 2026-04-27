@@ -21,8 +21,7 @@
 #define DELAY_REQ_LENGTH        44U
 #define DELAY_RESP_LENGTH       54U
 
-#define PTP_SYNC_WINDOW_NS      1000000UL
-#define PTP_TX_TIMESTAMP_TIMEOUT_MAX 2000000UL
+#define PTP_SYNC_TARGET_LEAD_NS 50000UL  // 50us
 
 extern Ethernet_Handle emac_handle;
 
@@ -110,7 +109,10 @@ static PTPMasterState gPtpMasterState = {0};
 static uint8_t gMsgBuf[PACKET_LENGTH] = {0};
 static Ethernet_Pkt_Desc gPktDesc;
 static bool ptpMasterInitialized = false;
-static uint32_t ptpMasterNextSyncSec = 0U;
+static bool ptpMasterTargetArmed = false;
+static bool ptpMasterSyncPending = false;
+static uint32_t ptpMasterTargetSec = 0U;
+static uint32_t ptpMasterTargetNanosec = 0U;
 
 static void msgPackHeader(Octet *buf, PTPMasterState *ptpMasterState);
 static void msgPackSync(Octet *buf, PTPMasterState *ptpMasterState);
@@ -118,6 +120,9 @@ static void msgPackFollowUp(Octet *buf, PTPMasterState *ptpMasterState);
 static void msgPackDelayResp(Octet *buf, PTPMasterState *ptpMasterState);
 static void msgUnpackHeader(Octet *buf, MsgHeader *header);
 static void InitConstants(PTPMasterState *ptpMasterState);
+static int64_t getTimeDiffNs(uint32_t secA, uint32_t nsA,
+                             uint32_t secB, uint32_t nsB);
+static void armSyncTarget(void);
 static void sendMessage(Octet *msg,
                         uint32_t messageType,
                         PTPMasterState *ptpMasterState,
@@ -164,13 +169,11 @@ void ptp_master_init(void)
     Ethernet_selectTargetInterruptOrPulsePPS(
                         EMAC_BASE,
                         ETHERNET_MAC_PPS_OUT_INSTANCE_0,
-                        ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
-
+                        ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT_PULSE);
     Ethernet_setPeriodPPS(EMAC_BASE,
                           ETHERNET_MAC_PPS_OUT_INSTANCE_0,
                           PTP_REF_CLOCK_FREQ / 100U,
                           PTP_REF_CLOCK_FREQ - 1U);
-
     Ethernet_setFixedModePPS(EMAC_BASE,
                              ETHERNET_MAC_PPS_CONTROL_PPSCTRL_PPS_OUTPUT_1HZ);
 
@@ -181,7 +184,9 @@ void ptp_master_init(void)
     InitConstants(&gPtpMasterState);
 
     Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
-    ptpMasterNextSyncSec = timeSec + 1U;
+    ptpMasterTargetSec = timeSec + 1U;
+    ptpMasterTargetNanosec = timeNanosec;
+    armSyncTarget();
     ptpMasterInitialized = true;
 }
 
@@ -189,39 +194,60 @@ void ptp_master_run(void)
 {
     uint32_t timeSec;
     uint32_t timeNanosec;
+    uint32_t status;
+    int64_t targetDeltaNs;
+
     if(ptpMasterInitialized == false)
     {
         return;
     }
 
-    Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
-
-    if((timeSec > ptpMasterNextSyncSec) ||
-       ((timeSec == ptpMasterNextSyncSec) &&
-        (timeNanosec < PTP_SYNC_WINDOW_NS)))
+    if(ptpMasterSyncPending == true)
     {
-        gPtpMasterState.syncTimestampAvailable = FALSE;
-
-        sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
-
-        while(gPtpMasterState.syncTimestampAvailable == FALSE)
+        if(gPtpMasterState.syncTimestampAvailable == TRUE)
         {
+            sendMessage((Octet *)gMsgBuf, FOLLOW_UP,
+                        &gPtpMasterState, &gPktDesc);
+            ptpMasterSyncPending = false;
+            ptpMasterTargetSec += 1U;
+            armSyncTarget();
         }
-
-        gPtpMasterState.syncTimestampAvailable = TRUE;
-
-        sendMessage((Octet *)gMsgBuf, FOLLOW_UP, &gPtpMasterState, &gPktDesc);
-        ptpMasterNextSyncSec = timeSec + 1U;
-
-        //
-        // Avoid re-entering multiple times inside the same second.
-        //
-        do
-        {
-            Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
-        }
-        while (timeSec < ptpMasterNextSyncSec);
+        return;
     }
+
+    if(ptpMasterTargetArmed == false)
+    {
+        armSyncTarget();
+        return;
+    }
+
+    Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+    targetDeltaNs = getTimeDiffNs(ptpMasterTargetSec,
+                                  ptpMasterTargetNanosec,
+                                  timeSec,
+                                  timeNanosec);
+
+    if(targetDeltaNs > (int64_t)PTP_SYNC_TARGET_LEAD_NS)
+    {
+        return;
+    }
+
+    do
+    {
+        status = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS);
+        Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+        targetDeltaNs = getTimeDiffNs(ptpMasterTargetSec,
+                                      ptpMasterTargetNanosec,
+                                      timeSec,
+                                      timeNanosec);
+    }
+    while(((status & ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0) == 0U) ||
+          (targetDeltaNs > 0LL));
+
+    gPtpMasterState.syncTimestampAvailable = FALSE;
+    sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
+    ptpMasterSyncPending = true;
+    ptpMasterTargetArmed = false;
 }
 
 void ptp_master_receive_packet(Ethernet_Handle handleApplication,
@@ -400,6 +426,22 @@ static void InitConstants(PTPMasterState *ptpMasterState)
     }
 
     ptpMasterState->portIdentity.portNumber = 1U;
+}
+
+static int64_t getTimeDiffNs(uint32_t secA, uint32_t nsA,
+                             uint32_t secB, uint32_t nsB)
+{
+    return (((int64_t)secA - (int64_t)secB) * (int64_t)ONE_BILLION) +
+           ((int64_t)nsA - (int64_t)nsB);
+}
+
+static void armSyncTarget(void)
+{
+    Ethernet_setTargetTimePPS(EMAC_BASE,
+                              ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                              ptpMasterTargetSec,
+                              ptpMasterTargetNanosec);
+    ptpMasterTargetArmed = true;
 }
 
 static void sendMessage(Octet *msg,

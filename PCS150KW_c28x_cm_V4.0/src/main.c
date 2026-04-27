@@ -26,7 +26,7 @@ extern void sys_check_timeouts(void);
 #define PTP_SYNC_ROLE_SLAVE  2   // PTP Slave
 
 #ifndef PTP_SYNC_ROLE
-#define PTP_SYNC_ROLE  PTP_SYNC_ROLE_SLAVE
+#define PTP_SYNC_ROLE  PTP_SYNC_ROLE_MASTER
 #endif
 
 

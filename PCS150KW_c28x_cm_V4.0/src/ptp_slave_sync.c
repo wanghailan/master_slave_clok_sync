@@ -7,7 +7,6 @@
 #define ONE_BILLION             1000000000UL
 #define PTP_REF_CLOCK_FREQ      200000000UL
 #define PTP_REF_CLOCK_PERIOD    (ONE_BILLION / PTP_REF_CLOCK_FREQ)
-
 #define PACKET_LENGTH           200U
 #define PTP_HEADER_OFFSET       14U
 
@@ -21,7 +20,7 @@
 #define DELAY_REQ_LENGTH        44U
 #define DELAY_RESP_LENGTH       54U
 
-#define PTP_OFM_NANOSECONDS_CUTOFF 50000LL
+#define PTP_OFM_NANOSECONDS_CUTOFF 100LL
 #define ETHERNET_DEBUG
 
 extern Ethernet_Handle emac_handle;
@@ -187,7 +186,6 @@ void ptp_slave_init(void)
                           ETHERNET_MAC_PPS_OUT_INSTANCE_0,
                           PTP_REF_CLOCK_FREQ / 100U,
                           PTP_REF_CLOCK_FREQ - 1U);
-
     Ethernet_setFixedModePPS(EMAC_BASE,
                              ETHERNET_MAC_PPS_CONTROL_PPSCTRL_PPS_OUTPUT_1HZ);
 
@@ -262,8 +260,7 @@ void ptp_slave_receive_packet(Ethernet_Handle handleApplication,
                         &gPtpSlaveState.meanPathDelay);
                 updateClock();
             }
-
-            if(!((gPtpSlaveState.lastSyncSeqId + 1U) % 10U))
+            if(gPtpSlaveState.waitingForDelayResp == FALSE)
             {
                 sendDelayReq();
             }
@@ -520,6 +517,7 @@ static void updateClock(void)
 {
     TimeInternal timeTmp;
     int64_t offsetNs;
+    bool addSub;
 
     if(gPtpSlaveState.meanPathDelayValid == FALSE)
     {
@@ -535,9 +533,18 @@ static void updateClock(void)
     if((gPtpSlaveState.offsetFromMaster.seconds != 0) ||
        (offsetNs > PTP_OFM_NANOSECONDS_CUTOFF))
     {
-        getTime(&timeTmp);
-        subTime(&timeTmp, &timeTmp, &gPtpSlaveState.offsetFromMaster);
-        setTime(&timeTmp);
+        if(gPtpSlaveState.offsetFromMaster.seconds != 0)
+        {
+            getTime(&timeTmp);
+            subTime(&timeTmp, &timeTmp, &gPtpSlaveState.offsetFromMaster);
+            setTime(&timeTmp);
+        }
+        else
+        {
+            addSub = (gPtpSlaveState.offsetFromMaster.nanoseconds < 0);
+            Ethernet_updateSysTimePTP(EMAC_BASE, 0U, (uint32_t)offsetNs,
+                                      addSub);
+        }
         gPtpSlaveState.clockUpdateCount++;
     }
 }
