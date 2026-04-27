@@ -11,13 +11,12 @@
 #define PACKET_LENGTH           200U
 #define PTP_HEADER_OFFSET       14U
 
-#define PTP_TWO_STEP            0x02U
+#define PTP_FLAG_FIELD0         0x00U
 #define PTP_UUID_LENGTH         6U
 #define CLOCK_IDENTITY_LENGTH   8U
 #define FLAG_FIELD_LENGTH       2U
 
 #define SYNC_LENGTH             44U
-#define FOLLOW_UP_LENGTH        44U
 #define DELAY_REQ_LENGTH        44U
 #define DELAY_RESP_LENGTH       54U
 
@@ -80,11 +79,9 @@ typedef struct {
 typedef struct {
     PortIdentity portIdentity;
     Octet port_uuid_field[PTP_UUID_LENGTH];
-    Timestamp syncTimestamp;
     Timestamp delayReqRecvTimestamp;
     uint16_t syncSeqId;
     uint16_t portNumber;
-    volatile Boolean syncTimestampAvailable;
     volatile Boolean sendingDelayResp;
     MsgHeader delayReqHeader;
 } PTPMasterState;
@@ -92,7 +89,6 @@ typedef struct {
 enum {
     SYNC = 0x0,
     DELAY_REQ = 0x1,
-    FOLLOW_UP = 0x8,
     DELAY_RESP = 0x9,
 };
 
@@ -106,17 +102,24 @@ enum {
 #define flip32(x) PP_HTONL(x)
 
 static PTPMasterState gPtpMasterState = {0};
-static uint8_t gMsgBuf[PACKET_LENGTH] = {0};
-static Ethernet_Pkt_Desc gPktDesc;
+static uint8_t gSyncMsgBuf[PACKET_LENGTH] = {0};
+static uint8_t gRespMsgBuf[PACKET_LENGTH] = {0};
+static Ethernet_Pkt_Desc gSyncPktDesc;
+static Ethernet_Pkt_Desc gRespPktDesc;
 static bool ptpMasterInitialized = false;
 static bool ptpMasterTargetArmed = false;
-static bool ptpMasterSyncPending = false;
 static uint32_t ptpMasterTargetSec = 0U;
 static uint32_t ptpMasterTargetNanosec = 0U;
 
+volatile uint32_t debug_master_target_hit_cnt = 0U;
+volatile uint32_t debug_master_sync_send_cnt = 0U;
+volatile uint32_t debug_master_sync_release_cnt = 0U;
+volatile uint32_t debug_master_delayreq_rx_cnt = 0U;
+volatile uint32_t debug_master_delayresp_send_cnt = 0U;
+volatile uint32_t debug_master_delayresp_release_cnt = 0U;
+
 static void msgPackHeader(Octet *buf, PTPMasterState *ptpMasterState);
 static void msgPackSync(Octet *buf, PTPMasterState *ptpMasterState);
-static void msgPackFollowUp(Octet *buf, PTPMasterState *ptpMasterState);
 static void msgPackDelayResp(Octet *buf, PTPMasterState *ptpMasterState);
 static void msgUnpackHeader(Octet *buf, MsgHeader *header);
 static void InitConstants(PTPMasterState *ptpMasterState);
@@ -177,8 +180,10 @@ void ptp_master_init(void)
     Ethernet_setFixedModePPS(EMAC_BASE,
                              ETHERNET_MAC_PPS_CONTROL_PPSCTRL_PPS_OUTPUT_1HZ);
 
-    *((uint32_t *)gMsgBuf + 0U) = 0x00191B01U;
-    *((uint32_t *)gMsgBuf + 1U) = 0xF7880000U;
+    *((uint32_t *)gSyncMsgBuf + 0U) = 0x00191B01U;
+    *((uint32_t *)gSyncMsgBuf + 1U) = 0xF7880000U;
+    *((uint32_t *)gRespMsgBuf + 0U) = 0x00191B01U;
+    *((uint32_t *)gRespMsgBuf + 1U) = 0xF7880000U;
 
     memset(&gPtpMasterState, 0, sizeof(gPtpMasterState));
     InitConstants(&gPtpMasterState);
@@ -199,19 +204,6 @@ void ptp_master_run(void)
 
     if(ptpMasterInitialized == false)
     {
-        return;
-    }
-
-    if(ptpMasterSyncPending == true)
-    {
-        if(gPtpMasterState.syncTimestampAvailable == TRUE)
-        {
-            sendMessage((Octet *)gMsgBuf, FOLLOW_UP,
-                        &gPtpMasterState, &gPktDesc);
-            ptpMasterSyncPending = false;
-            ptpMasterTargetSec += 1U;
-            armSyncTarget();
-        }
         return;
     }
 
@@ -244,10 +236,11 @@ void ptp_master_run(void)
     while(((status & ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0) == 0U) ||
           (targetDeltaNs > 0LL));
 
-    gPtpMasterState.syncTimestampAvailable = FALSE;
-    sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
-    ptpMasterSyncPending = true;
+    debug_master_target_hit_cnt++;
     ptpMasterTargetArmed = false;
+    sendMessage((Octet *)gSyncMsgBuf, SYNC, &gPtpMasterState, &gSyncPktDesc);
+    ptpMasterTargetSec += 1U;
+    armSyncTarget();
 }
 
 void ptp_master_receive_packet(Ethernet_Handle handleApplication,
@@ -266,6 +259,7 @@ void ptp_master_receive_packet(Ethernet_Handle handleApplication,
 
     if(gPtpMasterState.delayReqHeader.messageType == DELAY_REQ)
     {
+        debug_master_delayreq_rx_cnt++;
         gPtpMasterState.delayReqRecvTimestamp.nanosecondsField =
                 pPacket->timeStampLow;
         gPtpMasterState.delayReqRecvTimestamp.secondsField.lsb =
@@ -273,7 +267,8 @@ void ptp_master_receive_packet(Ethernet_Handle handleApplication,
         gPtpMasterState.delayReqRecvTimestamp.secondsField.msb = 0U;
 
         gPtpMasterState.sendingDelayResp = TRUE;
-        sendMessage((Octet *)gMsgBuf, DELAY_RESP, &gPtpMasterState, &gPktDesc);
+        sendMessage((Octet *)gRespMsgBuf, DELAY_RESP,
+                    &gPtpMasterState, &gRespPktDesc);
     }
 }
 
@@ -282,25 +277,28 @@ bool ptp_master_release_tx_packet(Ethernet_Handle handleApplication,
 {
     (void)handleApplication;
 
-    if((ptpMasterInitialized == false) || (pPacket == 0) ||
-       (pPacket->dataBuffer != gMsgBuf))
+    if((ptpMasterInitialized == false) || (pPacket == 0))
     {
         return false;
     }
 
-    if(gPtpMasterState.sendingDelayResp == TRUE)
+    if((pPacket == &gSyncPktDesc) || (pPacket->dataBuffer == gSyncMsgBuf))
     {
-        gPtpMasterState.sendingDelayResp = FALSE;
-    }
-    else if(gPtpMasterState.syncTimestampAvailable == FALSE)
-    {
-        gPtpMasterState.syncTimestamp.nanosecondsField = pPacket->timeStampLow;
-        gPtpMasterState.syncTimestamp.secondsField.lsb = pPacket->timeStampHigh;
-        gPtpMasterState.syncTimestamp.secondsField.msb = 0U;
-        gPtpMasterState.syncTimestampAvailable = TRUE;
+        debug_master_sync_release_cnt++;
+        return true;
     }
 
-    return true;
+    if((pPacket == &gRespPktDesc) || (pPacket->dataBuffer == gRespMsgBuf))
+    {
+        if(gPtpMasterState.sendingDelayResp == TRUE)
+        {
+            gPtpMasterState.sendingDelayResp = FALSE;
+            debug_master_delayresp_release_cnt++;
+        }
+        return true;
+    }
+
+    return false;
 }
 
 static void msgPackHeader(Octet *buf, PTPMasterState *ptpMasterState)
@@ -308,7 +306,7 @@ static void msgPackHeader(Octet *buf, PTPMasterState *ptpMasterState)
     *(UInteger8 *)(buf + 0U) = 0x80U;
     *(UInteger4 *)(buf + 1U) = 0x2U;
     *(UInteger8 *)(buf + 4U) = 0U;
-    *(UInteger8 *)(buf + 6U) = PTP_TWO_STEP;
+    *(UInteger8 *)(buf + 6U) = PTP_FLAG_FIELD0;
     memset((buf + 8U), 0, 8U);
     memcpy((buf + 20U), ptpMasterState->portIdentity.clockIdentity,
            CLOCK_IDENTITY_LENGTH);
@@ -325,22 +323,9 @@ static void msgPackSync(Octet *buf, PTPMasterState *ptpMasterState)
     *(UInteger16 *)(buf + 30U) = flip16(ptpMasterState->syncSeqId);
     *(UInteger8 *)(buf + 32U) = 0x00U;
     *(Integer8 *)(buf + 33U) = 0;
-}
-
-static void msgPackFollowUp(Octet *buf, PTPMasterState *ptpMasterState)
-{
-    msgPackHeader(buf, ptpMasterState);
-    *(char *)(buf + 0U) = (*(char *)(buf + 0U) & 0xF0) | 0x08;
-    *(UInteger16 *)(buf + 2U) = flip16(FOLLOW_UP_LENGTH);
-    *(UInteger16 *)(buf + 30U) = flip16(ptpMasterState->syncSeqId);
-    *(UInteger8 *)(buf + 32U) = 0x02U;
-    *(Integer8 *)(buf + 33U) = 0;
-    *(UInteger16 *)(buf + 34U) =
-            flip16(ptpMasterState->syncTimestamp.secondsField.msb);
-    *(UInteger32 *)(buf + 36U) =
-            flip32(ptpMasterState->syncTimestamp.secondsField.lsb);
-    *(UInteger32 *)(buf + 40U) =
-            flip32(ptpMasterState->syncTimestamp.nanosecondsField);
+    *(UInteger16 *)(buf + 34U) = 0U;
+    *(UInteger32 *)(buf + 36U) = 0U;
+    *(UInteger32 *)(buf + 40U) = 0U;
 }
 
 static void msgPackDelayResp(Octet *buf, PTPMasterState *ptpMasterState)
@@ -450,47 +435,59 @@ static void sendMessage(Octet *msg,
                         Ethernet_Pkt_Desc *pktDesc)
 {
     uint32_t pktLen = 0U;
-
-    memset(pktDesc, 0, sizeof(Ethernet_Pkt_Desc));
-
-    pktDesc->bufferLength = PACKET_LENGTH;
-    pktDesc->dataOffset = 0U;
-    pktDesc->dataBuffer = (uint8_t *)msg;
-    pktDesc->nextPacketDesc = 0U;
-    pktDesc->flags = ETHERNET_PKT_FLAG_SOP |
-                     ETHERNET_PKT_FLAG_EOP |
-                     ETHERNET_PKT_FLAG_SA_INS |
-                     ETHERNET_PKT_FLAG_CRC_PAD_INS;
-    pktDesc->pktChannel = ETHERNET_DMA_CHANNEL_NUM_0;
-    pktDesc->numPktFrags = 1U;
-
     memset(msg + 8U, 0, PACKET_LENGTH - 8U);
 
     switch(messageType)
     {
     case SYNC:
-        pktDesc->flags |= ETHERNET_PKT_FLAG_TTSE;
+        memset(&gSyncPktDesc, 0, sizeof(Ethernet_Pkt_Desc));
         msgPackSync(msg + 8U, ptpMasterState);
         pktLen = SYNC_LENGTH;
-        break;
 
-    case FOLLOW_UP:
-        msgPackFollowUp(msg + 8U, ptpMasterState);
-        pktLen = FOLLOW_UP_LENGTH;
+        gSyncPktDesc.bufferLength = PACKET_LENGTH;
+        gSyncPktDesc.dataOffset = 0U;
+        gSyncPktDesc.dataBuffer = (uint8_t *)msg;
+        gSyncPktDesc.nextPacketDesc = 0U;
+        gSyncPktDesc.flags = ETHERNET_PKT_FLAG_TTSE |
+                             ETHERNET_PKT_FLAG_SOP |
+                             ETHERNET_PKT_FLAG_EOP |
+                             ETHERNET_PKT_FLAG_SA_INS |
+                             ETHERNET_PKT_FLAG_CRC_PAD_INS;
+        gSyncPktDesc.pktChannel = ETHERNET_DMA_CHANNEL_NUM_0;
+        gSyncPktDesc.numPktFrags = 1U;
+        gSyncPktDesc.pktLength = pktLen + 6U + 2U;
+        gSyncPktDesc.validLength = gSyncPktDesc.pktLength;
+        gSyncPktDesc.extendedFlags = ETHERNET_PKT_EXTENDED_FLAG_CTXT |
+                                     ETHERNET_PKT_EXTENDED_FLAG_OST;
+
+        Ethernet_sendPacket(emac_handle, &gSyncPktDesc);
+        debug_master_sync_send_cnt++;
         gPtpMasterState.syncSeqId++;
         break;
 
     case DELAY_RESP:
+        memset(pktDesc, 0, sizeof(Ethernet_Pkt_Desc));
         msgPackDelayResp(msg + 8U, ptpMasterState);
         pktLen = DELAY_RESP_LENGTH;
+
+        pktDesc->bufferLength = PACKET_LENGTH;
+        pktDesc->dataOffset = 0U;
+        pktDesc->dataBuffer = (uint8_t *)msg;
+        pktDesc->nextPacketDesc = 0U;
+        pktDesc->flags = ETHERNET_PKT_FLAG_SOP |
+                         ETHERNET_PKT_FLAG_EOP |
+                         ETHERNET_PKT_FLAG_SA_INS |
+                         ETHERNET_PKT_FLAG_CRC_PAD_INS;
+        pktDesc->pktChannel = ETHERNET_DMA_CHANNEL_NUM_0;
+        pktDesc->numPktFrags = 1U;
+        pktDesc->pktLength = pktLen + 6U + 2U;
+        pktDesc->validLength = pktDesc->pktLength;
+
+        Ethernet_sendPacket(emac_handle, pktDesc);
+        debug_master_delayresp_send_cnt++;
         break;
 
     default:
-        return;
+        break;
     }
-
-    pktDesc->pktLength = pktLen + 6U + 2U;
-    pktDesc->validLength = pktDesc->pktLength;
-
-    Ethernet_sendPacket(emac_handle, pktDesc);
 }

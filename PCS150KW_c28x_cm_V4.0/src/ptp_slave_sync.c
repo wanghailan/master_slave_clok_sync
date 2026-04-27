@@ -10,13 +10,12 @@
 #define PACKET_LENGTH           200U
 #define PTP_HEADER_OFFSET       14U
 
-#define PTP_TWO_STEP            0x02U
+#define PTP_FLAG_FIELD0         0x00U
 #define PTP_UUID_LENGTH         6U
 #define CLOCK_IDENTITY_LENGTH   8U
 #define FLAG_FIELD_LENGTH       2U
 
 #define SYNC_LENGTH             44U
-#define FOLLOW_UP_LENGTH        44U
 #define DELAY_REQ_LENGTH        44U
 #define DELAY_RESP_LENGTH       54U
 
@@ -225,45 +224,39 @@ void ptp_slave_receive_packet(Ethernet_Handle handleApplication,
         gPtpSlaveState.syncRecvTimestamp.secondsField.lsb =
                 pPacket->timeStampHigh;
         gPtpSlaveState.syncRecvTimestamp.secondsField.msb = 0U;
-        gPtpSlaveState.lastSyncSeqId = header.sequenceId;
-        break;
+        gPtpSlaveState.syncOriginTimestamp.secondsField.msb =
+            flip16(*(UInteger16 *)(ptpHeader + 34U));
+        gPtpSlaveState.syncOriginTimestamp.secondsField.lsb =
+            flip32(*(UInteger32 *)(ptpHeader + 36U));
+        gPtpSlaveState.syncOriginTimestamp.nanosecondsField =
+            flip32(*(UInteger32 *)(ptpHeader + 40U));
 
-    case FOLLOW_UP:
-        if(header.sequenceId == gPtpSlaveState.lastSyncSeqId)
+        toInternalTime(&sendTime, &gPtpSlaveState.syncOriginTimestamp);
+#ifdef ETHERNET_DEBUG
+        debug_t1.seconds = sendTime.seconds;
+        debug_t1.nanoseconds = sendTime.nanoseconds;
+#endif
+        toInternalTime(&recvTime, &gPtpSlaveState.syncRecvTimestamp);
+#ifdef ETHERNET_DEBUG
+        debug_t2.seconds = recvTime.seconds;
+        debug_t2.nanoseconds = recvTime.nanoseconds;
+#endif
+        subTime(&gPtpSlaveState.delayMS, &recvTime, &sendTime);
+#ifdef ETHERNET_DEBUG
+        debug_delayMS.seconds = gPtpSlaveState.delayMS.seconds;
+        debug_delayMS.nanoseconds = gPtpSlaveState.delayMS.nanoseconds;
+#endif
+        if(gPtpSlaveState.meanPathDelayValid == TRUE)
         {
-            gPtpSlaveState.syncOriginTimestamp.secondsField.msb =
-                flip16(*(UInteger16 *)(ptpHeader + 34U));
-            gPtpSlaveState.syncOriginTimestamp.secondsField.lsb =
-                flip32(*(UInteger32 *)(ptpHeader + 36U));
-            gPtpSlaveState.syncOriginTimestamp.nanosecondsField =
-                flip32(*(UInteger32 *)(ptpHeader + 40U));
-
-            toInternalTime(&sendTime, &gPtpSlaveState.syncOriginTimestamp);
-#ifdef ETHERNET_DEBUG
-            debug_t1.seconds = sendTime.seconds;
-            debug_t1.nanoseconds = sendTime.nanoseconds;
-#endif
-            toInternalTime(&recvTime, &gPtpSlaveState.syncRecvTimestamp);
-#ifdef ETHERNET_DEBUG
-            debug_t2.seconds = recvTime.seconds;
-            debug_t2.nanoseconds = recvTime.nanoseconds;
-#endif
-            subTime(&gPtpSlaveState.delayMS, &recvTime, &sendTime);
-#ifdef ETHERNET_DEBUG
-            debug_delayMS.seconds = gPtpSlaveState.delayMS.seconds;
-            debug_delayMS.nanoseconds = gPtpSlaveState.delayMS.nanoseconds;
-#endif
-            if(gPtpSlaveState.meanPathDelayValid == TRUE)
-            {
-                subTime(&gPtpSlaveState.offsetFromMaster,
-                        &gPtpSlaveState.delayMS,
-                        &gPtpSlaveState.meanPathDelay);
-                updateClock();
-            }
-            if(gPtpSlaveState.waitingForDelayResp == FALSE)
-            {
-                sendDelayReq();
-            }
+            subTime(&gPtpSlaveState.offsetFromMaster,
+                    &gPtpSlaveState.delayMS,
+                    &gPtpSlaveState.meanPathDelay);
+            updateClock();
+        }
+        gPtpSlaveState.lastSyncSeqId = header.sequenceId;
+        if(gPtpSlaveState.waitingForDelayResp == FALSE)
+        {
+            sendDelayReq();
         }
         break;
 
@@ -369,7 +362,7 @@ static void msgPackHeader(Octet *buf, PTPSlaveState *ptpSlaveState)
     *(UInteger8 *)(buf + 0U) = 0x80U;
     *(UInteger4 *)(buf + 1U) = 0x2U;
     *(UInteger8 *)(buf + 4U) = 0U;
-    *(UInteger8 *)(buf + 6U) = PTP_TWO_STEP;
+    *(UInteger8 *)(buf + 6U) = PTP_FLAG_FIELD0;
     memset((buf + 8U), 0, 8U);
     memcpy((buf + 20U), ptpSlaveState->portIdentity.clockIdentity,
            CLOCK_IDENTITY_LENGTH);
