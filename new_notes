@@ -1,0 +1,108 @@
+推荐改法是：主机 EPWM1 做同步根；从机用 eCAP 捕获 PPS 上升沿，并让 ECAP.TSCTR 被 EPWM1SYNCOUT 清零。这样 CAP1 就是 PPS 相对 PWM 零点的硬件相位误差，不受 ISR 延迟影响。
+
+主机 PWM_MasterSync_Init() 改成：
+
+void PWM_MasterSync_Init(void)
+{
+    EALLOW;
+
+    EPWM_setSyncInPulseSource(EPWM1_BASE, EPWM_SYNC_IN_PULSE_SRC_DISABLE);
+    EPWM_disablePhaseShiftLoad(EPWM1_BASE);
+
+    EPWM_enableSyncOutPulseSource(EPWM1_BASE,
+                                  EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
+    SysCtl_setSyncOutputConfig(SYSCTL_SYNC_OUT_SRC_EPWM1SYNCOUT);
+
+    EDIS;
+}
+从机不要再用 XINT4，新增 eCAP 初始化，例如用 ECAP1 + INPUTXBAR5：
+
+#define PPS_ECAP_BASE          ECAP1_BASE
+#define PPS_ECAP_INT           INT_ECAP1
+#define PPS_GPIO_PIN           47U
+#define PPS_XBAR_INPUT         XBAR_INPUT5
+#define PPS_ECAP_INPUT         ECAP_INPUT_INPUTXBAR5
+
+#define PWM_TBCLK_HZ           100000000UL
+#define ECAP_TICKS_PER_TBCLK   (DEVICE_SYSCLK_FREQ / PWM_TBCLK_HZ)
+#define PWM_PERIOD_ECAP_TICKS  (EPWM_TBPRD * 2U * ECAP_TICKS_PER_TBCLK)
+
+static volatile int32_t g_slavePhaseErrorTbclk;
+static volatile uint32_t g_slavePpsCap;
+static void Slave_InitPPS_ECAP(void)
+{
+    EALLOW;
+
+    // 如果 GPIO47 是 CM PPS0 输出脚，不要再改 GPIO mux。
+    // 若 PPS 接到其他输入脚，把 PPS_GPIO_PIN 换成实际 GPIO。
+    XBAR_setInputPin(INPUTXBAR_BASE, PPS_XBAR_INPUT, PPS_GPIO_PIN);
+
+    ECAP_stopCounter(PPS_ECAP_BASE);
+    ECAP_enableCaptureMode(PPS_ECAP_BASE);
+    ECAP_selectECAPInput(PPS_ECAP_BASE, PPS_ECAP_INPUT);
+    ECAP_setEventPolarity(PPS_ECAP_BASE, ECAP_EVENT_1, ECAP_EVNT_RISING_EDGE);
+    ECAP_setCaptureMode(PPS_ECAP_BASE,
+                        ECAP_CONTINUOUS_CAPTURE_MODE,
+                        ECAP_EVENT_1);
+
+    // eCAP 计数器由 EPWM1 CTR=0 同步清零，CAP1 即 PPS 相对 PWM 零点的相位。
+    ECAP_setSyncInPulseSource(PPS_ECAP_BASE,
+                              ECAP_SYNC_IN_PULSE_SRC_SYNCOUT_EPWM1);
+    ECAP_setPhaseShiftCount(PPS_ECAP_BASE, 0U);
+    ECAP_enableLoadCounter(PPS_ECAP_BASE);
+    ECAP_enableTimeStampCapture(PPS_ECAP_BASE);
+
+    ECAP_clearInterrupt(PPS_ECAP_BASE, ECAP_ISR_SOURCE_CAPTURE_EVENT_1);
+    ECAP_clearGlobalInterrupt(PPS_ECAP_BASE);
+    ECAP_enableInterrupt(PPS_ECAP_BASE, ECAP_ISR_SOURCE_CAPTURE_EVENT_1);
+
+    Interrupt_register(PPS_ECAP_INT, PPS_Slave_ISR);
+    Interrupt_enable(PPS_ECAP_INT);
+
+    ECAP_startCounter(PPS_ECAP_BASE);
+
+    EDIS;
+}
+PWM_SlaveSync_Init() 里调用：
+
+void PWM_SlaveSync_Init(void)
+{
+    Slave_InitEPwm1();
+    Slave_InitPPS_ECAP();
+}
+ISR 改成只计算硬件捕获误差，不在这里粗暴改 TBPHS：
+
+__interrupt void PPS_Slave_ISR(void)
+{
+    uint32_t cap;
+    int32_t errEcap;
+
+    ECAP_clearInterrupt(PPS_ECAP_BASE, ECAP_ISR_SOURCE_CAPTURE_EVENT_1);
+    ECAP_clearGlobalInterrupt(PPS_ECAP_BASE);
+
+    cap = ECAP_getEventTimeStamp(PPS_ECAP_BASE, ECAP_EVENT_1) %
+          PWM_PERIOD_ECAP_TICKS;
+
+    g_slavePpsCap = cap;
+
+    errEcap = (int32_t)cap;
+    if(errEcap > (int32_t)(PWM_PERIOD_ECAP_TICKS / 2U))
+    {
+        errEcap -= (int32_t)PWM_PERIOD_ECAP_TICKS;
+    }
+
+    g_slavePhaseErrorTbclk = errEcap / (int32_t)ECAP_TICKS_PER_TBCLK;
+
+    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP4);
+}
+然后用 g_slavePhaseErrorTbclk 做低速修正：600ns 在你当前 TBCLK=100MHz 下约等于 60 个 TBCLK。不要每秒硬跳 60 个计数，建议在 PWM 周期 ISR 或控制 ISR 中每个 PWM 周期只修 1~2 个 TBCLK，逐步把误差消掉。若误差长期固定，比如 slave 总是滞后 600ns，可以先加一个固定补偿：
+
+#define PPS_PHASE_OFFSET_TBCLK   60
+g_slavePhaseErrorTbclk -= PPS_PHASE_OFFSET_TBCLK;
+最后，main.c 里现在同步初始化是注释掉的，需要在 bsp_init(); 后打开：
+
+#if PTP_MODE_MASTER
+    PWM_MasterSync_Init();
+#else
+    PWM_SlaveSync_Init();
+#endif
