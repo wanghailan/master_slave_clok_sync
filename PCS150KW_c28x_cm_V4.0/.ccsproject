@@ -3,5 +3,5 @@
 <projectOptions>
 	<deviceFamily value="TMS470"/>
 	<isTargetManual value="false"/>
-	<origin value="D:/project/dsp-sync-clock/code/PCS150KW_c28x_cm_V4.0"/>
+	<origin value="D:/workspace/backup/0430/master_slave_clok_sync/PCS150KW_c28x_cm_V4.0"/>
 </projectOptions>

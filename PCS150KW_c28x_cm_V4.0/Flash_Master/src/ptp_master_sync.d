@@ -68,6 +68,8 @@ src/ptp_master_sync.obj: C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/drive
 src/ptp_master_sync.obj: C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/driverlib_cm/udma.h
 src/ptp_master_sync.obj: C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/driverlib_cm/inc/hw_udma.h
 src/ptp_master_sync.obj: C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/driverlib_cm/usb.h
+src/ptp_master_sync.obj: D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h
+src/ptp_master_sync.obj: C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stddef.h
 
 ../src/ptp_master_sync.c:
 
@@ -204,4 +206,8 @@ C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/driverlib_cm/udma.h:
 C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/driverlib_cm/inc/hw_udma.h:
 
 C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/driverlib_cm/usb.h:
+
+D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/cm.h:
+
+C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stddef.h:
 
