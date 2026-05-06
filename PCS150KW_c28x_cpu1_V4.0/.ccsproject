@@ -14,5 +14,5 @@
 	<filesToOpen value=""/>
 	<connection value="common/targetdb/connections/TIXDS100v2_Connection.xml"/>
 	<isTargetManual value="true"/>
-	<origin value="D:/project/dsp-sync-clock/code/PCS150KW_c28x_cpu1_V4.0"/>
+	<origin value="D:/workspace/backup/0430/master_slave_clok_sync/PCS150KW_c28x_cpu1_V4.0"/>
 </projectOptions>

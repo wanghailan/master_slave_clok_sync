@@ -13,7 +13,7 @@
 #include "fpu32/C28x_FPU_FastRTS.h"
 
 
-//ÄÚ²¿ÐÅºÅ·¢ÉúÆ÷
+//ï¿½Ú²ï¿½ï¿½ÅºÅ·ï¿½ï¿½ï¿½ï¿½ï¿½
 RAMPGEN         PCS_rgen;
 ABC_DQ0_POS     PCS_InteRef_dq0_pos;
 ClarkT          Pcs_GridRef_alphaBeta;
@@ -21,9 +21,9 @@ ParkT           Pcs_GridRef_dq0_pos,Pcs_GridRef_dq0_neg;
 
 float32_t  PhaseErr;
 
-//ÀëÍøÄÚ²¿Éú³ÉÐÅºÅËøÏà
+//ï¿½ï¿½ï¿½ï¿½ï¿½Ú²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Åºï¿½ï¿½ï¿½ï¿½ï¿½
 SPLL_3PH_SRF PCS_spll_3ph_rgen;
-//²¢ÍøµçÑ¹ÐÅºÅËøÏà
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½Åºï¿½ï¿½ï¿½ï¿½ï¿½
 SPLL_3PH_DDSRF PCS_spll_3ph_grid;
 
 static float32_t PcsGen_sine;
@@ -41,7 +41,7 @@ static int16_t i16_IntCnt = 0;
 
 void  PCS_Spll_Init(void)
 {
-//ÀëÍøËøÄÚ²¿ÐÅºÅ·¢ÉúÆ÷Éú³ÉµÄÐéÄâÈýÏàÐÅºÅ
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú²ï¿½ï¿½ÅºÅ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Éµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Åºï¿½
     SPLL_3PH_SRF_init(PCS_AC_FREQ_HZ,
                           (float32_t)(1.0 / PCS_ISR1_FREQUENCY_HZ),
                           &PCS_spll_3ph_rgen);
@@ -49,7 +49,7 @@ void  PCS_Spll_Init(void)
     PCS_spll_3ph_rgen.lpf_coeff.b0 = 333.807f;
     PCS_spll_3ph_rgen.lpf_coeff.b1 = -333.674f;
 
-//Ëø²ÉÑùµÄÈýÏàµçÍøµçÑ¹
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ?
     SPLL_3PH_DDSRF_init(PCS_AC_FREQ_HZ,
                                 (float32_t)(1.0 / PCS_ISR1_FREQUENCY_HZ),
                                 (float32_t)(0.0029366f),(float32_t)(-0.9941268f),
@@ -62,7 +62,7 @@ void  PCS_Spll_Init(void)
 void objControl_globalVarInit(void)
 {
     // RAMPGEN initialization
-    //ÀëÍøÔËÐÐÊ±²úÉúÄÚ²¿50HZÐÅºÅ
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½Ú²ï¿½50HZï¿½Åºï¿½
     RAMPGEN_reset(&PCS_rgen);
     RAMPGEN_config(&PCS_rgen,PCS_ISR1_FREQUENCY_HZ,PCS_AC_FREQ_HZ);
 
@@ -229,25 +229,25 @@ void objControl_FanControl(void)
     if(Cpu1Ipc_cpu2cm.Temp_igbtMax < Cpu1Ipc_cpu2cm.Temp_igbtN)
         Cpu1Ipc_cpu2cm.Temp_igbtMax = Cpu1Ipc_cpu2cm.Temp_igbtN;
 
-    //³ö·ç¿ÚÎÂ¶È³¬¹ý45¶È£¬·ç»úÆô¶¯
-    if(Cpu1Ipc_cm2cpu.debugMode == 0)//µ÷ÊÔÄ£Ê½ÊÖ¶¯¿ØÖÆ¼ÌµçÆ÷
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È³ï¿½ï¿½ï¿?5ï¿½È£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
+    if(Cpu1Ipc_cm2cpu.debugMode == 0)//ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½Æ¼Ìµï¿½ï¿½ï¿½
     {
         if(Cpu1Ipc_cpu2cm.Relay_FanCtrl == 0)
         {
-            if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 300) //ÎÂ¶ÈµÍÓÚ30¶È
+            if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 300) //ï¿½Â¶Èµï¿½ï¿½ï¿½30ï¿½ï¿½
                 Cpu1Ipc_cpu2cm.Relay_FanCtrl = 0;
             else
                 Cpu1Ipc_cpu2cm.Relay_FanCtrl = 1;
         }
         else
         {
-            if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 250) //ÎÂ¶ÈµÍÓÚ25¶È
+            if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 250) //ï¿½Â¶Èµï¿½ï¿½ï¿½25ï¿½ï¿½
                 Cpu1Ipc_cpu2cm.Relay_FanCtrl = 0;
         }
     }
-    //·ç»ú×ªËÙËæIGBT×î¸ßÎÂ¶È¿ØÖÆ
-    if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 250) //ÎÂ¶ÈµÍÓÚ25¶È
-        Cpu1Ipc_cpu2cm.FanCtrl_duty = 200; //×ªËÙ20%
+    //ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½IGBTï¿½ï¿½ï¿½ï¿½Â¶È¿ï¿½ï¿½ï¿?
+    if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 250) //ï¿½Â¶Èµï¿½ï¿½ï¿½25ï¿½ï¿½
+        Cpu1Ipc_cpu2cm.FanCtrl_duty = 200; //×ªï¿½ï¿½20%
     else  if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 500)
     {
         Cpu1Ipc_cpu2cm.FanCtrl_duty = 200+(Cpu1Ipc_cpu2cm.Temp_AmbOutlet-250)*3; //
@@ -256,7 +256,7 @@ void objControl_FanControl(void)
         Cpu1Ipc_cpu2cm.FanCtrl_duty = 990;
     FanPwm_SpeedCtrl(Cpu1Ipc_cpu2cm.FanCtrl_duty);
 }
-//PCS×´Ì¬»ú
+//PCS×´Ì¬ï¿½ï¿½
 static int16_t CtrlDelayCnt = 0;
 static int16_t CtrlDelayCnt1 = 0;
 
@@ -264,7 +264,7 @@ void objControl_StateCtrl(void)
 {
    if((m_st_TimerFlag.u16_b1ms == 1)&&(Cpu1Ipc_cm2cpu.debugMode == 0))
    {
-      if((Cpu1Ipc_cpu2cm.PcsOnAllowed == 0)||(Cpu1Ipc_cm2cpu.StartEn == 0))//ÔËÐÐ¹ý³ÌÖÐ¹ÊÕÏ Ìø×ªµ½¹ÊÕÏÄ£Ê½
+      if((Cpu1Ipc_cpu2cm.PcsOnAllowed == 0)||(Cpu1Ipc_cm2cpu.StartEn == 0))//ï¿½ï¿½ï¿½Ð¹ï¿½ï¿½ï¿½ï¿½Ð¹ï¿½ï¿½ï¿½ ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½
       {
          CtrlDelayCnt = 0;
          CtrlDelayCnt1 = 0;
@@ -275,15 +275,15 @@ void objControl_StateCtrl(void)
       }
        switch(Cpu1Ipc_cpu2cm.PcsCtrlState)
        {
-           case PowerOn_Mode://ÉÏµç
+           case PowerOn_Mode://ï¿½Ïµï¿½
                Cpu1Ipc_cpu2cm.Relay_DCSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_DCMaster = 0;
                Cpu1Ipc_cpu2cm.Relay_ACMaster = 0;
-               if(Cpu1Ipc_cm2cpu.SelfCheckOK == 0)//ÉÏµç×Ô¼ìÎÞ¹ÊÕÏ
+               if(Cpu1Ipc_cm2cpu.SelfCheckOK == 0)//ï¿½Ïµï¿½ï¿½Ô¼ï¿½ï¿½Þ¹ï¿½ï¿½ï¿½
                {
                    CtrlDelayCnt++;
-                   if(CtrlDelayCnt > 2000)//ÉÏµçÑÓÊ±2S
+                   if(CtrlDelayCnt > 2000)//ï¿½Ïµï¿½ï¿½ï¿½Ê±2S
                    {
                        Cpu1Ipc_cpu2cm.PcsCtrlState = PcsOff_Mode;
                        CtrlDelayCnt = 0;
@@ -295,13 +295,13 @@ void objControl_StateCtrl(void)
                    Cpu1Ipc_cpu2cm.PcsCtrlState = PowerOn_Mode;
                }
                break;
-           case PcsOff_Mode://¹Ø»úÄ£Ê½
+           case PcsOff_Mode://ï¿½Ø»ï¿½Ä£Ê½
                Cpu1Ipc_cpu2cm.Relay_DCSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_DCMaster = 0;
                Cpu1Ipc_cpu2cm.Relay_ACMaster = 0;
                CtrlDelayCnt = 0;
-               if(Cpu1Ipc_cm2cpu.StartEn == 1)//ÊÕµ½Æô¶¯ÃüÁî
+               if(Cpu1Ipc_cm2cpu.StartEn == 1)//ï¿½Õµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                {
                    Cpu1Ipc_cpu2cm.PcsCtrlState = PreStart_Mode;
                }
@@ -310,38 +310,38 @@ void objControl_StateCtrl(void)
                    Cpu1Ipc_cpu2cm.PcsCtrlState = PcsOff_Mode;
                }
                break;
-           case PreStart_Mode://Ô¤Æô¶¯Ä£Ê½
+           case PreStart_Mode://Ô¤ï¿½ï¿½ï¿½ï¿½Ä£Ê½
                Cpu1Ipc_cpu2cm.Relay_DCSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_DCMaster = 0;
                Cpu1Ipc_cpu2cm.Relay_ACMaster = 0;
                CtrlDelayCnt1 = 0;
                CtrlDelayCnt++;
-               if(CtrlDelayCnt > 2)//³¬Ê±
+               if(CtrlDelayCnt > 2)//ï¿½ï¿½Ê±
                {
                    CtrlDelayCnt = 0;
-                   if((Cpu1Ipc_cm2cpu.WorkMode == GridConnectMode)&&(tCpu2Cla.OnGridMode==2))//Ö±Á÷Ô´Ä£Ê½,´Ó½»Á÷²âÆô¶¯
-                   {//´Ó½»Á÷²àÆô¶¯
+                   if((Cpu1Ipc_cm2cpu.WorkMode == GridConnectMode)&&(tCpu2Cla.OnGridMode==2))//Ö±ï¿½ï¿½Ô´Ä£Ê½,ï¿½Ó½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+                   {//ï¿½Ó½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                       Cpu1Ipc_cpu2cm.PcsCtrlState = AcSoft_Mode;
                    }
                    else
-                   {//´ÓÖ±Á÷²àÆô¶¯
+                   {//ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                        Cpu1Ipc_cpu2cm.PcsCtrlState = DcSoft_Mode;
                    }
                }
                break;
-           case DcSoft_Mode://Ö±Á÷ÈíÆð
+           case DcSoft_Mode://Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                Cpu1Ipc_cpu2cm.Relay_DCSoft   = 1;
 //               Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_DCMaster = 0;
 //               Cpu1Ipc_cpu2cm.Relay_ACMaster = 1;
                {
                    CtrlDelayCnt++;
-                   if(fabsf(Pcs_Output_Meter.PCS_DC_BusVol - (Pcs_Output_Meter.PCS_DC_PBusVol+Pcs_Output_Meter.PCS_DC_NBusVol)) < 7.0f)//Ñ¹²îÐ¡ÓÚ3VÑÓÊ±2sºÏDCÖ÷¼ÌµçÆ÷
+                   if(fabsf(Pcs_Output_Meter.PCS_DC_BusVol - (Pcs_Output_Meter.PCS_DC_PBusVol+Pcs_Output_Meter.PCS_DC_NBusVol)) < 7.0f)//Ñ¹ï¿½ï¿½Ð¡ï¿½ï¿½3Vï¿½ï¿½Ê±2sï¿½ï¿½DCï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½
                    {
                        CtrlDelayCnt = 0;
                        CtrlDelayCnt1++;
-                       if(CtrlDelayCnt1 > 1500)//ÑÓÊ±1S
+                       if(CtrlDelayCnt1 > 1500)//ï¿½ï¿½Ê±1S
                        {
                            CtrlDelayCnt1 = 0;
                            Cpu1Ipc_cpu2cm.PcsCtrlState = DcStart_Mode;
@@ -350,26 +350,26 @@ void objControl_StateCtrl(void)
                    else
                    {
                        CtrlDelayCnt1 = 0;
-                       if(CtrlDelayCnt > 25000)//³¬Ê±25S
+                       if(CtrlDelayCnt > 25000)//ï¿½ï¿½Ê±25S
                        {
                           CtrlDelayCnt = 0;
                           Cpu1Ipc_cpu2cm.PcsCtrlState = PcsOff_Mode;
-                          Cpu1Ipc_cpu2cm.FaultStatus.PCS_Fault2.tbits.bBUSSoftRelyTOutFault = 1;//Ö±Á÷Ä¸ÏßÈíÆð³¬Ê±
+                          Cpu1Ipc_cpu2cm.FaultStatus.PCS_Fault2.tbits.bBUSSoftRelyTOutFault = 1;//Ö±ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
                           Cpu1Ipc_cm2cpu.StartEn  = 0;
                        }
                    }
                }
                break;
-           case DcStart_Mode://Ö±Á÷Ö÷¼ÌµçÆ÷Æô¶¯
+           case DcStart_Mode://Ö±ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                Cpu1Ipc_cpu2cm.Relay_DCSoft   = 1;
 //               Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_DCMaster = 1;
 //               Cpu1Ipc_cpu2cm.Relay_ACMaster = 0;
               CtrlDelayCnt++;
-              if(CtrlDelayCnt > 1000)//ÑÓÊ±1S
+              if(CtrlDelayCnt > 1000)//ï¿½ï¿½Ê±1S
               {
                  CtrlDelayCnt = 0;
-                 if((Cpu1Ipc_cm2cpu.WorkMode == GridConnectMode)&&(tCpu2Cla.OnGridMode==2))//Ö±Á÷Ô´Ä£Ê½
+                 if((Cpu1Ipc_cm2cpu.WorkMode == GridConnectMode)&&(tCpu2Cla.OnGridMode==2))//Ö±ï¿½ï¿½Ô´Ä£Ê½
                  {
                      Cpu1Ipc_cpu2cm.PcsCtrlState = PcsOn_Mode;
                  }
@@ -379,29 +379,29 @@ void objControl_StateCtrl(void)
                  }
               }
                break;
-           case AcSoft_Mode://½»Á÷ÈíÆð
+           case AcSoft_Mode://ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 //               Cpu1Ipc_cpu2cm.Relay_DCSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_ACSoft   = 1;
 //               Cpu1Ipc_cpu2cm.Relay_DCMaster = 0;
                Cpu1Ipc_cpu2cm.Relay_ACMaster = 0;
                CtrlDelayCnt++;
                CtrlDelayCnt1 = 0;
-               if(CtrlDelayCnt > 3000)//ÑÓÊ±3S
+               if(CtrlDelayCnt > 3000)//ï¿½ï¿½Ê±3S
                {
                   CtrlDelayCnt = 0;
                   Cpu1Ipc_cpu2cm.PcsCtrlState = AcStart_Mode;
                }
                break;
-           case AcStart_Mode://½»Á÷Ö÷¼ÌµçÆ÷Æô¶¯
+           case AcStart_Mode://ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 //               Cpu1Ipc_cpu2cm.Relay_DCSoft   = 0;
 //               Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
 //               Cpu1Ipc_cpu2cm.Relay_DCMaster = 0;
                Cpu1Ipc_cpu2cm.Relay_ACMaster = 1;
               CtrlDelayCnt++;
-              if(CtrlDelayCnt > 1000)//ÈíÆð³¬Ê±
+              if(CtrlDelayCnt > 1000)//ï¿½ï¿½ï¿½ï¿½Ê±
               {
                 CtrlDelayCnt = 0;
-                if((Cpu1Ipc_cm2cpu.WorkMode == GridConnectMode)&&(tCpu2Cla.OnGridMode==2))//Ö±Á÷Ô´Ä£Ê½
+                if((Cpu1Ipc_cm2cpu.WorkMode == GridConnectMode)&&(tCpu2Cla.OnGridMode==2))//Ö±ï¿½ï¿½Ô´Ä£Ê½
                 {
                     Cpu1Ipc_cpu2cm.PcsCtrlState = DcSoft_Mode;
                 }
@@ -411,7 +411,7 @@ void objControl_StateCtrl(void)
                 }
               }
               break;
-           case PcsOn_Mode://ÔËÐÐÄ£Ê½
+           case PcsOn_Mode://ï¿½ï¿½ï¿½ï¿½Ä£Ê½
                Cpu1Ipc_cpu2cm.Relay_DCSoft   = 1;
                Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_DCMaster = 1;
@@ -426,6 +426,7 @@ void objControl_StateCtrl(void)
 
 void objControl_LedControl(void)
 {
+#if (PWM_SYNC_ROLE == PWM_SYNC_ROLE_NONE)
     if(m_st_TimerFlag.u16_b500ms == 1)
     {
         Drv_Led_toggle(1);
@@ -435,16 +436,17 @@ void objControl_LedControl(void)
         Drv_Led_Off(2);
     else
         Drv_Led_On(2);
+#endif
 
     if(m_st_TimerFlag.u16_b50ms == 1)
      {
-         if(Cpu1Ipc_cm2cpu.debugMode == 0)//0:Õý³£Ä£Ê½£¬1:µ÷ÊÔÄ£Ê½
+         if(Cpu1Ipc_cm2cpu.debugMode == 0)//0:ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½1:ï¿½ï¿½ï¿½ï¿½Ä£Ê½
          {
              if(Cpu1Ipc_cpu2cm.PcsCtrlState == PcsOn_Mode)
                  Cpu1Ipc_cpu2cm.Relay_WorkLed = 1;
              else
                  Cpu1Ipc_cpu2cm.Relay_WorkLed = 0;
-             if(Cpu1Ipc_cpu2cm.PcsOnAllowed == 0) //ÓÐ¹ÊÕÏÊ±
+             if(Cpu1Ipc_cpu2cm.PcsOnAllowed == 0) //ï¿½Ð¹ï¿½ï¿½ï¿½Ê±
                  Cpu1Ipc_cpu2cm.Relay_FaultLed = 1;
              else
                  Cpu1Ipc_cpu2cm.Relay_FaultLed = 0;
@@ -453,7 +455,7 @@ void objControl_LedControl(void)
 }
 
 
-//Äæ±äACµçÑ¹ÈíÆð¶¯¿ØÖÆ
+//ï¿½ï¿½ï¿½ACï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½ð¶¯¿ï¿½ï¿½ï¿½
 int16_t  Pcs_InvCtrl_SoftStar(void)
 {
     static int16_t m_i16_VrefRunM = 0;
@@ -497,7 +499,7 @@ int16_t  Pcs_InvCtrl_SoftStar(void)
     return 0;
 }
 
-//Ö±Á÷ÎÈÑ¹Ä£Ê½ÈíÆð
+//Ö±ï¿½ï¿½ï¿½ï¿½Ñ¹Ä£Ê½ï¿½ï¿½ï¿½ï¿½
 int16_t  Pcs_DcConstVolCtrl_SoftStar(void)
 {
     static int16_t m_i16_DcVref = 0;
@@ -540,7 +542,7 @@ int16_t  Pcs_DcConstVolCtrl_SoftStar(void)
     return 0;
 }
 
-//½»Á÷ºãÁ÷ÈíÆð
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 int16_t  Pcs_AcConstCurrCtrl_SoftStar(void)
 {
     static int16_t m_i16_AcCurrRef = 0;
@@ -583,7 +585,7 @@ int16_t  Pcs_AcConstCurrCtrl_SoftStar(void)
     return 0;
 }
 
-//Ö±Á÷ºãÁ÷ÈíÆð
+//Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 int16_t  Pcs_DcConstCurrCtrl_SoftStar(void)
 {
     static int16_t m_i16_DcCurrRef = 0;
@@ -626,7 +628,7 @@ int16_t  Pcs_DcConstCurrCtrl_SoftStar(void)
     return 0;
 }
 
-//ºã¹¦ÂÊÈíÆð¶¯
+//ï¿½ã¹¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 int16_t  Pcs_PQConstCtrl_SoftStar(void)
 {
     static int16_t m_i16_PwrCtrlRef = 0;

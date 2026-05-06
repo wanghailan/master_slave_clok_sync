@@ -1,0 +1,1335 @@
+******************************************************************************
+             TMS320C2000 Linker PC v22.6.1                     
+******************************************************************************
+>> Linked Wed May  6 17:33:01 2026
+
+OUTPUT FILE NAME:   <PCS150KW_c28x_cpu1_V4.0.out>
+ENTRY POINT SYMBOL: "code_start"  address: 00080000
+
+
+MEMORY CONFIGURATION
+
+         name            origin    length      used     unused   attr    fill
+----------------------  --------  ---------  --------  --------  ----  --------
+  BOOT_RSVD             00000002   000001af  00000000  000001af  RWIX
+  RAMM0                 000001b1   0000024f  00000000  0000024f  RWIX
+  RAMM1                 00000400   000003f8  00000200  000001f8  RWIX
+  CLA1_MSGRAMLOW        00001480   00000080  00000042  0000003e  RWIX
+  CLA1_MSGRAMHIGH       00001500   00000080  00000070  00000010  RWIX
+  CLA1_DMA_MSGRAM       00001680   00000080  00000000  00000080  RWIX
+  DMA_CLA1_MSGRAM       00001700   00000080  00000000  00000080  RWIX
+  RAMLS0                00008000   00000800  00000000  00000800  RWIX
+  RAMLS1                00008800   00000800  00000226  000005da  RWIX
+  RAMLS2                00009000   00000800  00000334  000004cc  RWIX
+  RAMLS3                00009800   00000800  00000000  00000800  RWIX
+  RAMLS4                0000a000   00000800  000004ef  00000311  RWIX
+  RAMLS57               0000a800   00001800  0000118e  00000672  RWIX
+  RAMD0                 0000c000   00000800  000000d5  0000072b  RWIX
+  RAMD1                 0000c800   00000800  00000000  00000800  RWIX
+  RAMGS0                0000d000   00001000  00000000  00001000  RWIX
+  RAMGS1                0000e000   00001000  00000000  00001000  RWIX
+  RAMGS2                0000f000   00001000  00000000  00001000  RWIX
+  RAMGS3                00010000   00001000  00000000  00001000  RWIX
+  RAMGS4                00011000   00001000  00000000  00001000  RWIX
+  RAMGS5                00012000   00001000  00000000  00001000  RWIX
+  RAMGS6                00013000   00001000  00000000  00001000  RWIX
+  RAMGS7                00014000   00001000  00000000  00001000  RWIX
+  RAMGS8                00015000   00001000  00000000  00001000  RWIX
+  RAMGS9                00016000   00001000  00000000  00001000  RWIX
+  RAMGS10               00017000   00001000  00000000  00001000  RWIX
+  RAMGS11               00018000   00001000  00000000  00001000  RWIX
+  RAMGS12               00019000   00001000  00000000  00001000  RWIX
+  RAMGS13               0001a000   00001000  00000000  00001000  RWIX
+  RAMGS14               0001b000   00001000  00000000  00001000  RWIX
+  RAMGS15               0001c000   00000ff8  00000000  00000ff8  RWIX
+  CMTOCPURAM            00038000   00000800  00000088  00000778  RWIX
+  CPUTOCMRAM            00039000   00000800  00000188  00000678  RWIX
+  CPU1TOCPU2RAM         0003a000   00000800  00000088  00000778  RWIX
+  CPU2TOCPU1RAM         0003b000   00000800  00000088  00000778  RWIX
+  CANA_MSG_RAM          00049000   00000800  00000000  00000800  RWIX
+  CANB_MSG_RAM          0004b000   00000800  00000000  00000800  RWIX
+  BEGIN                 00080000   00000002  00000002  00000000  RWIX
+  FLASH0                00080002   00001ffe  00000000  00001ffe  RWIX
+  FLASH1                00082000   00002000  00000000  00002000  RWIX
+  FLASH2                00084000   00002000  00000000  00002000  RWIX
+  FLASH3                00086000   00002000  00000000  00002000  RWIX
+  FLASH4                00088000   00008000  00005c70  00002390  RWIX
+  FLASH5                00090000   00008000  00000000  00008000  RWIX
+  FLASH6                00098000   00008000  000000d5  00007f2b  RWIX
+  FLASH7                000a0000   00008000  000011dc  00006e24  RWIX
+  FLASH8                000a8000   00008000  0000040b  00007bf5  RWIX
+  FLASH9                000b0000   00008000  00000000  00008000  RWIX
+  FLASH10               000b8000   00002000  00000000  00002000  RWIX
+  FLASH11               000ba000   00002000  00000000  00002000  RWIX
+  FLASH12               000bc000   00002000  00000000  00002000  RWIX
+  FLASH13               000be000   00001ff0  00000000  00001ff0  RWIX
+  RESET                 003fffc0   00000002  00000000  00000002  RWIX
+
+
+SECTION ALLOCATION MAP
+
+ output                                  attributes/
+section   page    origin      length       input sections
+--------  ----  ----------  ----------   ----------------
+codestart 
+*          0    00080000    00000002     
+                  00080000    00000002     f2838x_codestartbranch.obj (codestart)
+
+.cinit     0    000a1190    0000004e     
+                  000a1190    00000014     (.cinit..data.load) [load image, compression = lzss]
+                  000a11a4    00000006     (__TI_handler_table)
+                  000a11aa    00000004     (.cinit..bss.1.load) [load image, compression = zero_init]
+                  000a11ae    00000004     (.cinit..bss.2.load) [load image, compression = zero_init]
+                  000a11b2    00000004     (.cinit..bss.3.load) [load image, compression = zero_init]
+                  000a11b6    00000004     (.cinit..bss_cla.load) [load image, compression = zero_init]
+                  000a11ba    00000004     (.cinit..scratchpad.load) [load image, compression = zero_init]
+                  000a11be    00000004     (.cinit.CLADataLS1.load) [load image, compression = zero_init]
+                  000a11c2    0000001c     (__TI_cinit_table)
+
+.reset     0    003fffc0    00000000     DSECT
+
+.stack     0    00000400    00000200     UNINITIALIZED
+                  00000400    00000200     --HOLE--
+
+.init_array 
+*          0    00088000    00000000     UNINITIALIZED
+
+Cla1ToCpuMsgRAM 
+*          0    00001480    00000042     UNINITIALIZED
+                  00001480    00000042     initial_CLA.obj (Cla1ToCpuMsgRAM)
+
+CpuToCla1MsgRAM 
+*          0    00001500    00000070     UNINITIALIZED
+                  00001500    00000070     initial_CLA.obj (CpuToCla1MsgRAM)
+
+.bss_cla   0    000089e8    00000030     UNINITIALIZED
+                  000089e8    0000000a     claAlg.obj (.bss_cla:PCS_iGrid_dq0_pos)
+                  000089f2    0000000a     claAlg.obj (.bss_cla:PCS_iInv_dq0_pos)
+                  000089fc    0000000a     claAlg.obj (.bss_cla:PCS_vInv_dq0)
+                  00008a06    00000006     claAlg.obj (.bss_cla:PCS_vGrid_Clark)
+                  00008a0c    00000006     claAlg.obj (.bss_cla:PCS_vGrid_Park_n)
+                  00008a12    00000006     claAlg.obj (.bss_cla:PCS_vGrid_Park_p)
+
+.bss.1     0    00009000    0000017e     UNINITIALIZED
+                  00009000    0000014e     obj_OutMeter.obj (.bss)
+                  0000914e    00000028     obj_ipc.obj (.bss:debugpData)
+                  00009176    00000004     Drv_ADC.obj (.bss:ad_ntc1)
+                  0000917a    00000004     Drv_ADC.obj (.bss:ad_ntc2)
+
+.bss.2     0    00009180    000000f8     UNINITIALIZED
+                  00009180    000000e0     bsp.obj (.bss)
+                  00009260    00000010     Drv_Timer.obj (.bss)
+                  00009270    00000004     Drv_ADC.obj (.bss:ad_vol)
+                  00009274    00000004     obj_Protect.obj (.bss)
+
+.bss.3     0    00009280    000000be     UNINITIALIZED
+                  00009280    000000be     obj_Control.obj (.bss)
+
+.data      0    0000a000    000004ef     UNINITIALIZED
+                  0000a000    00000100     Drv_SCIC.obj (.data:SCIC_RxBuf)
+                  0000a100    00000100     Drv_SCIC.obj (.data:SCIC_TxBuf)
+                  0000a200    00000100     Drv_SCID.obj (.data:SCID_RxBuf)
+                  0000a300    00000100     Drv_SCID.obj (.data:SCID_TxBuf)
+                  0000a400    00000020     clb_config.obj (.data:CLBTILE5HLCInstr)
+                  0000a420    00000020     clb_config.obj (.data:CLBTILE6HLCInstr)
+                  0000a440    00000020     clb_config.obj (.data:CLBTILE7HLCInstr)
+                  0000a460    00000020     clb_config.obj (.data:CLBTILE8HLCInstr)
+                  0000a480    00000014     obj_Protect.obj (.data)
+                  0000a494    0000000c     obj_OutMeter.obj (.data:TempBuf$1)
+                  0000a4a0    0000000c     pwm_master_sync.obj (.data)
+                  0000a4ac    0000000c     pwm_slave_sync.obj (.data)
+                  0000a4b8    00000008     obj_Control.obj (.data)
+                  0000a4c0    00000006     Drv_SCIC.obj (.data)
+                  0000a4c6    00000006     Drv_SCID.obj (.data)
+                  0000a4cc    00000006     obj_OutMeter.obj (.data:TempCnt$2)
+                  0000a4d2    00000006     rts2800_fpu32_eabi.lib : exit.c.obj (.data)
+                  0000a4d8    00000004     Drv_SCIB.obj (.data)
+                  0000a4dc    00000004     Drv_tca9535_IO1.obj (.data)
+                  0000a4e0    00000004     Drv_tca9535_IO2.obj (.data)
+                  0000a4e4    00000002     Drv_ADC.obj (.data)
+                  0000a4e6    00000002     Drv_Timer.obj (.data)
+                  0000a4e8    00000002     rts2800_fpu32_eabi.lib : _lock.c.obj (.data:_lock)
+                  0000a4ea    00000002                            : _lock.c.obj (.data:_unlock)
+                  0000a4ec    00000002     obj_ipc.obj (.data)
+                  0000a4ee    00000001     obj_OutMeter.obj (.data)
+
+MSGRAM_CM_TO_CPU 
+*          0    00038000    00000088     UNINITIALIZED
+                  00038000    00000088     ipc.obj (MSGRAM_CM_TO_CPU)
+
+MSGRAM_CPU_TO_CM 
+*          0    00039000    00000188     UNINITIALIZED
+                  00039000    00000100     obj_ipc.obj (MSGRAM_CPU_TO_CM)
+                  00039100    00000088     ipc.obj (MSGRAM_CPU_TO_CM)
+
+MSGRAM_CPU1_TO_CPU2 
+*          0    0003a000    00000088     UNINITIALIZED
+                  0003a000    00000088     ipc.obj (MSGRAM_CPU1_TO_CPU2)
+
+MSGRAM_CPU2_TO_CPU1 
+*          0    0003b000    00000088     UNINITIALIZED
+                  0003b000    00000088     ipc.obj (MSGRAM_CPU2_TO_CPU1)
+
+Cla1Prog   0    000a0000    0000118e     RUN ADDR = 0000a800
+                  000a0000    00000304     claAlg.obj (Cla1Prog:PCS_Int_PwmCtrl)
+                  000a0304    00000298     claAlg.obj (Cla1Prog:PCS_CLA_AdSignalsRead)
+                  000a059c    0000027a     claAlg.obj (Cla1Prog:PCS_Int_InvVolReg)
+                  000a0816    0000018e     claAlg.obj (Cla1Prog:PCS_CLA_RealTimeData)
+                  000a09a4    0000014c     claAlg.obj (Cla1Prog:PCS_CLA_RunTransform)
+                  000a0af0    00000144     claAlg.obj (Cla1Prog:Cla1Task1)
+                  000a0c34    00000112     claAlg.obj (Cla1Prog:PCS_Int_InvCurrReg)
+                  000a0d46    000000ce     claAlg.obj (Cla1Prog:PCS_CLA_ParamInit)
+                  000a0e14    000000ba     claAlg.obj (Cla1Prog:PCS_CLA_Int_OnGrid)
+                  000a0ece    000000b6     claAlg.obj (Cla1Prog:order1_lowFliter)
+                  000a0f84    00000088     claAlg.obj (Cla1Prog:PCS_Int_DCCurrReg)
+                  000a100c    00000088     claAlg.obj (Cla1Prog:PCS_Int_DCVolReg)
+                  000a1094    0000004e     claAlg.obj (Cla1Prog:Pcs_Int_PQCtrlReg)
+                  000a10e2    00000038     claAlg.obj (Cla1Prog:PCS_CLA_Ad2Pu)
+                  000a111a    00000034     claAlg.obj (Cla1Prog:PCS_CLA_PWMOff)
+                  000a114e    00000010     claAlg.obj (Cla1Prog:Cla1Task8)
+                  000a115e    00000008     claAlg.obj (Cla1Prog:Cla1Task2)
+                  000a1166    00000008     claAlg.obj (Cla1Prog:Cla1Task3)
+                  000a116e    00000008     claAlg.obj (Cla1Prog:Cla1Task4)
+                  000a1176    00000008     claAlg.obj (Cla1Prog:Cla1Task5)
+                  000a117e    00000008     claAlg.obj (Cla1Prog:Cla1Task6)
+                  000a1186    00000008     claAlg.obj (Cla1Prog:Cla1Task7)
+
+.const     0    000a8000    0000033b     
+                  000a8000    00000088     ipc.obj (.const:IPC_Instance)
+                  000a8088    00000047     flash.obj (.const:.string)
+                  000a80cf    00000001     --HOLE-- [fill = 0]
+                  000a80d0    00000045     sysctl.obj (.const:.string)
+                  000a8115    00000001     --HOLE-- [fill = 0]
+                  000a8116    00000044     gpio.obj (.const:.string)
+                  000a815a    00000043     Drv_PWM.obj (.const:.string)
+                  000a819d    00000001     --HOLE-- [fill = 0]
+                  000a819e    00000043     clb.obj (.const:.string)
+                  000a81e1    00000001     --HOLE-- [fill = 0]
+                  000a81e2    00000043     dcc.obj (.const:.string)
+                  000a8225    00000001     --HOLE-- [fill = 0]
+                  000a8226    00000043     sci.obj (.const:.string)
+                  000a8269    00000001     --HOLE-- [fill = 0]
+                  000a826a    00000042     clb_config.obj (.const:.string)
+                  000a82ac    00000027     interrupt.obj (.const:.string)
+                  000a82d3    00000001     --HOLE-- [fill = 0]
+                  000a82d4    00000024     memcfg.obj (.const:.string)
+                  000a82f8    00000021     adc.obj (.const:.string)
+                  000a8319    00000001     --HOLE-- [fill = 0]
+                  000a831a    00000021     ipc.obj (.const:.string)
+
+FPUmathTables 
+*          0    000a833c    000000d0     
+                  000a833c    000000d0     rts2800_fpu32_fast_supplement_eabi.lib : logtable_f32.obj (FPUmathTables)
+
+CLADataLS1 
+*          0    00008900    000000e8     UNINITIALIZED
+                  00008900    000000e8     initial_CLA.obj (CLADataLS1)
+
+CLAscratch 
+*          0    00008800    00000100     UNINITIALIZED
+                  00008800    00000100     --HOLE--
+
+.scratchpad 
+*          0    00008a18    0000000e     UNINITIALIZED
+                  00008a18    0000000a     claAlg.obj (.scratchpad:Cla1Prog:PCS_CLA_RunTransform)
+                  00008a18    00000002     claAlg.obj (.scratchpad:Cla1Prog:PCS_CLA_Int_OnGrid)
+                  00008a18    00000006     claAlg.obj (.scratchpad:Cla1Prog:PCS_Int_InvVolReg)
+                  00008a18    0000000e     claAlg.obj (.scratchpad:Cla1Prog:PCS_Int_PwmCtrl)
+                  00008a18    00000002     claAlg.obj (.scratchpad:Cla1Prog:PCS_CLA_Ad2Pu)
+                  00008a18    00000004     claAlg.obj (.scratchpad:Cla1Prog:order1_lowFliter)
+                  00008a1a    00000002     claAlg.obj (.scratchpad:Cla1Prog:Pcs_Int_PQCtrlReg)
+                  00008a1c    00000002     claAlg.obj (.scratchpad:Cla1Prog:PCS_CLA_AdSignalsRead)
+
+.const_cla 
+*          0    00008800    00000000     UNINITIALIZED
+
+.TI.ramfunc 
+*          0    00098000    000000d5     RUN ADDR = 0000c000
+                  00098000    000000d1     flash.obj (.TI.ramfunc:Flash_initModule)
+                  000980d1    00000004     sysctl.obj (.TI.ramfunc)
+
+.text      0    00088000    00005c70     
+                  00088000    000005cb     obj_OutMeter.obj (.text:obj_PcsOutput_PowerMeasAC)
+                  000885cb    0000051c     Drv_PWM.obj (.text:Drv_EPWMx_Init)
+                  00088ae7    000003d9     clb_config.obj (.text:initCLBTILE5)
+                  00088ec0    000003d9     clb_config.obj (.text:initCLBTILE6)
+                  00089299    000003d9     clb_config.obj (.text:initCLBTILE7)
+                  00089672    000003d9     clb_config.obj (.text:initCLBTILE8)
+                  00089a4b    000002bc     obj_OutMeter.obj (.text:obj_PcsOutput_RmsCalc)
+                  00089d07    00000290     dcc.obj (.text:DCC_verifyClockFrequency)
+                  00089f97    0000021e     clb.obj (.text:CLB_configCounterLoadMatch)
+                  0008a1b5    000001fb     obj_Control.obj (.text:Pcs_GridRef_Pll)
+                  0008a3b0    000001f6     bsp.obj (.text:cpu2claParam_Upgrade)
+                  0008a5a6    0000016c     sysctl.obj (.text:SysCtl_isPLLValid)
+                  0008a712    00000167     device.obj (.text:Device_enableAllPeripherals)
+                  0008a879    0000015c     obj_OutMeter.obj (.text:obj_PcsOutput_Init)
+                  0008a9d5    0000012a     sysctl.obj (.text:SysCtl_setClock)
+                  0008aaff    00000128     obj_Control.obj (.text:objControl_StateCtrl)
+                  0008ac27    00000120     pwm_slave_sync.obj (.text:Slave_ServicePpsCapture)
+                  0008ad47    00000113     pwm_master_sync.obj (.text:Master_ServicePpsCapture)
+                  0008ae5a    000000f9     obj_Control.obj (.text:Pcs_InterRef_Gen)
+                  0008af53    000000f3     sysctl.obj (.text:SysCtl_setAuxClock)
+                  0008b046    000000d6     Drv_PWM.obj (.text:Drv_PwmPin_Init)
+                  0008b11c    000000b9     bsp.obj (.text:bsp_init)
+                  0008b1d5    000000a9     Drv_DO.obj (.text:Drv_DO_Init)
+                  0008b27e    000000a2     Drv_Timer.obj (.text:Drv_Timer_ClockMaintain)
+                  0008b320    000000a1     board.obj (.text:myCLB7_init)
+                  0008b3c1    000000a1     board.obj (.text:myCLB8_init)
+                  0008b462    000000a0     obj_Control.obj (.text:PCS_Spll_Init)
+                  0008b502    000000a0     obj_Control.obj (.text:Pcs_runISR1)
+                  0008b5a2    000000a0     board.obj (.text:myCLB5_init)
+                  0008b642    0000009f     board.obj (.text:myCLB6_init)
+                  0008b6e1    00000097     Drv_SCIB.obj (.text:Drv_SCIB_Init)
+                  0008b778    00000096     Drv_SCIC.obj (.text:Drv_SCIC_Init)
+                  0008b80e    00000096     Drv_SCID.obj (.text:Drv_SCID_Init)
+                  0008b8a4    00000091     obj_OutMeter.obj (.text:obj_PcsOutput_TempCalc)
+                  0008b935    0000008d     sci.obj (.text:SCI_setConfig)
+                  0008b9c2    00000089     sci.obj (.text:SCI_writeCharArray)
+                  0008ba4b    00000086     Drv_ADC.obj (.text:Drv_ADCA_init)
+                  0008bad1    00000081     sysctl.obj (.text:SysCtl_getAuxClock)
+                  0008bb52    0000007f     initial_CLA.obj (.text:initCpu2Cla1)
+                  0008bbd1    0000007e     Drv_tca9535_IO1.obj (.text:tca9535_io1_p0Set)
+                  0008bc4f    0000007e     Drv_tca9535_IO2.obj (.text:tca9535_io2_p0Set)
+                  0008bccd    0000007c     Drv_EtherNet.obj (.text:Drv_EtherNetPinInit)
+                  0008bd49    0000007b     obj_ipc.obj (.text:IPC_ISR0)
+                  0008bdc4    00000079     interrupt.obj (.text:Interrupt_clearIFR)
+                  0008be3d    00000078     device.obj (.text:Device_init)
+                  0008beb5    00000074     memcfg.obj (.text:MemCfg_getInitStatus)
+                  0008bf29    00000072     sysctl.obj (.text:SysCtl_getClock)
+                  0008bf9b    00000070     Drv_ADC.obj (.text:Drv_ADCB_init)
+                  0008c00b    00000070     Drv_ADC.obj (.text:Drv_ADCC_init)
+                  0008c07b    00000070     Drv_ADC.obj (.text:Drv_ADCD_init)
+                  0008c0eb    0000006f     Drv_DIN.obj (.text:Drv_DinPin_Init)
+                  0008c15a    0000006d     Drv_SCIC.obj (.text:SCICRxISR)
+                  0008c1c7    0000006d     Drv_SCID.obj (.text:SCIDRxISR)
+                  0008c234    0000006b     Drv_W5500.obj (.text:Drv_W5500Pin_Init)
+                  0008c29f    0000006b     memcfg.obj (.text:MemCfg_setLSRAMControllerSel)
+                  0008c30a    0000006b     obj_ipc.obj (.text:ipc_TxData_Cpu1ToCM)
+                  0008c375    0000006a     Drv_DO.obj (.text:Drv_RelaySet)
+                  0008c3df    00000069     initial_CLA.obj (.text:configClaMemory)
+                  0008c448    00000066     sysctl.obj (.text:SysCtl_pollX1Counter)
+                  0008c4ae    00000064     memcfg.obj (.text:MemCfg_initSections)
+                  0008c512    00000063     obj_Protect.obj (.text:FaultMonitor_ACVoltageUnbanlance)
+                  0008c575    00000001     rts2800_fpu32_eabi.lib : startup.c.obj (.text)
+                  0008c576    0000005f     adc.obj (.text:ADC_setINLTrim)
+                  0008c5d5    0000005f     Drv_PWM.obj (.text:Drv_PWM_ParamInit)
+                  0008c634    0000005e     pwm_master_sync.obj (.text:Master_InitPpsEcap)
+                  0008c692    0000005e     Drv_SCIB.obj (.text:SCIBRxISR)
+                  0008c6f0    0000005e     pwm_slave_sync.obj (.text:Slave_InitPpsEcap)
+                  0008c74e    00000058     pwm_master_sync.obj (.text:set_epwm_up_down_phase)
+                  0008c7a6    00000058     pwm_slave_sync.obj (.text:set_epwm_up_down_phase)
+                  0008c7fe    00000056     bsp.obj (.text:App_AllFault_Reset)
+                  0008c854    00000054     obj_Protect.obj (.text:FaultMonitor_ACUnderVoltage)
+                  0008c8a8    00000053     adc.obj (.text:ADC_setOffsetTrim)
+                  0008c8fb    00000053     obj_OutMeter.obj (.text:obj_PcsOutput_PowerMeas)
+                  0008c94e    00000052     sci.obj (.text:SCI_clearInterruptStatus)
+                  0008c9a0    0000004f     Drv_ADC.obj (.text:Drv_AD_Switch_Read)
+                  0008c9ef    0000004f     obj_Protect.obj (.text:FaultMonitor_ACOverVoltage)
+                  0008ca3e    0000004e     interrupt.obj (.text:Interrupt_disable)
+                  0008ca8c    0000004d     gpio.obj (.text:GPIO_setPadConfig)
+                  0008cad9    0000004b     sci.obj (.text:SCI_getInterruptStatus)
+                  0008cb24    00000049     obj_Protect.obj (.text:FaultMonitor_PhaseSequence)
+                  0008cb6d    00000049     obj_OutMeter.obj (.text:calc_NtcTemp)
+                  0008cbb6    00000049     obj_OutMeter.obj (.text:calc_NtcTemp_1)
+                  0008cbff    00000046     sysctl.obj (.text:SysCtl_selectOscSourceAuxPLL)
+                  0008cc45    00000046     main.obj (.text:main)
+                  0008cc8b    00000045     obj_Control.obj (.text:Pcs_DcConstVolCtrl_SoftStar)
+                  0008ccd0    00000045     Drv_tca9535_IO1.obj (.text:tca9535_io1_init)
+                  0008cd15    00000045     Drv_tca9535_IO2.obj (.text:tca9535_io2_init)
+                  0008cd5a    00000043     Drv_LED.obj (.text:Drv_LedPin_Init)
+                  0008cd9d    00000043     obj_Control.obj (.text:objControl_FanControl)
+                  0008cde0    00000042     Drv_ADC.obj (.text:Drv_adcA1ISR)
+                  0008ce22    00000041     obj_Protect.obj (.text:FaultMonitor_DCVoltageUnbanlance)
+                  0008ce63    00000041     interrupt.obj (.text:Interrupt_initModule)
+                  0008cea4    00000040     Drv_SCIC.obj (.text:Drv_SCICPin_Init)
+                  0008cee4    00000040     obj_Control.obj (.text:objControl_globalVarInit)
+                  0008cf24    0000003f     ipc.obj (.text:IPC_registerInterrupt)
+                  0008cf63    0000003e     obj_Protect.obj (.text:FaultMonitor_ACCurrentOver)
+                  0008cfa1    0000003e     obj_Protect.obj (.text:FaultMonitor_DCCurrentOver)
+                  0008cfdf    0000003e     ipc.obj (.text:IPC_unregisterInterrupt)
+                  0008d01d    0000003e     obj_Control.obj (.text:Pcs_PQConstCtrl_SoftStar)
+                  0008d05b    0000003c     sysctl.obj (.text:SysCtl_selectOscSource)
+                  0008d097    0000003b     clb_config.obj (.text:CLB_configOutputLUT)
+                  0008d0d2    0000003b     obj_Protect.obj (.text:FaultMonitor_DCVoltageOver)
+                  0008d10d    0000003a     sysctl.obj (.text:SysCtl_selectXTAL)
+                  0008d147    00000039     adc.obj (.text:ADC_setMode)
+                  0008d180    00000039     clb_config.obj (.text:CLB_configAOC)
+                  0008d1b9    00000039     pwm_master_sync.obj (.text:PPS_Master_ECAP_ISR)
+                  0008d1f2    00000039     pwm_slave_sync.obj (.text:PPS_Slave_ECAP_ISR)
+                  0008d22b    00000038     rts2800_fpu32_fast_supplement_eabi.lib : log_f32.obj (.text)
+                  0008d263    00000037     sci.obj (.text:SCI_disableInterrupt)
+                  0008d29a    00000036     interrupt.obj (.text:Interrupt_enable)
+                  0008d2d0    00000036     sci.obj (.text:SCI_enableInterrupt)
+                  0008d306    00000034     obj_Control.obj (.text:Pcs_AcConstCurrCtrl_SoftStar)
+                  0008d33a    00000034     obj_Control.obj (.text:Pcs_DcConstCurrCtrl_SoftStar)
+                  0008d36e    00000034     obj_Control.obj (.text:Pcs_InvCtrl_SoftStar)
+                  0008d3a2    00000032     Drv_PWM.obj (.text:Drv_EPWM1_Init)
+                  0008d3d4    00000031     Drv_tca9535_IO1.obj (.text:i2c_SendByte)
+                  0008d405    00000031     Drv_tca9535_IO2.obj (.text:i2c_SendByte)
+                  0008d436    00000030     gpio.obj (.text:GPIO_setControllerCore)
+                  0008d466    00000030     gpio.obj (.text:GPIO_setPinConfig)
+                  0008d496    00000030     gpio.obj (.text:GPIO_setQualificationMode)
+                  0008d4c6    00000030     rts2800_fpu32_eabi.lib : copy_decompress_lzss.c.obj (.text:decompress:lzss)
+                  0008d4f6    0000002e     ipc.obj (.text:IPC_sendCommand)
+                  0008d524    0000002d     obj_Protect.obj (.text:FaultMonitor_DCRPFault)
+                  0008d551    0000002c     Drv_SCIC.obj (.text:Drv_SCIC_WriteDataBuf)
+                  0008d57d    0000002c     Drv_SCID.obj (.text:Drv_SCID_WriteDataBuf)
+                  0008d5a9    0000002c     gpio.obj (.text:GPIO_setDirectionMode)
+                  0008d5d5    0000002c     initial_CLA.obj (.text:initial_CLA)
+                  0008d601    0000002b     obj_Protect.obj (.text:App_AllFault_Deal)
+                  0008d62c    0000002b     obj_Protect.obj (.text:FaultMonitor_AmbOverTemp)
+                  0008d657    0000002b     obj_Protect.obj (.text:FaultMonitor_IgbtOverTemp)
+                  0008d682    0000002b     rts2800_fpu32_eabi.lib : autoinit.c.obj (.text:__TI_auto_init_nobinit_nopinit)
+                  0008d6ad    0000002b     obj_Control.obj (.text:objControl_DOControl)
+                  0008d6d8    00000029     ipc.obj (.text:IPC_readCommand)
+                  0008d701    00000029     pwm_slave_sync.obj (.text:Slave_InitEPwmSync)
+                  0008d72a    00000029     rts2800_fpu32_eabi.lib : exit.c.obj (.text)
+                  0008d753    00000028     Drv_tca9535_IO1.obj (.text:i2c_WaitAck)
+                  0008d77b    00000028     Drv_tca9535_IO2.obj (.text:i2c_WaitAck)
+                  0008d7a3    00000028     obj_ipc.obj (.text:ipc_init)
+                  0008d7cb    00000026     Drv_I2CA.obj (.text:Drv_I2CAPin_Init)
+                  0008d7f1    00000026     Drv_Timer.obj (.text:Drv_Timer_IntMaintain)
+                  0008d817    00000024     sysctl.obj (.text:SysCtl_getLowSpeedClock)
+                  0008d83b    00000021     Drv_tca9535_IO1.obj (.text:tca9535_WriteReg)
+                  0008d85c    00000021     Drv_tca9535_IO2.obj (.text:tca9535_WriteReg)
+                  0008d87d    0000001f     sysctl.obj (.text:SysCtl_selectXTALSingleEnded)
+                  0008d89c    0000001e     device.obj (.text:Device_initGPIO)
+                  0008d8ba    0000001d     interrupt.obj (.text:Interrupt_initVectorTable)
+                  0008d8d7    0000001d     rts2800_fpu32_eabi.lib : memcpy.c.obj (.text)
+                  0008d8f4    0000001c     cla.obj (.text:CLA_setTriggerSource)
+                  0008d910    0000001c     board.obj (.text:CLB_configLocalInputMux)
+                  0008d92c    0000001c     device.obj (.text:Device_verifyXTAL)
+                  0008d948    0000001b     device.obj (.text:Device_enableUnbondedGPIOPullups)
+                  0008d963    0000001b     Drv_Timer.obj (.text:Drv_ClockCntInit)
+                  0008d97e    0000001b     bsp.obj (.text:GloabParam_Init)
+                  0008d999    0000001a     Drv_tca9535_IO1.obj (.text:i2c_Start)
+                  0008d9b3    0000001a     Drv_tca9535_IO2.obj (.text:i2c_Start)
+                  0008d9cd    0000001a     Drv_tca9535_IO1.obj (.text:i2c_Stop)
+                  0008d9e7    0000001a     Drv_tca9535_IO2.obj (.text:i2c_Stop)
+                  0008da01    00000019     Drv_SCIC.obj (.text:SCICRx_Poll)
+                  0008da1a    00000019     Drv_SCID.obj (.text:SCIDRx_Poll)
+                  0008da33    00000019     device.obj (.text:SysCtl_enablePeripheral)
+                  0008da4c    00000018     Drv_ADC.obj (.text:Drv_ADC_Init)
+                  0008da64    00000017     Drv_PWM.obj (.text:FanPwm_Init)
+                  0008da7b    00000017     sysctl.obj (.text:SysCtl_controlCMReset)
+                  0008da92    00000017     obj_Control.obj (.text:objControl_LedControl)
+                  0008daa9    00000017     rts2800_fpu32_eabi.lib : boot28.asm.obj (.text)
+                  0008dac0    00000016     bsp.obj (.text:bsp_clb_pwmEnCtrl)
+                  0008dad6    00000015     device.obj (.text:Device_bootCM)
+                  0008daeb    00000012     Drv_PWM.obj (.text:Drv_PWM_SYNC_Init)
+                  0008dafd    00000011     initial_CLA.obj (.text:cla1Isr1)
+                  0008db0e    00000011     initial_CLA.obj (.text:cla1Isr8)
+                  0008db1f    0000000f     Drv_Timer.obj (.text:Drv_Timer_usDelay)
+                  0008db2e    0000000f     Drv_SCIC.obj (.text:SciC_Poll)
+                  0008db3d    0000000f     Drv_SCID.obj (.text:SciD_Poll)
+                  0008db4c    0000000f     initial_CLA.obj (.text:cla1Isr2)
+                  0008db5b    0000000f     initial_CLA.obj (.text:cla1Isr3)
+                  0008db6a    0000000f     initial_CLA.obj (.text:cla1Isr4)
+                  0008db79    0000000f     initial_CLA.obj (.text:cla1Isr5)
+                  0008db88    0000000f     initial_CLA.obj (.text:cla1Isr6)
+                  0008db97    0000000f     initial_CLA.obj (.text:cla1Isr7)
+                  0008dba6    0000000e     Drv_PWM.obj (.text:Drv_Pwm_Init)
+                  0008dbb4    0000000c     Drv_ADC.obj (.text:Drv_ADCInterrupt_init)
+                  0008dbc0    0000000c     Drv_SCIC.obj (.text:Drv_SCICInit)
+                  0008dbcc    0000000c     Drv_SCID.obj (.text:Drv_SCIDInit)
+                  0008dbd8    0000000c     Drv_PWM.obj (.text:FanPwm_ON)
+                  0008dbe4    0000000c     interrupt.obj (.text:Interrupt_defaultHandler)
+                  0008dbf0    0000000c     rts2800_fpu32_eabi.lib : args_main.c.obj (.text)
+                  0008dbfc    0000000b     board.obj (.text:Board_init)
+                  0008dc07    0000000a     Drv_LED.obj (.text:Drv_Led_toggle)
+                  0008dc11    0000000a     interrupt.obj (.text:Interrupt_illegalOperationHandler)
+                  0008dc1b    0000000a     interrupt.obj (.text:Interrupt_nmiHandler)
+                  0008dc25    00000009     rts2800_fpu32_eabi.lib : _lock.c.obj (.text)
+                  0008dc2e    00000008                            : copy_decompress_none.c.obj (.text:decompress:none)
+                  0008dc36    00000008     f2838x_codestartbranch.obj (.text)
+                  0008dc3e    00000007     Drv_PWM.obj (.text:FanPwm_SpeedCtrl)
+                  0008dc45    00000007     rts2800_fpu32_eabi.lib : memset.c.obj (.text)
+                  0008dc4c    00000006     Drv_PWM.obj (.text:Drv_PwmOffset)
+                  0008dc52    00000006     Drv_PWM.obj (.text:Drv_PwmOnset)
+                  0008dc58    00000006     rts2800_fpu32_eabi.lib : copy_zero_init.c.obj (.text:decompress:ZI)
+                  0008dc5e    00000005     pwm_slave_sync.obj (.text:PWM_SlaveSync_Init)
+                  0008dc63    00000004     Drv_PWM.obj (.text:PWMEN_Close)
+                  0008dc67    00000004     Drv_PWM.obj (.text:PWMEN_Open)
+                  0008dc6b    00000003     device.obj (.text:__error__)
+                  0008dc6e    00000002     rts2800_fpu32_eabi.lib : pre_init.c.obj (.text)
+
+MODULE SUMMARY
+
+       Module                       code    ro data   rw data
+       ------                       ----    -------   -------
+    .\
+       main.obj                     70      0         0      
+    +--+----------------------------+-------+---------+---------+
+       Total:                       70      0         0      
+                                                             
+    .\App\
+       obj_OutMeter.obj             2905    0         353    
+       obj_Control.obj              1856    0         198    
+       bsp.obj                      822     0         224    
+       obj_Protect.obj              757     0         24     
+       pwm_slave_sync.obj           573     0         12     
+       obj_ipc.obj                  270     0         298    
+       pwm_master_sync.obj          514     0         12     
+    +--+----------------------------+-------+---------+---------+
+       Total:                       7697    0         1121   
+                                                             
+    .\CLA\
+       claAlg.obj                   8988    0         90     
+       initial_CLA.obj              400     0         410    
+    +--+----------------------------+-------+---------+---------+
+       Total:                       9388    0         500    
+                                                             
+    .\Driver\
+       Drv_PWM.obj                  1761    67        0      
+       Drv_SCIC.obj                 419     0         518    
+       Drv_SCID.obj                 355     0         518    
+       Drv_ADC.obj                  651     0         14     
+       Drv_tca9535_IO1.obj          369     0         4      
+       Drv_tca9535_IO2.obj          369     0         4      
+       Drv_DO.obj                   275     0         0      
+       Drv_Timer.obj                242     0         18     
+       Drv_SCIB.obj                 245     0         4      
+       Drv_EtherNet.obj             124     0         0      
+       Drv_DIN.obj                  111     0         0      
+       Drv_W5500.obj                107     0         0      
+       Drv_LED.obj                  77      0         0      
+       Drv_I2CA.obj                 38      0         0      
+    +--+----------------------------+-------+---------+---------+
+       Total:                       5143    67        1080   
+                                                             
+    .\Driver\device\
+       device.obj                   613     0         0      
+       f2838x_codestartbranch.obj   10      0         0      
+    +--+----------------------------+-------+---------+---------+
+       Total:                       623     0         0      
+                                                             
+    .\Driver\device\driverlib\
+       sysctl.obj                   1536    69        0      
+       ipc.obj                      212     169       544    
+       dcc.obj                      656     67        0      
+       sci.obj                      544     67        0      
+       clb.obj                      542     67        0      
+       flash.obj                    418     71        0      
+       interrupt.obj                379     39        0      
+       memcfg.obj                   323     36        0      
+       gpio.obj                     265     68        0      
+       adc.obj                      235     33        0      
+       cla.obj                      28      0         0      
+    +--+----------------------------+-------+---------+---------+
+       Total:                       5138    686       544    
+                                                             
+    .\syscfg\
+       clb_config.obj               4056    66        128    
+       board.obj                    680     0         0      
+    +--+----------------------------+-------+---------+---------+
+       Total:                       4736    66        128    
+                                                             
+    C:\ti\ccs1280\ccs\tools\compiler\ti-cgt-c2000_22.6.1.LTS\lib\rts2800_fpu32_eabi.lib
+       copy_decompress_lzss.c.obj   48      0         0      
+       exit.c.obj                   41      0         6      
+       autoinit.c.obj               43      0         0      
+       memcpy.c.obj                 29      0         0      
+       boot28.asm.obj               23      0         0      
+       _lock.c.obj                  9       0         4      
+       args_main.c.obj              12      0         0      
+       copy_decompress_none.c.obj   8       0         0      
+       memset.c.obj                 7       0         0      
+       copy_zero_init.c.obj         6       0         0      
+       pre_init.c.obj               2       0         0      
+       startup.c.obj                1       0         0      
+    +--+----------------------------+-------+---------+---------+
+       Total:                       229     0         10     
+                                                             
+    D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/FPUfastRTS/rts2800_fpu32_fast_supplement_eabi.lib
+       logtable_f32.obj             0       208       0      
+       log_f32.obj                  56      0         0      
+    +--+----------------------------+-------+---------+---------+
+       Total:                       56      208       0      
+                                                             
+       Stack:                       0       0         512    
+       Linker Generated:            0       78        0      
+    +--+----------------------------+-------+---------+---------+
+       Grand Total:                 33080   1105      3895   
+
+
+LINKER GENERATED COPY TABLES
+
+__TI_cinit_table @ 000a11c2 records: 7, size/record: 4, table size: 28
+	.data: load addr=000a1190, load size=00000014 bytes, run addr=0000a000, run size=000004ef bytes, compression=lzss
+	.bss.1: load addr=000a11aa, load size=00000004 bytes, run addr=00009000, run size=0000017e bytes, compression=zero_init
+	.bss.2: load addr=000a11ae, load size=00000004 bytes, run addr=00009180, run size=000000f8 bytes, compression=zero_init
+	.bss.3: load addr=000a11b2, load size=00000004 bytes, run addr=00009280, run size=000000be bytes, compression=zero_init
+	.bss_cla: load addr=000a11b6, load size=00000004 bytes, run addr=000089e8, run size=00000030 bytes, compression=zero_init
+	.scratchpad: load addr=000a11ba, load size=00000004 bytes, run addr=00008a18, run size=0000000e bytes, compression=zero_init
+	CLADataLS1: load addr=000a11be, load size=00000004 bytes, run addr=00008900, run size=000000e8 bytes, compression=zero_init
+
+
+LINKER GENERATED HANDLER TABLE
+
+__TI_handler_table @ 000a11a4 records: 3, size/record: 2, table size: 6
+	index: 0, handler: __TI_zero_init
+	index: 1, handler: __TI_decompress_lzss
+	index: 2, handler: __TI_decompress_none
+
+
+GLOBAL DATA SYMBOLS: SORTED BY DATA PAGE
+
+address     data page           name
+--------    ----------------    ----
+00000400      10 (00000400)     __stack
+
+00001480      52 (00001480)     tCla2Cpu
+
+00001500      54 (00001500)     tCpu2Cla
+
+00008900     224 (00008900)     tClaPrivate
+
+000089e8     227 (000089c0)     PCS_iGrid_dq0_pos
+000089f2     227 (000089c0)     PCS_iInv_dq0_pos
+000089fc     227 (000089c0)     PCS_vInv_dq0
+
+00008a06     228 (00008a00)     PCS_vGrid_Clark
+00008a0c     228 (00008a00)     PCS_vGrid_Park_n
+00008a12     228 (00008a00)     PCS_vGrid_Park_p
+
+00009040     241 (00009040)     Pcs_MeasAnalyzer_A
+
+00009080     242 (00009080)     Pcs_MeasAnalyzer_B
+
+000090c0     243 (000090c0)     Pcs_MeasAnalyzer_C
+
+00009100     244 (00009100)     Pcs_Output_Meter
+
+0000914e     245 (00009140)     debugpData
+00009176     245 (00009140)     ad_ntc1
+0000917a     245 (00009140)     ad_ntc2
+
+00009180     246 (00009180)     Cpu1Ipc_cpu2cm
+
+00009200     248 (00009200)     Cpu1Ipc_cm2cpu
+
+00009260     249 (00009240)     m_st_TimerFlag
+00009270     249 (00009240)     ad_vol
+
+00009280     24a (00009280)     Cnt_PwmEnDelay
+00009282     24a (00009280)     PhaseErr
+0000928c     24a (00009280)     Pcs_Localpllfo
+0000928e     24a (00009280)     Pcs_Gridpllfo
+00009290     24a (00009280)     PCS_rgen
+00009296     24a (00009280)     Pcs_GridRef_alphaBeta
+0000929c     24a (00009280)     Pcs_GridRef_dq0_pos
+000092a2     24a (00009280)     Pcs_GridRef_dq0_neg
+000092a8     24a (00009280)     PCS_InteRef_dq0_pos
+
+000092c0     24b (000092c0)     PCS_spll_3ph_rgen
+
+00009300     24c (00009300)     PCS_spll_3ph_grid
+
+0000a000     280 (0000a000)     SCIC_RxBuf
+
+0000a100     284 (0000a100)     SCIC_TxBuf
+
+0000a200     288 (0000a200)     SCID_RxBuf
+
+0000a300     28c (0000a300)     SCID_TxBuf
+
+0000a400     290 (0000a400)     CLBTILE5HLCInstr
+0000a420     290 (0000a400)     CLBTILE6HLCInstr
+
+0000a440     291 (0000a440)     CLBTILE7HLCInstr
+0000a460     291 (0000a440)     CLBTILE8HLCInstr
+
+0000a48c     292 (0000a480)     epwm1TZIntCount
+0000a490     292 (0000a480)     epwm1TZIntCount_CBC
+0000a4a0     292 (0000a480)     g_masterPwmLocked
+0000a4a2     292 (0000a480)     g_masterPpsCapCount
+0000a4a4     292 (0000a480)     g_masterPwmPhaseErrTicks
+0000a4a6     292 (0000a480)     g_masterPwmPhaseErrNs
+0000a4a8     292 (0000a480)     g_masterPwmLockCount
+0000a4aa     292 (0000a480)     g_masterPwmSkipCount
+0000a4ac     292 (0000a480)     g_slavePwmLocked
+0000a4ae     292 (0000a480)     g_slavePpsCapCount
+0000a4b0     292 (0000a480)     g_slavePwmPhaseErrTicks
+0000a4b2     292 (0000a480)     g_slavePwmPhaseErrNs
+0000a4b4     292 (0000a480)     g_slavePwmLockCount
+0000a4b6     292 (0000a480)     g_slavePwmSkipCount
+
+0000a4c0     293 (0000a4c0)     SCIC_RxCnt
+0000a4c1     293 (0000a4c0)     SCIC_TxCnt
+0000a4c2     293 (0000a4c0)     SCIC_TxFlag
+0000a4c4     293 (0000a4c0)     SCIC_RxTimeOut
+0000a4c6     293 (0000a4c0)     SCID_RxCnt
+0000a4c7     293 (0000a4c0)     SCID_TxCnt
+0000a4c8     293 (0000a4c0)     SCID_TxFlag
+0000a4ca     293 (0000a4c0)     SCID_RxTimeOut
+0000a4d2     293 (0000a4c0)     __TI_enable_exit_profile_output
+0000a4d4     293 (0000a4c0)     __TI_cleanup_ptr
+0000a4d6     293 (0000a4c0)     __TI_dtors_ptr
+0000a4d8     293 (0000a4c0)     SCIB_RxCnt
+0000a4d9     293 (0000a4c0)     check_Sum
+0000a4da     293 (0000a4c0)     SCIB_RxTimeOut
+0000a4e6     293 (0000a4c0)     cpu1_u32_TimerCnt
+0000a4e8     293 (0000a4c0)     _lock
+0000a4ea     293 (0000a4c0)     _unlock
+0000a4ec     293 (0000a4c0)     IpcCm2Cpu_ErrCnt
+0000a4ed     293 (0000a4c0)     ipcTx_flag
+
+00038000     e00 (00038000)     IPC_CPU_To_CM_GetBuffer
+
+00039000     e40 (00039000)     ptDataCpu1ToCm
+
+00039100     e44 (00039100)     IPC_CPU_To_CM_PutBuffer
+
+0003a000     e80 (0003a000)     IPC_CPU1_To_CPU2_PutBuffer
+
+0003b000     ec0 (0003b000)     IPC_CPU1_To_CPU2_GetBuffer
+
+000a8000    2a00 (000a8000)     IPC_Instance
+
+000a833c    2a0c (000a8300)     FPU32LOG2
+000a833e    2a0c (000a8300)     FPU32INVLOG10
+
+000a8340    2a0d (000a8340)     FPU32EXPBIAS
+000a8342    2a0d (000a8340)     FPU32LOG_TABLE_MASK1
+000a8344    2a0d (000a8340)     FPU32LOG_TABLE_MASK2
+000a8346    2a0d (000a8340)     FPU32logTable
+
+000a840c    2a10 (000a8400)     FPU32logTableEnd
+
+
+GLOBAL SYMBOLS: SORTED ALPHABETICALLY BY Name 
+
+page  address   name                             
+----  -------   ----                             
+0     0008c576  ADC_setINLTrim                   
+0     0008d147  ADC_setMode                      
+0     0008c8a8  ADC_setOffsetTrim                
+0     0008d601  App_AllFault_Deal                
+0     0008c7fe  App_AllFault_Reset               
+0     0008dbfc  Board_init                       
+0     0008d72a  C$$EXIT                          
+abs   00000100  CLA_SCRATCHPAD_SIZE              
+0     0008d8f4  CLA_setTriggerSource             
+0     0000a400  CLBTILE5HLCInstr                 
+0     0000a420  CLBTILE6HLCInstr                 
+0     0000a440  CLBTILE7HLCInstr                 
+0     0000a460  CLBTILE8HLCInstr                 
+0     00089f97  CLB_configCounterLoadMatch       
+abs   00000000  Cla1ConstLoadSize                
+0     00008800  Cla1ConstLoadStart               
+0     00008800  Cla1ConstRunStart                
+0     0000b2f0  Cla1Task1                        
+0     0000b95e  Cla1Task2                        
+0     0000b966  Cla1Task3                        
+0     0000b96e  Cla1Task4                        
+0     0000b976  Cla1Task5                        
+0     0000b97e  Cla1Task6                        
+0     0000b986  Cla1Task7                        
+0     0000b94e  Cla1Task8                        
+0     000a118e  Cla1funcsLoadEnd                 
+abs   0000118e  Cla1funcsLoadSize                
+0     000a0000  Cla1funcsLoadStart               
+0     0000a800  Cla1funcsRunStart                
+0     00009280  Cnt_PwmEnDelay                   
+0     00009200  Cpu1Ipc_cm2cpu                   
+0     00009180  Cpu1Ipc_cpu2cm                   
+0     00089d07  DCC_verifyClockFrequency         
+0     0008dad6  Device_bootCM                    
+0     0008a712  Device_enableAllPeripherals      
+0     0008d948  Device_enableUnbondedGPIOPullups 
+0     0008be3d  Device_init                      
+0     0008d89c  Device_initGPIO                  
+0     0008d92c  Device_verifyXTAL                
+0     0008ba4b  Drv_ADCA_init                    
+0     0008bf9b  Drv_ADCB_init                    
+0     0008c00b  Drv_ADCC_init                    
+0     0008c07b  Drv_ADCD_init                    
+0     0008dbb4  Drv_ADCInterrupt_init            
+0     0008da4c  Drv_ADC_Init                     
+0     0008c9a0  Drv_AD_Switch_Read               
+0     0008d963  Drv_ClockCntInit                 
+0     0008b1d5  Drv_DO_Init                      
+0     0008c0eb  Drv_DinPin_Init                  
+0     0008bccd  Drv_EtherNetPinInit              
+0     0008d7cb  Drv_I2CAPin_Init                 
+0     0008cd5a  Drv_LedPin_Init                  
+0     0008dc07  Drv_Led_toggle                   
+0     0008c5d5  Drv_PWM_ParamInit                
+0     0008daeb  Drv_PWM_SYNC_Init                
+0     0008dc4c  Drv_PwmOffset                    
+0     0008dc52  Drv_PwmOnset                     
+0     0008b046  Drv_PwmPin_Init                  
+0     0008dba6  Drv_Pwm_Init                     
+0     0008c375  Drv_RelaySet                     
+0     0008dbc0  Drv_SCICInit                     
+0     0008cea4  Drv_SCICPin_Init                 
+0     0008d551  Drv_SCIC_WriteDataBuf            
+0     0008dbcc  Drv_SCIDInit                     
+0     0008d57d  Drv_SCID_WriteDataBuf            
+0     0008b27e  Drv_Timer_ClockMaintain          
+0     0008d7f1  Drv_Timer_IntMaintain            
+0     0008db1f  Drv_Timer_usDelay                
+0     0008c234  Drv_W5500Pin_Init                
+0     0008cde0  Drv_adcA1ISR                     
+0     000a8340  FPU32EXPBIAS                     
+0     000a833e  FPU32INVLOG10                    
+0     000a833c  FPU32LOG2                        
+0     000a8342  FPU32LOG_TABLE_MASK1             
+0     000a8344  FPU32LOG_TABLE_MASK2             
+0     000a8346  FPU32logTable                    
+0     000a840c  FPU32logTableEnd                 
+0     0008da64  FanPwm_Init                      
+0     0008dbd8  FanPwm_ON                        
+0     0008dc3e  FanPwm_SpeedCtrl                 
+0     0008cf63  FaultMonitor_ACCurrentOver       
+0     0008c9ef  FaultMonitor_ACOverVoltage       
+0     0008c854  FaultMonitor_ACUnderVoltage      
+0     0008c512  FaultMonitor_ACVoltageUnbanlance 
+0     0008d62c  FaultMonitor_AmbOverTemp         
+0     0008cfa1  FaultMonitor_DCCurrentOver       
+0     0008d524  FaultMonitor_DCRPFault           
+0     0008d0d2  FaultMonitor_DCVoltageOver       
+0     0008ce22  FaultMonitor_DCVoltageUnbanlance 
+0     0008d657  FaultMonitor_IgbtOverTemp        
+0     0008cb24  FaultMonitor_PhaseSequence       
+0     0000c000  Flash_initModule                 
+0     0008d436  GPIO_setControllerCore           
+0     0008d5a9  GPIO_setDirectionMode            
+0     0008ca8c  GPIO_setPadConfig                
+0     0008d466  GPIO_setPinConfig                
+0     0008d496  GPIO_setQualificationMode        
+0     0008d97e  GloabParam_Init                  
+0     0003b000  IPC_CPU1_To_CPU2_GetBuffer       
+0     0003a000  IPC_CPU1_To_CPU2_PutBuffer       
+0     00038000  IPC_CPU_To_CM_GetBuffer          
+0     00039100  IPC_CPU_To_CM_PutBuffer          
+0     0008bd49  IPC_ISR0                         
+0     000a8000  IPC_Instance                     
+0     0008d6d8  IPC_readCommand                  
+0     0008cf24  IPC_registerInterrupt            
+0     0008d4f6  IPC_sendCommand                  
+0     0008cfdf  IPC_unregisterInterrupt          
+0     0008dbe4  Interrupt_defaultHandler         
+0     0008ca3e  Interrupt_disable                
+0     0008d29a  Interrupt_enable                 
+0     0008dc11  Interrupt_illegalOperationHandler
+0     0008ce63  Interrupt_initModule             
+0     0008d8ba  Interrupt_initVectorTable        
+0     0008dc1b  Interrupt_nmiHandler             
+0     0000a4ec  IpcCm2Cpu_ErrCnt                 
+0     0008beb5  MemCfg_getInitStatus             
+0     0008c4ae  MemCfg_initSections              
+0     0008c29f  MemCfg_setLSRAMControllerSel     
+0     0000b8e2  PCS_CLA_Ad2Pu                    
+0     0000ab04  PCS_CLA_AdSignalsRead            
+0     0000b614  PCS_CLA_Int_OnGrid               
+0     0000b91a  PCS_CLA_PWMOff                   
+0     0000b546  PCS_CLA_ParamInit                
+0     0000b016  PCS_CLA_RealTimeData             
+0     0000b1a4  PCS_CLA_RunTransform             
+0     0000b784  PCS_Int_DCCurrReg                
+0     0000b80c  PCS_Int_DCVolReg                 
+0     0000b434  PCS_Int_InvCurrReg               
+0     0000ad9c  PCS_Int_InvVolReg                
+0     0000a800  PCS_Int_PwmCtrl                  
+0     000092a8  PCS_InteRef_dq0_pos              
+0     0008b462  PCS_Spll_Init                    
+0     000089e8  PCS_iGrid_dq0_pos                
+0     000089f2  PCS_iInv_dq0_pos                 
+0     00009290  PCS_rgen                         
+0     00009300  PCS_spll_3ph_grid                
+0     000092c0  PCS_spll_3ph_rgen                
+0     00008a06  PCS_vGrid_Clark                  
+0     00008a0c  PCS_vGrid_Park_n                 
+0     00008a12  PCS_vGrid_Park_p                 
+0     000089fc  PCS_vInv_dq0                     
+0     0008d1b9  PPS_Master_ECAP_ISR              
+0     0008d1f2  PPS_Slave_ECAP_ISR               
+0     0008dc63  PWMEN_Close                      
+0     0008dc67  PWMEN_Open                       
+0     0008dc5e  PWM_SlaveSync_Init               
+0     0008d306  Pcs_AcConstCurrCtrl_SoftStar     
+0     0008d33a  Pcs_DcConstCurrCtrl_SoftStar     
+0     0008cc8b  Pcs_DcConstVolCtrl_SoftStar      
+0     0008a1b5  Pcs_GridRef_Pll                  
+0     00009296  Pcs_GridRef_alphaBeta            
+0     000092a2  Pcs_GridRef_dq0_neg              
+0     0000929c  Pcs_GridRef_dq0_pos              
+0     0000928e  Pcs_Gridpllfo                    
+0     0000b894  Pcs_Int_PQCtrlReg                
+0     0008ae5a  Pcs_InterRef_Gen                 
+0     0008d36e  Pcs_InvCtrl_SoftStar             
+0     0000928c  Pcs_Localpllfo                   
+0     00009040  Pcs_MeasAnalyzer_A               
+0     00009080  Pcs_MeasAnalyzer_B               
+0     000090c0  Pcs_MeasAnalyzer_C               
+0     00009100  Pcs_Output_Meter                 
+0     0008d01d  Pcs_PQConstCtrl_SoftStar         
+0     0008b502  Pcs_runISR1                      
+0     00009282  PhaseErr                         
+0     000980d5  RamfuncsLoadEnd                  
+abs   000000d5  RamfuncsLoadSize                 
+0     00098000  RamfuncsLoadStart                
+0     0000c0d5  RamfuncsRunEnd                   
+abs   000000d5  RamfuncsRunSize                  
+0     0000c000  RamfuncsRunStart                 
+0     0008c692  SCIBRxISR                        
+0     0000a4d8  SCIB_RxCnt                       
+0     0000a4da  SCIB_RxTimeOut                   
+0     0008c15a  SCICRxISR                        
+0     0008da01  SCICRx_Poll                      
+0     0000a000  SCIC_RxBuf                       
+0     0000a4c0  SCIC_RxCnt                       
+0     0000a4c4  SCIC_RxTimeOut                   
+0     0000a100  SCIC_TxBuf                       
+0     0000a4c1  SCIC_TxCnt                       
+0     0000a4c2  SCIC_TxFlag                      
+0     0008c1c7  SCIDRxISR                        
+0     0008da1a  SCIDRx_Poll                      
+0     0000a200  SCID_RxBuf                       
+0     0000a4c6  SCID_RxCnt                       
+0     0000a4ca  SCID_RxTimeOut                   
+0     0000a300  SCID_TxBuf                       
+0     0000a4c7  SCID_TxCnt                       
+0     0000a4c8  SCID_TxFlag                      
+0     0008c94e  SCI_clearInterruptStatus         
+0     0008d263  SCI_disableInterrupt             
+0     0008d2d0  SCI_enableInterrupt              
+0     0008cad9  SCI_getInterruptStatus           
+0     0008b935  SCI_setConfig                    
+0     0008b9c2  SCI_writeCharArray               
+0     0008db2e  SciC_Poll                        
+0     0008db3d  SciD_Poll                        
+0     0008da7b  SysCtl_controlCMReset            
+0     0000c0d1  SysCtl_delay                     
+0     0008bad1  SysCtl_getAuxClock               
+0     0008bf29  SysCtl_getClock                  
+0     0008d817  SysCtl_getLowSpeedClock          
+0     0008a5a6  SysCtl_isPLLValid                
+0     0008d05b  SysCtl_selectOscSource           
+0     0008cbff  SysCtl_selectOscSourceAuxPLL     
+0     0008d10d  SysCtl_selectXTAL                
+0     0008d87d  SysCtl_selectXTALSingleEnded     
+0     0008af53  SysCtl_setAuxClock               
+0     0008a9d5  SysCtl_setClock                  
+0     000a11c2  __TI_CINIT_Base                  
+0     000a11de  __TI_CINIT_Limit                 
+0     000a11de  __TI_CINIT_Warm                  
+0     000a11a4  __TI_Handler_Table_Base          
+0     000a11aa  __TI_Handler_Table_Limit         
+0     00000600  __TI_STACK_END                   
+abs   00000200  __TI_STACK_SIZE                  
+0     0008d682  __TI_auto_init_nobinit_nopinit   
+0     0000a4d4  __TI_cleanup_ptr                 
+0     0008d4c6  __TI_decompress_lzss             
+0     0008dc2e  __TI_decompress_none             
+0     0000a4d6  __TI_dtors_ptr                   
+0     0000a4d2  __TI_enable_exit_profile_output  
+abs   ffffffff  __TI_pprof_out_hndl              
+abs   ffffffff  __TI_prof_data_size              
+abs   ffffffff  __TI_prof_data_start             
+0     0008dc58  __TI_zero_init                   
+n/a   UNDEFED   __c_args__                       
+0     0008dc6b  __error__                        
+0     00000400  __stack                          
+0     0008dbf0  _args_main                       
+0     0008daa9  _c_int00                         
+0     0000a4e8  _lock                            
+0     0008dc2d  _nop                             
+0     0008dc29  _register_lock                   
+0     0008dc25  _register_unlock                 
+0     0008c575  _system_post_cinit               
+0     0008dc6e  _system_pre_init                 
+0     0000a4ea  _unlock                          
+0     0008d72a  abort                            
+0     00009176  ad_ntc1                          
+0     0000917a  ad_ntc2                          
+0     00009270  ad_vol                           
+0     0008dac0  bsp_clb_pwmEnCtrl                
+0     0008b11c  bsp_init                         
+0     0000a4d9  check_Sum                        
+0     0008dafd  cla1Isr1                         
+0     0008db4c  cla1Isr2                         
+0     0008db5b  cla1Isr3                         
+0     0008db6a  cla1Isr4                         
+0     0008db79  cla1Isr5                         
+0     0008db88  cla1Isr6                         
+0     0008db97  cla1Isr7                         
+0     0008db0e  cla1Isr8                         
+0     00080000  code_start                       
+0     0008c3df  configClaMemory                  
+0     0000a4e6  cpu1_u32_TimerCnt                
+0     0008a3b0  cpu2claParam_Upgrade             
+0     0000914e  debugpData                       
+0     0000a48c  epwm1TZIntCount                  
+0     0000a490  epwm1TZIntCount_CBC              
+0     0008d72c  exit                             
+0     0000a4a2  g_masterPpsCapCount              
+0     0000a4a8  g_masterPwmLockCount             
+0     0000a4a0  g_masterPwmLocked                
+0     0000a4a6  g_masterPwmPhaseErrNs            
+0     0000a4a4  g_masterPwmPhaseErrTicks         
+0     0000a4aa  g_masterPwmSkipCount             
+0     0000a4ae  g_slavePpsCapCount               
+0     0000a4b4  g_slavePwmLockCount              
+0     0000a4ac  g_slavePwmLocked                 
+0     0000a4b2  g_slavePwmPhaseErrNs             
+0     0000a4b0  g_slavePwmPhaseErrTicks          
+0     0000a4b6  g_slavePwmSkipCount              
+0     00088ae7  initCLBTILE5                     
+0     00088ec0  initCLBTILE6                     
+0     00089299  initCLBTILE7                     
+0     00089672  initCLBTILE8                     
+0     0008bb52  initCpu2Cla1                     
+0     0008d5d5  initial_CLA                      
+0     0000a4ed  ipcTx_flag                       
+0     0008c30a  ipc_TxData_Cpu1ToCM              
+0     0008d7a3  ipc_init                         
+0     0008d22b  logf                             
+0     00009260  m_st_TimerFlag                   
+0     0008cc45  main                             
+0     0008d8d7  memcpy                           
+0     0008dc45  memset                           
+0     0008b5a2  myCLB5_init                      
+0     0008b642  myCLB6_init                      
+0     0008b320  myCLB7_init                      
+0     0008b3c1  myCLB8_init                      
+0     0008d6ad  objControl_DOControl             
+0     0008cd9d  objControl_FanControl            
+0     0008da92  objControl_LedControl            
+0     0008aaff  objControl_StateCtrl             
+0     0008cee4  objControl_globalVarInit         
+0     0008a879  obj_PcsOutput_Init               
+0     0008c8fb  obj_PcsOutput_PowerMeas          
+0     00088000  obj_PcsOutput_PowerMeasAC        
+0     00089a4b  obj_PcsOutput_RmsCalc            
+0     0008b8a4  obj_PcsOutput_TempCalc           
+0     0000b6ce  order1_lowFliter                 
+0     00039000  ptDataCpu1ToCm                   
+0     00001480  tCla2Cpu                         
+0     00008900  tClaPrivate                      
+0     00001500  tCpu2Cla                         
+0     0008ccd0  tca9535_io1_init                 
+0     0008bbd1  tca9535_io1_p0Set                
+0     0008cd15  tca9535_io2_init                 
+0     0008bc4f  tca9535_io2_p0Set                
+
+
+GLOBAL SYMBOLS: SORTED BY Symbol Address 
+
+page  address   name                             
+----  -------   ----                             
+0     00000400  __stack                          
+0     00000600  __TI_STACK_END                   
+0     00001480  tCla2Cpu                         
+0     00001500  tCpu2Cla                         
+0     00008800  Cla1ConstLoadStart               
+0     00008800  Cla1ConstRunStart                
+0     00008900  tClaPrivate                      
+0     000089e8  PCS_iGrid_dq0_pos                
+0     000089f2  PCS_iInv_dq0_pos                 
+0     000089fc  PCS_vInv_dq0                     
+0     00008a06  PCS_vGrid_Clark                  
+0     00008a0c  PCS_vGrid_Park_n                 
+0     00008a12  PCS_vGrid_Park_p                 
+0     00009040  Pcs_MeasAnalyzer_A               
+0     00009080  Pcs_MeasAnalyzer_B               
+0     000090c0  Pcs_MeasAnalyzer_C               
+0     00009100  Pcs_Output_Meter                 
+0     0000914e  debugpData                       
+0     00009176  ad_ntc1                          
+0     0000917a  ad_ntc2                          
+0     00009180  Cpu1Ipc_cpu2cm                   
+0     00009200  Cpu1Ipc_cm2cpu                   
+0     00009260  m_st_TimerFlag                   
+0     00009270  ad_vol                           
+0     00009280  Cnt_PwmEnDelay                   
+0     00009282  PhaseErr                         
+0     0000928c  Pcs_Localpllfo                   
+0     0000928e  Pcs_Gridpllfo                    
+0     00009290  PCS_rgen                         
+0     00009296  Pcs_GridRef_alphaBeta            
+0     0000929c  Pcs_GridRef_dq0_pos              
+0     000092a2  Pcs_GridRef_dq0_neg              
+0     000092a8  PCS_InteRef_dq0_pos              
+0     000092c0  PCS_spll_3ph_rgen                
+0     00009300  PCS_spll_3ph_grid                
+0     0000a000  SCIC_RxBuf                       
+0     0000a100  SCIC_TxBuf                       
+0     0000a200  SCID_RxBuf                       
+0     0000a300  SCID_TxBuf                       
+0     0000a400  CLBTILE5HLCInstr                 
+0     0000a420  CLBTILE6HLCInstr                 
+0     0000a440  CLBTILE7HLCInstr                 
+0     0000a460  CLBTILE8HLCInstr                 
+0     0000a48c  epwm1TZIntCount                  
+0     0000a490  epwm1TZIntCount_CBC              
+0     0000a4a0  g_masterPwmLocked                
+0     0000a4a2  g_masterPpsCapCount              
+0     0000a4a4  g_masterPwmPhaseErrTicks         
+0     0000a4a6  g_masterPwmPhaseErrNs            
+0     0000a4a8  g_masterPwmLockCount             
+0     0000a4aa  g_masterPwmSkipCount             
+0     0000a4ac  g_slavePwmLocked                 
+0     0000a4ae  g_slavePpsCapCount               
+0     0000a4b0  g_slavePwmPhaseErrTicks          
+0     0000a4b2  g_slavePwmPhaseErrNs             
+0     0000a4b4  g_slavePwmLockCount              
+0     0000a4b6  g_slavePwmSkipCount              
+0     0000a4c0  SCIC_RxCnt                       
+0     0000a4c1  SCIC_TxCnt                       
+0     0000a4c2  SCIC_TxFlag                      
+0     0000a4c4  SCIC_RxTimeOut                   
+0     0000a4c6  SCID_RxCnt                       
+0     0000a4c7  SCID_TxCnt                       
+0     0000a4c8  SCID_TxFlag                      
+0     0000a4ca  SCID_RxTimeOut                   
+0     0000a4d2  __TI_enable_exit_profile_output  
+0     0000a4d4  __TI_cleanup_ptr                 
+0     0000a4d6  __TI_dtors_ptr                   
+0     0000a4d8  SCIB_RxCnt                       
+0     0000a4d9  check_Sum                        
+0     0000a4da  SCIB_RxTimeOut                   
+0     0000a4e6  cpu1_u32_TimerCnt                
+0     0000a4e8  _lock                            
+0     0000a4ea  _unlock                          
+0     0000a4ec  IpcCm2Cpu_ErrCnt                 
+0     0000a4ed  ipcTx_flag                       
+0     0000a800  Cla1funcsRunStart                
+0     0000a800  PCS_Int_PwmCtrl                  
+0     0000ab04  PCS_CLA_AdSignalsRead            
+0     0000ad9c  PCS_Int_InvVolReg                
+0     0000b016  PCS_CLA_RealTimeData             
+0     0000b1a4  PCS_CLA_RunTransform             
+0     0000b2f0  Cla1Task1                        
+0     0000b434  PCS_Int_InvCurrReg               
+0     0000b546  PCS_CLA_ParamInit                
+0     0000b614  PCS_CLA_Int_OnGrid               
+0     0000b6ce  order1_lowFliter                 
+0     0000b784  PCS_Int_DCCurrReg                
+0     0000b80c  PCS_Int_DCVolReg                 
+0     0000b894  Pcs_Int_PQCtrlReg                
+0     0000b8e2  PCS_CLA_Ad2Pu                    
+0     0000b91a  PCS_CLA_PWMOff                   
+0     0000b94e  Cla1Task8                        
+0     0000b95e  Cla1Task2                        
+0     0000b966  Cla1Task3                        
+0     0000b96e  Cla1Task4                        
+0     0000b976  Cla1Task5                        
+0     0000b97e  Cla1Task6                        
+0     0000b986  Cla1Task7                        
+0     0000c000  Flash_initModule                 
+0     0000c000  RamfuncsRunStart                 
+0     0000c0d1  SysCtl_delay                     
+0     0000c0d5  RamfuncsRunEnd                   
+0     00038000  IPC_CPU_To_CM_GetBuffer          
+0     00039000  ptDataCpu1ToCm                   
+0     00039100  IPC_CPU_To_CM_PutBuffer          
+0     0003a000  IPC_CPU1_To_CPU2_PutBuffer       
+0     0003b000  IPC_CPU1_To_CPU2_GetBuffer       
+0     00080000  code_start                       
+0     00088000  obj_PcsOutput_PowerMeasAC        
+0     00088ae7  initCLBTILE5                     
+0     00088ec0  initCLBTILE6                     
+0     00089299  initCLBTILE7                     
+0     00089672  initCLBTILE8                     
+0     00089a4b  obj_PcsOutput_RmsCalc            
+0     00089d07  DCC_verifyClockFrequency         
+0     00089f97  CLB_configCounterLoadMatch       
+0     0008a1b5  Pcs_GridRef_Pll                  
+0     0008a3b0  cpu2claParam_Upgrade             
+0     0008a5a6  SysCtl_isPLLValid                
+0     0008a712  Device_enableAllPeripherals      
+0     0008a879  obj_PcsOutput_Init               
+0     0008a9d5  SysCtl_setClock                  
+0     0008aaff  objControl_StateCtrl             
+0     0008ae5a  Pcs_InterRef_Gen                 
+0     0008af53  SysCtl_setAuxClock               
+0     0008b046  Drv_PwmPin_Init                  
+0     0008b11c  bsp_init                         
+0     0008b1d5  Drv_DO_Init                      
+0     0008b27e  Drv_Timer_ClockMaintain          
+0     0008b320  myCLB7_init                      
+0     0008b3c1  myCLB8_init                      
+0     0008b462  PCS_Spll_Init                    
+0     0008b502  Pcs_runISR1                      
+0     0008b5a2  myCLB5_init                      
+0     0008b642  myCLB6_init                      
+0     0008b8a4  obj_PcsOutput_TempCalc           
+0     0008b935  SCI_setConfig                    
+0     0008b9c2  SCI_writeCharArray               
+0     0008ba4b  Drv_ADCA_init                    
+0     0008bad1  SysCtl_getAuxClock               
+0     0008bb52  initCpu2Cla1                     
+0     0008bbd1  tca9535_io1_p0Set                
+0     0008bc4f  tca9535_io2_p0Set                
+0     0008bccd  Drv_EtherNetPinInit              
+0     0008bd49  IPC_ISR0                         
+0     0008be3d  Device_init                      
+0     0008beb5  MemCfg_getInitStatus             
+0     0008bf29  SysCtl_getClock                  
+0     0008bf9b  Drv_ADCB_init                    
+0     0008c00b  Drv_ADCC_init                    
+0     0008c07b  Drv_ADCD_init                    
+0     0008c0eb  Drv_DinPin_Init                  
+0     0008c15a  SCICRxISR                        
+0     0008c1c7  SCIDRxISR                        
+0     0008c234  Drv_W5500Pin_Init                
+0     0008c29f  MemCfg_setLSRAMControllerSel     
+0     0008c30a  ipc_TxData_Cpu1ToCM              
+0     0008c375  Drv_RelaySet                     
+0     0008c3df  configClaMemory                  
+0     0008c4ae  MemCfg_initSections              
+0     0008c512  FaultMonitor_ACVoltageUnbanlance 
+0     0008c575  _system_post_cinit               
+0     0008c576  ADC_setINLTrim                   
+0     0008c5d5  Drv_PWM_ParamInit                
+0     0008c692  SCIBRxISR                        
+0     0008c7fe  App_AllFault_Reset               
+0     0008c854  FaultMonitor_ACUnderVoltage      
+0     0008c8a8  ADC_setOffsetTrim                
+0     0008c8fb  obj_PcsOutput_PowerMeas          
+0     0008c94e  SCI_clearInterruptStatus         
+0     0008c9a0  Drv_AD_Switch_Read               
+0     0008c9ef  FaultMonitor_ACOverVoltage       
+0     0008ca3e  Interrupt_disable                
+0     0008ca8c  GPIO_setPadConfig                
+0     0008cad9  SCI_getInterruptStatus           
+0     0008cb24  FaultMonitor_PhaseSequence       
+0     0008cbff  SysCtl_selectOscSourceAuxPLL     
+0     0008cc45  main                             
+0     0008cc8b  Pcs_DcConstVolCtrl_SoftStar      
+0     0008ccd0  tca9535_io1_init                 
+0     0008cd15  tca9535_io2_init                 
+0     0008cd5a  Drv_LedPin_Init                  
+0     0008cd9d  objControl_FanControl            
+0     0008cde0  Drv_adcA1ISR                     
+0     0008ce22  FaultMonitor_DCVoltageUnbanlance 
+0     0008ce63  Interrupt_initModule             
+0     0008cea4  Drv_SCICPin_Init                 
+0     0008cee4  objControl_globalVarInit         
+0     0008cf24  IPC_registerInterrupt            
+0     0008cf63  FaultMonitor_ACCurrentOver       
+0     0008cfa1  FaultMonitor_DCCurrentOver       
+0     0008cfdf  IPC_unregisterInterrupt          
+0     0008d01d  Pcs_PQConstCtrl_SoftStar         
+0     0008d05b  SysCtl_selectOscSource           
+0     0008d0d2  FaultMonitor_DCVoltageOver       
+0     0008d10d  SysCtl_selectXTAL                
+0     0008d147  ADC_setMode                      
+0     0008d1b9  PPS_Master_ECAP_ISR              
+0     0008d1f2  PPS_Slave_ECAP_ISR               
+0     0008d22b  logf                             
+0     0008d263  SCI_disableInterrupt             
+0     0008d29a  Interrupt_enable                 
+0     0008d2d0  SCI_enableInterrupt              
+0     0008d306  Pcs_AcConstCurrCtrl_SoftStar     
+0     0008d33a  Pcs_DcConstCurrCtrl_SoftStar     
+0     0008d36e  Pcs_InvCtrl_SoftStar             
+0     0008d436  GPIO_setControllerCore           
+0     0008d466  GPIO_setPinConfig                
+0     0008d496  GPIO_setQualificationMode        
+0     0008d4c6  __TI_decompress_lzss             
+0     0008d4f6  IPC_sendCommand                  
+0     0008d524  FaultMonitor_DCRPFault           
+0     0008d551  Drv_SCIC_WriteDataBuf            
+0     0008d57d  Drv_SCID_WriteDataBuf            
+0     0008d5a9  GPIO_setDirectionMode            
+0     0008d5d5  initial_CLA                      
+0     0008d601  App_AllFault_Deal                
+0     0008d62c  FaultMonitor_AmbOverTemp         
+0     0008d657  FaultMonitor_IgbtOverTemp        
+0     0008d682  __TI_auto_init_nobinit_nopinit   
+0     0008d6ad  objControl_DOControl             
+0     0008d6d8  IPC_readCommand                  
+0     0008d72a  C$$EXIT                          
+0     0008d72a  abort                            
+0     0008d72c  exit                             
+0     0008d7a3  ipc_init                         
+0     0008d7cb  Drv_I2CAPin_Init                 
+0     0008d7f1  Drv_Timer_IntMaintain            
+0     0008d817  SysCtl_getLowSpeedClock          
+0     0008d87d  SysCtl_selectXTALSingleEnded     
+0     0008d89c  Device_initGPIO                  
+0     0008d8ba  Interrupt_initVectorTable        
+0     0008d8d7  memcpy                           
+0     0008d8f4  CLA_setTriggerSource             
+0     0008d92c  Device_verifyXTAL                
+0     0008d948  Device_enableUnbondedGPIOPullups 
+0     0008d963  Drv_ClockCntInit                 
+0     0008d97e  GloabParam_Init                  
+0     0008da01  SCICRx_Poll                      
+0     0008da1a  SCIDRx_Poll                      
+0     0008da4c  Drv_ADC_Init                     
+0     0008da64  FanPwm_Init                      
+0     0008da7b  SysCtl_controlCMReset            
+0     0008da92  objControl_LedControl            
+0     0008daa9  _c_int00                         
+0     0008dac0  bsp_clb_pwmEnCtrl                
+0     0008dad6  Device_bootCM                    
+0     0008daeb  Drv_PWM_SYNC_Init                
+0     0008dafd  cla1Isr1                         
+0     0008db0e  cla1Isr8                         
+0     0008db1f  Drv_Timer_usDelay                
+0     0008db2e  SciC_Poll                        
+0     0008db3d  SciD_Poll                        
+0     0008db4c  cla1Isr2                         
+0     0008db5b  cla1Isr3                         
+0     0008db6a  cla1Isr4                         
+0     0008db79  cla1Isr5                         
+0     0008db88  cla1Isr6                         
+0     0008db97  cla1Isr7                         
+0     0008dba6  Drv_Pwm_Init                     
+0     0008dbb4  Drv_ADCInterrupt_init            
+0     0008dbc0  Drv_SCICInit                     
+0     0008dbcc  Drv_SCIDInit                     
+0     0008dbd8  FanPwm_ON                        
+0     0008dbe4  Interrupt_defaultHandler         
+0     0008dbf0  _args_main                       
+0     0008dbfc  Board_init                       
+0     0008dc07  Drv_Led_toggle                   
+0     0008dc11  Interrupt_illegalOperationHandler
+0     0008dc1b  Interrupt_nmiHandler             
+0     0008dc25  _register_unlock                 
+0     0008dc29  _register_lock                   
+0     0008dc2d  _nop                             
+0     0008dc2e  __TI_decompress_none             
+0     0008dc3e  FanPwm_SpeedCtrl                 
+0     0008dc45  memset                           
+0     0008dc4c  Drv_PwmOffset                    
+0     0008dc52  Drv_PwmOnset                     
+0     0008dc58  __TI_zero_init                   
+0     0008dc5e  PWM_SlaveSync_Init               
+0     0008dc63  PWMEN_Close                      
+0     0008dc67  PWMEN_Open                       
+0     0008dc6b  __error__                        
+0     0008dc6e  _system_pre_init                 
+0     00098000  RamfuncsLoadStart                
+0     000980d5  RamfuncsLoadEnd                  
+0     000a0000  Cla1funcsLoadStart               
+0     000a118e  Cla1funcsLoadEnd                 
+0     000a11a4  __TI_Handler_Table_Base          
+0     000a11aa  __TI_Handler_Table_Limit         
+0     000a11c2  __TI_CINIT_Base                  
+0     000a11de  __TI_CINIT_Limit                 
+0     000a11de  __TI_CINIT_Warm                  
+0     000a8000  IPC_Instance                     
+0     000a833c  FPU32LOG2                        
+0     000a833e  FPU32INVLOG10                    
+0     000a8340  FPU32EXPBIAS                     
+0     000a8342  FPU32LOG_TABLE_MASK1             
+0     000a8344  FPU32LOG_TABLE_MASK2             
+0     000a8346  FPU32logTable                    
+0     000a840c  FPU32logTableEnd                 
+abs   00000000  Cla1ConstLoadSize                
+abs   000000d5  RamfuncsLoadSize                 
+abs   000000d5  RamfuncsRunSize                  
+abs   00000100  CLA_SCRATCHPAD_SIZE              
+abs   00000200  __TI_STACK_SIZE                  
+abs   0000118e  Cla1funcsLoadSize                
+abs   ffffffff  __TI_pprof_out_hndl              
+abs   ffffffff  __TI_prof_data_size              
+abs   ffffffff  __TI_prof_data_start             
+n/a   UNDEFED   __c_args__                       
+
+[312 symbols]

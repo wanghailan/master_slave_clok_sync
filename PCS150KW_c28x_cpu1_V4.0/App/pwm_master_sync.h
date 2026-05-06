@@ -1,7 +1,7 @@
 /*
  * pwm_master_sync.h
  *
- *  Created on: 2026Äê4ÔÂ9ÈÕ
+ *  Created on: 2026.04.29
  *      Author: whl
  */
 
@@ -19,7 +19,14 @@ extern "C" {
 
 void PWM_MasterSync_Init(void);
 
-__interrupt void PPS_Master_ISR(void);
+__interrupt void PPS_Master_ECAP_ISR(void);
+
+extern volatile uint32_t g_masterPpsCapCount;
+extern volatile int32_t  g_masterPwmPhaseErrTicks;
+extern volatile int32_t  g_masterPwmPhaseErrNs;
+extern volatile uint32_t g_masterPwmLockCount;
+extern volatile uint32_t g_masterPwmSkipCount;
+extern volatile bool     g_masterPwmLocked;
 
 
 #ifdef __cplusplus

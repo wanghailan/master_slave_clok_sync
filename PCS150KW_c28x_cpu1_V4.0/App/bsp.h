@@ -1,12 +1,28 @@
 /*
  * bsp.h
  *
- *  Created on: 2024Äê9ÔÂ27ÈÕ
+ *  Created on: 2024ï¿½ï¿½9ï¿½ï¿½27ï¿½ï¿½
  *      Author: guowei680
  */
 
 #ifndef _BSP_H_
 #define _BSP_H_
+
+#define PWM_SYNC_ROLE_NONE    0
+#define PWM_SYNC_ROLE_MASTER  1
+#define PWM_SYNC_ROLE_SLAVE   2
+
+#ifndef PWM_SYNC_ROLE
+#if defined(PTP_SYNC_ROLE_MASTER)
+#define PWM_SYNC_ROLE PWM_SYNC_ROLE_MASTER
+#elif defined(PTP_SYNC_ROLE_SLAVE)
+#define PWM_SYNC_ROLE PWM_SYNC_ROLE_SLAVE
+#else
+#define PWM_SYNC_ROLE PWM_SYNC_ROLE_NONE
+#endif
+#endif
+
+#define PWM_SYNC_PPS_CAPTURE_LED_CH 1
 
 //#include "Drv_SCIA.h"
 #include "Drv_SCIB.h"
@@ -57,10 +73,10 @@ Baud rate   Bit rate     Bit time    Character time   3.5 character times
   9600      9600 bits/s   104 us          1.2 ms          4.0 ms
  19200     19200 bits/s    52 us          573 us          2.0 ms
  38400     38400 bits/s    26 us          286 us          1.75 ms(1.0 ms)
- 115200    115200 bit/s   8.7 us           95 us          1.75 ms(0.33 ms) ºóÃæ¹Ì¶¨¶¼Îª1750us
+ 115200    115200 bit/s   8.7 us           95 us          1.75 ms(0.33 ms) ï¿½ï¿½ï¿½ï¿½Ì¶ï¿½ï¿½ï¿½Î?750us
 */
 
-#define  SciRxTimeOut         58 //ADCÖÐ¶Ï31.25us 1.75msÊÇ57
+#define  SciRxTimeOut         58 //ADCï¿½Ð¶ï¿½31.25us 1.75msï¿½ï¿½57
 
 
 enum
@@ -76,7 +92,7 @@ enum
 //}GRAPH;
 
 
-//#pragma pack(1) //ÉèÖÃÄÚ´æ¶ÔÆëÎª£º1×Ö½Ú¶ÔÆë
+//#pragma pack(1) //ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿?ï¿½Ö½Ú¶ï¿½ï¿½ï¿½
 typedef struct _Stru_Fault
 {
     union
@@ -84,9 +100,9 @@ typedef struct _Stru_Fault
          uint16_t PCS_Waring1_All;
          struct
          {
-             uint16_t  bOverLoad               :1;//¹ýÔØ¾¯¸æ
-             uint16_t  bOverTempReduLimit      :1;//¹ýÎÂ½µ¶î¾¯¸æ
-             uint16_t  bUncontrRectification   :1;//²»¿ØÕûÁ÷
+             uint16_t  bOverLoad               :1;//ï¿½ï¿½ï¿½Ø¾ï¿½ï¿½ï¿½
+             uint16_t  bOverTempReduLimit      :1;//ï¿½ï¿½ï¿½Â½ï¿½ï¿½î¾¯ï¿½ï¿½
+             uint16_t  bUncontrRectification   :1;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
              uint16_t  bRsvd                   :13;
          }tbits;
      }PCS_Waring1;
@@ -102,42 +118,42 @@ typedef struct _Stru_Fault
 
      union
      {
-         uint16_t PCS_Fault1_All;//AC¹ÊÕÏ
+         uint16_t PCS_Fault1_All;//ACï¿½ï¿½ï¿½ï¿½
          struct
          {
-             uint16_t  bACVOverFault           :1;//½»Á÷¹ýÑ¹¹ÊÕÏ
-             uint16_t  bACVUnderFault          :1;//½»Á÷Ç·Ñ¹¹ÊÕÏ
-             uint16_t  bACVBanlanceFault       :1;//µçÍøµçÑ¹²»Æ½ºâ¹ÊÕÏ
-             uint16_t  bACVPhaseSequFault      :1;//µçÍøÏàÐò¹ÊÕÏ
-             uint16_t  bACVFreqFault           :1;//µçÍøÆµÂÊ¹ÊÕÏ
-             uint16_t  bNLostFault             :1;//È±NÏß¹ÊÕÏ
-             uint16_t  bPELostFault            :1;//È±PE¹ÊÕÏ
-             uint16_t  bIINVOverFault          :1;//Äæ±ä¹ýÁ÷¹ÊÕÏ
-             uint16_t  bOverLoadTimeOutFault   :1;//¹ýÔØ³¬Ê±¹ÊÕÏ
-             uint16_t  bVINVFault              :1;//Äæ±äµçÑ¹¹ÊÕÏ
-             uint16_t  bVINVUnBanaceFault      :1;//Äæ±äµçÑ¹²»Æ½ºâ
-             uint16_t  bVINVFreqFault          :1;//Äæ±äÆµÂÊ¹ÊÕÏ
-             uint16_t  bINVIsLandFault         :1;//Äæ±äÆ÷¹Âµº¹ÊÕÏ
-             uint16_t  bINVShortFault          :1;//Äæ±äÆ÷¶ÌÂ·¹ÊÕÏ
-             uint16_t  bINVSoftRelyFault       :1;//Äæ±äÆ÷ÈíÆð¹ÊÕÏ
-             uint16_t  bGridACVFault           :1;//µçÍøµçÑ¹¹ÊÕÏ
+             uint16_t  bACVOverFault           :1;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bACVUnderFault          :1;//ï¿½ï¿½ï¿½ï¿½Ç·Ñ¹ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bACVBanlanceFault       :1;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½Æ½ï¿½ï¿½ï¿½ï¿½ï¿?
+             uint16_t  bACVPhaseSequFault      :1;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
+             uint16_t  bACVFreqFault           :1;//ï¿½ï¿½ï¿½ï¿½Æµï¿½Ê¹ï¿½ï¿½ï¿½
+             uint16_t  bNLostFault             :1;//È±Nï¿½ß¹ï¿½ï¿½ï¿½
+             uint16_t  bPELostFault            :1;//È±PEï¿½ï¿½ï¿½ï¿½
+             uint16_t  bIINVOverFault          :1;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bOverLoadTimeOutFault   :1;//ï¿½ï¿½ï¿½Ø³ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bVINVFault              :1;//ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bVINVUnBanaceFault      :1;//ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½Æ½ï¿½ï¿½
+             uint16_t  bVINVFreqFault          :1;//ï¿½ï¿½ï¿½Æµï¿½Ê¹ï¿½ï¿½ï¿?
+             uint16_t  bINVIsLandFault         :1;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Âµï¿½ï¿½ï¿½ï¿½ï¿?
+             uint16_t  bINVShortFault          :1;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿?
+             uint16_t  bINVSoftRelyFault       :1;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bGridACVFault           :1;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½ï¿½
          }tbits;
      }PCS_Fault1;
 
      union
      {
-         uint16_t PCS_Fault2_All;//DC¹ÊÕÏ
+         uint16_t PCS_Fault2_All;//DCï¿½ï¿½ï¿½ï¿½
          struct
          {
-             uint16_t  bBUSVOverFault          :1;//Ä¸Ïß¹ýÑ¹¹ÊÕÏ
-             uint16_t  bBUSVUnderFault         :1;//Ä¸ÏßÇ·Ñ¹¹ÊÕÏ
-             uint16_t  bBUSVUnBanlanceFault    :1;//Ä¸ÏßµçÑ¹²»Æ½ºâ¹ÊÕÏ
-             uint16_t  bBUSIOverFault          :1;//Ä¸Ïß¹ýÁ÷¹ÊÕÏ
-             uint16_t  bBUSReversedFault       :1;//Ä¸Ïß·´½Ó¹ÊÕÏ
-             uint16_t  bBUSSoftRelyTOutFault   :1;//Ä¸ÏßÈíÆð³¬Ê±¹ÊÕÏ
-             uint16_t  bBUSRelyOPenFault       :1;//Ö±Á÷¼ÌµçÆ÷¿ªÂ·¹ÊÕÏ
-             uint16_t  bBUSRelyShortFault      :1;//Ö±Á÷¼ÌµçÆ÷¶ÌÂ·¹ÊÕÏ
-             uint16_t  bDCIMFault              :1;//Ö±Á÷¾øÔµµç×è¹ÊÕÏ
+             uint16_t  bBUSVOverFault          :1;//Ä¸ï¿½ß¹ï¿½Ñ¹ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bBUSVUnderFault         :1;//Ä¸ï¿½ï¿½Ç·Ñ¹ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bBUSVUnBanlanceFault    :1;//Ä¸ï¿½ßµï¿½Ñ¹ï¿½ï¿½Æ½ï¿½ï¿½ï¿½ï¿½ï¿?
+             uint16_t  bBUSIOverFault          :1;//Ä¸ï¿½ß¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bBUSReversedFault       :1;//Ä¸ï¿½ß·ï¿½ï¿½Ó¹ï¿½ï¿½ï¿½
+             uint16_t  bBUSSoftRelyTOutFault   :1;//Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bBUSRelyOPenFault       :1;//Ö±ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bBUSRelyShortFault      :1;//Ö±ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bDCIMFault              :1;//Ö±ï¿½ï¿½ï¿½ï¿½Ôµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
              uint16_t  bRsvd                   :7;
          }tbits;
      }PCS_Fault2;
@@ -147,16 +163,16 @@ typedef struct _Stru_Fault
          uint16_t PCS_Fault3_All;
          struct
          {
-             uint16_t  bAmbTemptOverFault       :1;//»·¾³¹ýÎÂ¹ÊÕÏ
-             uint16_t  bIgbtTemptOverFault      :1;//IGBT¹ýÎÂ¹ÊÕÏ
-             uint16_t  bAuxPowerFault           :1;//¸¨Ô´¹ÊÕÏ
-             uint16_t  bFanFault                :1;//·çÉÈ¹ÊÕÏ
-             uint16_t  bEEpromFault             :1;//EE´æ´¢Æ÷¹ÊÕÏ
-             uint16_t  bRs485_1Fault            :1;//RS485Ä£¿é1¹ÊÕÏ
-             uint16_t  bRs485_2Fault            :1;//RS485Ä£¿é2¹ÊÕÏ
-             uint16_t  bCAN_1Fault              :1;//CAN1¹ÊÕÏ
-             uint16_t  bCAN_2Fault              :1;//CAN2¹ÊÕÏ
-             uint16_t  bEtherNETFault           :1;//ÒÔÌ«Íø¹ÊÕÏ
+             uint16_t  bAmbTemptOverFault       :1;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¹ï¿½ï¿½ï¿½
+             uint16_t  bIgbtTemptOverFault      :1;//IGBTï¿½ï¿½ï¿½Â¹ï¿½ï¿½ï¿½
+             uint16_t  bAuxPowerFault           :1;//ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bFanFault                :1;//ï¿½ï¿½ï¿½È¹ï¿½ï¿½ï¿½
+             uint16_t  bEEpromFault             :1;//EEï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bRs485_1Fault            :1;//RS485Ä£ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bRs485_2Fault            :1;//RS485Ä£ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bCAN_1Fault              :1;//CAN1ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bCAN_2Fault              :1;//CAN2ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bEtherNETFault           :1;//ï¿½ï¿½Ì«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
              uint16_t  bRsvd                    :6;
          }tbits;
      }PCS_Fault3;
@@ -175,19 +191,19 @@ typedef struct _Stru_Fault
          uint16_t PCS_HFault_All;
          struct
          {
-             uint16_t  bDCIOver_Charge           :1;//Ö±Á÷³äµç¹ýÁ÷
-             uint16_t  bDCIOver_DisCharge        :1;//Ö±Á÷·Åµç¹ýÁ÷
-             uint16_t  bACAIOver_Charge          :1;//AÏà³äµç¹ýÁ÷
-             uint16_t  bACAIOver_DisCharge       :1;//AÏà·Åµç¹ýÁ÷
-             uint16_t  bACBIOver_Charge          :1;//BÏà³äµç¹ýÁ÷
-             uint16_t  bACBIOver_DisCharge       :1;//BÏà·Åµç¹ýÁ÷
-             uint16_t  bACCIOver_Charge          :1;//CÏà³äµç¹ýÁ÷
-             uint16_t  bACCIOver_DisCharge       :1;//CÏà·Åµç¹ýÁ÷
-             uint16_t  bACHIOver_Charge          :1;//ACÓ²¼þ³äµç¹ýÁ÷
-             uint16_t  bACHIOver_DisCharge       :1;//ACÓ²¼þ·Åµç¹ýÁ÷
-             uint16_t  bDCHIOver_Charge          :1;//DCÓ²¼þ³äµç¹ýÁ÷
-             uint16_t  bDCHIOver_DisCharge       :1;//DCÓ²¼þ·Åµç¹ýÁ÷
-             uint16_t  bEmergencyStop            :1;//¼±Í£ÊäÈë
+             uint16_t  bDCIOver_Charge           :1;//Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bDCIOver_DisCharge        :1;//Ö±ï¿½ï¿½ï¿½Åµï¿½ï¿½ï¿½ï¿?
+             uint16_t  bACAIOver_Charge          :1;//Aï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
+             uint16_t  bACAIOver_DisCharge       :1;//Aï¿½ï¿½Åµï¿½ï¿½ï¿½ï¿½
+             uint16_t  bACBIOver_Charge          :1;//Bï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
+             uint16_t  bACBIOver_DisCharge       :1;//Bï¿½ï¿½Åµï¿½ï¿½ï¿½ï¿½
+             uint16_t  bACCIOver_Charge          :1;//Cï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
+             uint16_t  bACCIOver_DisCharge       :1;//Cï¿½ï¿½Åµï¿½ï¿½ï¿½ï¿½
+             uint16_t  bACHIOver_Charge          :1;//ACÓ²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bACHIOver_DisCharge       :1;//ACÓ²ï¿½ï¿½ï¿½Åµï¿½ï¿½ï¿½ï¿?
+             uint16_t  bDCHIOver_Charge          :1;//DCÓ²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+             uint16_t  bDCHIOver_DisCharge       :1;//DCÓ²ï¿½ï¿½ï¿½Åµï¿½ï¿½ï¿½ï¿?
+             uint16_t  bEmergencyStop            :1;//ï¿½ï¿½Í£ï¿½ï¿½ï¿½ï¿½
          }tbits;
      }PCS_HFault;
 
@@ -197,151 +213,151 @@ typedef struct _Stru_Fault
 
 typedef struct _IPC_DATA_CPU2CM //
 {
-    int16_t   PCS_AC_VRms_PhaseA;        //AÏàµçÑ¹£¬0.1V
-    int16_t   PCS_AC_VRms_PhaseB;        //BÏàµçÑ¹£¬0.1V
-    int16_t   PCS_AC_VRms_PhaseC;        //CÏàµçÑ¹£¬0.1V
+    int16_t   PCS_AC_VRms_PhaseA;        //Aï¿½ï¿½ï¿½Ñ¹ï¿½ï¿?.1V
+    int16_t   PCS_AC_VRms_PhaseB;        //Bï¿½ï¿½ï¿½Ñ¹ï¿½ï¿?.1V
+    int16_t   PCS_AC_VRms_PhaseC;        //Cï¿½ï¿½ï¿½Ñ¹ï¿½ï¿?.1V
 
-    int16_t   PCS_AC_VRms_LineAB;        //ABÏßµçÑ¹£¬0.1V
-    int16_t   PCS_AC_VRms_LineBC;        //BCÏßµçÑ¹£¬0.1V
-    int16_t   PCS_AC_VRms_LineCA;        //CAÏßµçÑ¹£¬0.1V
+    int16_t   PCS_AC_VRms_LineAB;        //ABï¿½ßµï¿½Ñ¹ï¿½ï¿½0.1V
+    int16_t   PCS_AC_VRms_LineBC;        //BCï¿½ßµï¿½Ñ¹ï¿½ï¿½0.1V
+    int16_t   PCS_AC_VRms_LineCA;        //CAï¿½ßµï¿½Ñ¹ï¿½ï¿½0.1V
 
-    int16_t   PCS_AC_VLRms_PhaseA;       //AÏàµçÑ¹£¬0.1V
-    int16_t   PCS_AC_VLRms_PhaseB;       //BÏàµçÑ¹£¬0.1V
-    int16_t   PCS_AC_VLRms_PhaseC;       //CÏàµçÑ¹£¬0.1V
+    int16_t   PCS_AC_VLRms_PhaseA;       //Aï¿½ï¿½ï¿½Ñ¹ï¿½ï¿?.1V
+    int16_t   PCS_AC_VLRms_PhaseB;       //Bï¿½ï¿½ï¿½Ñ¹ï¿½ï¿?.1V
+    int16_t   PCS_AC_VLRms_PhaseC;       //Cï¿½ï¿½ï¿½Ñ¹ï¿½ï¿?.1V
 
-    int16_t   PCS_AC_IRms_A;             //AÏàµçÁ÷£¬0.1A
-    int16_t   PCS_AC_IRms_B;             //BÏàµçÁ÷£¬0.1A
-    int16_t   PCS_AC_IRms_C;             //CÏàµçÁ÷£¬0.1A
+    int16_t   PCS_AC_IRms_A;             //Aï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?.1A
+    int16_t   PCS_AC_IRms_B;             //Bï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?.1A
+    int16_t   PCS_AC_IRms_C;             //Cï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?.1A
 
-    int16_t   PCS_AC_ILRms_A;             //A1ÏàµçÁ÷£¬0.1A
-    int16_t   PCS_AC_ILRms_B;             //B1ÏàµçÁ÷£¬0.1A
-    int16_t   PCS_AC_ILRms_C;             //C1ÏàµçÁ÷£¬0.1A
+    int16_t   PCS_AC_ILRms_A;             //A1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?.1A
+    int16_t   PCS_AC_ILRms_B;             //B1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?.1A
+    int16_t   PCS_AC_ILRms_C;             //C1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?.1A
 
-    int16_t   PCS_AC_PowerP_A;            //AÏàÓÐ¹¦¹¦ÂÊ£¬0.01KW
-    int16_t   PCS_AC_PowerP_B;            //AÏàÓÐ¹¦¹¦ÂÊ£¬0.01KW
-    int16_t   PCS_AC_PowerP_C;            //AÏàÓÐ¹¦¹¦ÂÊ£¬0.01KW
+    int16_t   PCS_AC_PowerP_A;            //Aï¿½ï¿½ï¿½Ð¹ï¿½ï¿½ï¿½ï¿½Ê£ï¿½0.01KW
+    int16_t   PCS_AC_PowerP_B;            //Aï¿½ï¿½ï¿½Ð¹ï¿½ï¿½ï¿½ï¿½Ê£ï¿½0.01KW
+    int16_t   PCS_AC_PowerP_C;            //Aï¿½ï¿½ï¿½Ð¹ï¿½ï¿½ï¿½ï¿½Ê£ï¿½0.01KW
 
-    int16_t   PCS_AC_PowerQ_A;            //AÏàÎÞ¹¦¹¦ÂÊ£¬0.01KVar
-    int16_t   PCS_AC_PowerQ_B;            //BÏàÎÞ¹¦¹¦ÂÊ£¬0.01KVar
-    int16_t   PCS_AC_PowerQ_C;            //CÏàÎÞ¹¦¹¦ÂÊ£¬0.01KVar
+    int16_t   PCS_AC_PowerQ_A;            //Aï¿½ï¿½ï¿½Þ¹ï¿½ï¿½ï¿½ï¿½Ê£ï¿½0.01KVar
+    int16_t   PCS_AC_PowerQ_B;            //Bï¿½ï¿½ï¿½Þ¹ï¿½ï¿½ï¿½ï¿½Ê£ï¿½0.01KVar
+    int16_t   PCS_AC_PowerQ_C;            //Cï¿½ï¿½ï¿½Þ¹ï¿½ï¿½ï¿½ï¿½Ê£ï¿½0.01KVar
 
-    int16_t   PCS_AC_PowerS_A;            //AÏàÊÓÔÚ¹¦ÂÊ£¬0.01KVA
-    int16_t   PCS_AC_PowerS_B;            //BÏàÊÓÔÚ¹¦ÂÊ£¬0.01KVA
-    int16_t   PCS_AC_PowerS_C;            //CÏàÊÓÔÚ¹¦ÂÊ£¬0.01KVA
+    int16_t   PCS_AC_PowerS_A;            //Aï¿½ï¿½ï¿½ï¿½ï¿½Ú¹ï¿½ï¿½Ê£ï¿½0.01KVA
+    int16_t   PCS_AC_PowerS_B;            //Bï¿½ï¿½ï¿½ï¿½ï¿½Ú¹ï¿½ï¿½Ê£ï¿½0.01KVA
+    int16_t   PCS_AC_PowerS_C;            //Cï¿½ï¿½ï¿½ï¿½ï¿½Ú¹ï¿½ï¿½Ê£ï¿½0.01KVA
 
-    int16_t   PCS_AC_PowerP;              //ÈýÏà×ÜÓÐ¹¦¹¦ÂÊ£¬0.01KW
-    int16_t   PCS_AC_PowerQ;              //ÈýÏà×ÜÎÞ¹¦¹¦ÂÊ£¬0.01KVar
-    int16_t   PCS_AC_PowerS;              //ÈýÏà×ÜÊÓÔÚ¹¦ÂÊ£¬0.01KVA
+    int16_t   PCS_AC_PowerP;              //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¹ï¿½ï¿½ï¿½ï¿½Ê£ï¿½0.01KW
+    int16_t   PCS_AC_PowerQ;              //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ¹ï¿½ï¿½ï¿½ï¿½Ê£ï¿½0.01KVar
+    int16_t   PCS_AC_PowerS;              //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¹ï¿½ï¿½Ê£ï¿½0.01KVA
 
-    int16_t   PCS_AC_Freq_A;              //AÏàÆµÂÊ£¬0.01HZ
-    int16_t   PCS_AC_Freq_B;              //BÏàÆµÂÊ£¬0.01HZ
-    int16_t   PCS_AC_Freq_C;              //CÏàÆµÂÊ£¬0.01HZ
+    int16_t   PCS_AC_Freq_A;              //Aï¿½ï¿½Æµï¿½Ê£ï¿½0.01HZ
+    int16_t   PCS_AC_Freq_B;              //Bï¿½ï¿½Æµï¿½Ê£ï¿½0.01HZ
+    int16_t   PCS_AC_Freq_C;              //Cï¿½ï¿½Æµï¿½Ê£ï¿½0.01HZ
 
-    int16_t   PCS_AC_PF_A;                //AÏà¹¦ÂÊÒòÊý£¬ 0.01
-    int16_t   PCS_AC_PF_B;                //BÏà¹¦ÂÊÒòÊý£¬ 0.01
-    int16_t   PCS_AC_PF_C;                //CÏà¹¦ÂÊÒòÊý£¬ 0.01
+    int16_t   PCS_AC_PF_A;                //Aï¿½à¹¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 0.01
+    int16_t   PCS_AC_PF_B;                //Bï¿½à¹¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 0.01
+    int16_t   PCS_AC_PF_C;                //Cï¿½à¹¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 0.01
 
-    int16_t   PCS_DC_BusVol;              //Ä¸Ïß²àÖ±Á÷µçÑ¹
-    int16_t   PCS_DC_BusCurr;             //Ä¸Ïß²àÖ±Á÷µçÁ÷£¬0.01A
-    int16_t   PCS_DC_Power;               //Ä¸Ïß²àÖ±Á÷¹¦ÂÊ£¬0.01KW
+    int16_t   PCS_DC_BusVol;              //Ä¸ï¿½ß²ï¿½Ö±ï¿½ï¿½ï¿½ï¿½Ñ¹
+    int16_t   PCS_DC_BusCurr;             //Ä¸ï¿½ß²ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0.01A
+    int16_t   PCS_DC_Power;               //Ä¸ï¿½ß²ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½Ê£ï¿½0.01KW
 
-    int16_t   PCS_DC_PBusVol;             //ÕýÄ¸ÏßµçÑ¹£¬0.1V
-    int16_t   PCS_DC_NBusVol;             //¸ºÄ¸ÏßµçÑ¹£¬0.1V
-    int16_t   PCS_DC_IBUS_N;              //NÏßµçÁ÷£¬0.1A
+    int16_t   PCS_DC_PBusVol;             //ï¿½ï¿½Ä¸ï¿½ßµï¿½Ñ¹ï¿½ï¿½0.1V
+    int16_t   PCS_DC_NBusVol;             //ï¿½ï¿½Ä¸ï¿½ßµï¿½Ñ¹ï¿½ï¿½0.1V
+    int16_t   PCS_DC_IBUS_N;              //Nï¿½ßµï¿½ï¿½ï¿½ï¿½ï¿½0.1A
 
-    int16_t   Temp_igbtMax;               //IGBTÎÂ¶È×î´óÖµ
-    int16_t   Temp_igbtA;                 //IGBTÎÂ¶È AÏà
-    int16_t   Temp_igbtB;                 //IGBTÎÂ¶È BÏà
-    int16_t   Temp_igbtC;                 //IGBTÎÂ¶È CÏà
-    int16_t   Temp_igbtN;                 //IGBTÎÂ¶È NÏà
-    int16_t   Temp_AmbInlet;              //½ø·ç¿Ú»·¾³ÎÂ¶È
-    int16_t   Temp_AmbOutlet;             //³ö·ç¿Ú»·¾³ÎÂ¶È
+    int16_t   Temp_igbtMax;               //IGBTï¿½Â¶ï¿½ï¿½ï¿½ï¿½Ö?
+    int16_t   Temp_igbtA;                 //IGBTï¿½Â¶ï¿½ Aï¿½ï¿½
+    int16_t   Temp_igbtB;                 //IGBTï¿½Â¶ï¿½ Bï¿½ï¿½
+    int16_t   Temp_igbtC;                 //IGBTï¿½Â¶ï¿½ Cï¿½ï¿½
+    int16_t   Temp_igbtN;                 //IGBTï¿½Â¶ï¿½ Nï¿½ï¿½
+    int16_t   Temp_AmbInlet;              //ï¿½ï¿½ï¿½ï¿½Ú»ï¿½ï¿½ï¿½ï¿½Â¶ï¿?
+    int16_t   Temp_AmbOutlet;             //ï¿½ï¿½ï¿½ï¿½Ú»ï¿½ï¿½ï¿½ï¿½Â¶ï¿?
 
     int16_t   Vol_1V5;                    //+1.5V  0.001
     int16_t   Vol_5V;                     //+5V  0.001
     int16_t   Vol_p15V;                   //+15V  0.001
 
-    int16_t   Pcs_Localpllfo;             //ÀëÍø×ÔÉú³ÉÐÅºÅËøÏà»·ÆµÂÊ
-    int16_t   Pcs_Gridpllfo;              //µçÍøÐÅºÅËøÏà»·ÆµÂÊ
+    int16_t   Pcs_Localpllfo;             //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Åºï¿½ï¿½ï¿½ï¿½à»·Æµï¿½ï¿½
+    int16_t   Pcs_Gridpllfo;              //ï¿½ï¿½ï¿½ï¿½ï¿½Åºï¿½ï¿½ï¿½ï¿½à»·Æµï¿½ï¿½
 
-    int16_t   PwmRatio;                   //PWM1¿ØÖÆ±ÈÀý(100.00%)
-    int16_t   DerateRatio;                //¹ýÎÂ½µ¶îÔËÐÐ°Ù·Ö±È
-    int16_t   pllPhaseErr;                //²¢ÀëÍøËøÏàÏàÎ»²î
+    int16_t   PwmRatio;                   //PWM1ï¿½ï¿½ï¿½Æ±ï¿½ï¿½ï¿½(100.00%)
+    int16_t   DerateRatio;                //ï¿½ï¿½ï¿½Â½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð°Ù·Ö±ï¿½
+    int16_t   pllPhaseErr;                //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½
 
-    int16_t   Relay_DCSoft;               //Ö±Á÷ÈíÆð¼ÌµçÆ÷¿ØÖÆ×´Ì¬
-    int16_t   Relay_DCMaster;             //Ö±Á÷Ö÷¼ÌµçÆ÷¿ØÖÆ×´Ì¬
-    int16_t   Relay_ACSoft;               //½»Á÷ÈíÆð¼ÌµçÆ÷¿ØÖÆ×´Ì¬
-    int16_t   Relay_ACMaster;             //½»Á÷Ö÷¼ÌµçÆ÷¿ØÖÆ×´Ì¬
-    int16_t   Relay_FanCtrl;              //·çÉÈ¿ØÖÆ
-    int16_t   Relay_WorkLed;              //¹¤×÷Ö¸Ê¾µÆ
-    int16_t   Relay_FaultLed;             //¹ÊÕÏÖ¸Ê¾µÆ
-    int16_t   FanCtrl_duty;               //·çÉÈ¿ØÖÆ
+    int16_t   Relay_DCSoft;               //Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì?
+    int16_t   Relay_DCMaster;             //Ö±ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+    int16_t   Relay_ACSoft;               //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì?
+    int16_t   Relay_ACMaster;             //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+    int16_t   Relay_FanCtrl;              //ï¿½ï¿½ï¿½È¿ï¿½ï¿½ï¿½
+    int16_t   Relay_WorkLed;              //ï¿½ï¿½ï¿½ï¿½Ö¸Ê¾ï¿½ï¿½
+    int16_t   Relay_FaultLed;             //ï¿½ï¿½ï¿½ï¿½Ö¸Ê¾ï¿½ï¿½
+    int16_t   FanCtrl_duty;               //ï¿½ï¿½ï¿½È¿ï¿½ï¿½ï¿½
 
-    int16_t   PcsCtrlState;               //¿ØÖÆ×´Ì¬»ú×´Ì¬
-    int16_t   PcsOnAllowed;               //ÔÊÐí¿ª»ú 0:²»ÔÊÐí¿ª»ú£¬1:ÔÊÐí¿ª»ú
-    int16_t   uniqueID_M;                 //CPU_UID ¸ß16Î»
-    int16_t   uniqueID_L;                 //CPU_UID µÍ16Î»
+    int16_t   PcsCtrlState;               //ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½×´Ì¬
+    int16_t   PcsOnAllowed;               //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 0:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    int16_t   uniqueID_M;                 //CPU_UID ï¿½ï¿½16Î»
+    int16_t   uniqueID_L;                 //CPU_UID ï¿½ï¿½16Î»
 
-    int16_t   Pwm_StartEn;                //claÖÐµÄ·¢²¨Ê¹ÄÜ±êÖ¾
+    int16_t   Pwm_StartEn;                //claï¿½ÐµÄ·ï¿½ï¿½ï¿½Ê¹ï¿½Ü±ï¿½Ö¾
 
    Stru_Fault  FaultStatus;
 }IPC_DATA_CPU2CM;
 
 typedef struct _IPC_DATA_CM2CPU //
 {
-    //¿ØÖÆÄ£Ê½Éè¶¨
-    int16_t   StartEn;                //Æô¶¯/Í£Ö¹
-    int16_t   WorkMode;               //¹¤×÷Ä£Ê½£¬0:ÀëÍø,1:²¢Íø
-    int16_t   OnGridMode;             //²¢Íø¹¤×÷Ä£Ê½(0:ºã¹¦ÂÊ,1:ºãÁ÷,2:ºãÖ±Á÷µçÑ¹,3:ºãÖ±Á÷µçÁ÷)
-    int16_t   LocalRemote;            //0:±¾µØ,1:Ô¶³Ì
-    int16_t   Pwm_StartEn;            //Pwm·¢²¨Ê¹ÄÜ
-    int16_t   OutLoop_En;             //µçÁ÷Íâ»·Ê¹ÄÜ    0£º¹Ø±ÕÍâ»·£¬1£º´ò¿ªÍâ»·
-    int16_t   SoftStart_En;           //µçÁ÷ÈíÆô¶¯Ê¹ÄÜ   0£º¹Ø±ÕÈíÆô¶¯£¬1£º´ò¿ªÈíÆð¶¯
-    int16_t   debugMode;              //0:Õý³£Ä£Ê½£¬1:µ÷ÊÔÄ£Ê½
-    int16_t   OpenLoopMode;           //0:¿ª»·Ä£Ê½£¬1:±Õ»·Ä£Ê½
-    int16_t   pcsLineMode;            //0:3P3L£¬1:3P4L
-    int16_t   ClearFault;             //¹ÊÕÏÇå³ý£¬1:Çå³ý
-    int16_t   debugData_TxEn;         //µ÷ÊÔÊý¾Ý·¢ËÍÊ¹ÄÜ
-    int16_t   Reset_En;               //¸´Î»Ê¹ÄÜ ¹Ø±Õ¿´ÃÅ¹·
-    //¿ØÖÆ²ÎÊýÉè¶¨
-    int16_t   ActivePowerSet;         //ÓÐ¹¦¹¦ÂÊÉè¶¨
-    int16_t   ReActivePowerSet;       //ÎÞ¹¦¹¦ÂÊÉè¶¨
-    int16_t   DcConstCurrSet;         //ºãÖ±Á÷µçÁ÷Éè¶¨
-    int16_t   DcConstVolSet;          //ºãÖ±Á÷µçÑ¹Éè¶¨
-    int16_t   AcConstCurrSet;         //ºã½»Á÷µçÁ÷Éè¶¨
-    int16_t   PowerFactorSet;         //¹¦ÂÊÒòÊýÉè¶¨
-    int16_t   VF_VoSet;               //VFÊä³öµçÑ¹ÉèÖÃ
-    int16_t   VF_FreqSet;             //VFÊä³öÆµÂÊÉèÖÃ
-    int16_t   DcEqualChargeVol;       //DC¾ù³äµçÑ¹ÉèÖÃ
-    int16_t   DcFloatChargeVol;       //DC¸¡³äµçÑ¹ÉèÖÃ
-    int16_t   RatedVoltage;             //¶î¶¨µçÑ¹Éè¶¨
-    int16_t   RatedCurrent;             //¶î¶¨µçÁ÷Éè¶¨
-    int16_t   RatedPower;               //¶î¶¨¹¦ÂÊÉè¶¨
-    int16_t   DcEqual2FloatCurrent;   //DC¾ù³ä×ª¸¡³äµçÁ÷ÉèÖÃ
-    int16_t   BattHighVolSet;         //µç³ØµçÑ¹±£»¤ÉÏÏÞÉèÖÃ
-    int16_t   BattLowVolSet;          //µç³ØµçÑ¹±£»¤ÏÂÏÞÉèÖÃ
-    int16_t   BattEODVol;             //EODÖÕÖ¹·ÅµçµçÑ¹ÉèÖÃ
-    int16_t   DODGridConnect;         //²¢ÍøDODÉèÖÃ ·ÅµçÉî¶È
-    int16_t   DODDisGridConnect;      //ÀëÍøDODÉèÖÃ ·ÅµçÉî¶È
-    //ADÐ£×¼²ÎÊý
-    int16_t   VgridA_Calibrat;    //AÏàµçÍøµçÑ¹Ð£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   VgridB_Calibrat;    //BÏàµçÍøµçÑ¹Ð£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   VgridC_Calibrat;    //CÏàµçÍøµçÑ¹Ð£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   VInvA_Calibrat;     //AÏàÄæ±äµçÑ¹Ð£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   VInvB_Calibrat;     //BÏàÄæ±äµçÑ¹Ð£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   VInvC_Calibrat;     //CÏàÄæ±äµçÑ¹Ð£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   IGridA_Calibrat;    //AÏàÊä³öµçÁ÷Ð£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   IGridB_Calibrat;    //BÏàÊä³öµçÁ÷Ð£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   IGridC_Calibrat;    //CÏàÊä³öµçÁ÷Ð£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   IInvA_Calibrat;     //AÏàÄæ±äµçÁ÷Ð£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   IInvB_Calibrat;     //BÏàÄæ±äµçÁ÷Ð£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   IInvC_Calibrat;     //CÏàÄæ±äµçÁ÷Ð£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   VdcP_Calibrat;      //Ö±Á÷µçÑ¹ÕýÐ£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   VdcN_Calibrat;      //Ö±Á÷µçÑ¹¸ºÐ£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   Idc_Calibrat;       //Ö±Á÷µçÁ÷Ð£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   Vdc_Calibrat;       //Ö±Á÷µçÑ¹Ð£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   Ref1v5_Calibrat;      //Ö±Á÷µçÑ¹Æ«ÖÃÐ£×¼ (80.00%~120.00%) 8000~12000
-    int16_t   IN_Calibrat;        //NÏßµçÁ÷Ð£×¼ (80.00%~120.00%) 8000~12000
+    //ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½è¶¨
+    int16_t   StartEn;                //ï¿½ï¿½ï¿½ï¿½/Í£Ö¹
+    int16_t   WorkMode;               //ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½0:ï¿½ï¿½ï¿½ï¿½,1:ï¿½ï¿½ï¿½ï¿½
+    int16_t   OnGridMode;             //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½(0:ï¿½ã¹¦ï¿½ï¿½,1:ï¿½ï¿½ï¿½ï¿½,2:ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½Ñ¹,3:ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)
+    int16_t   LocalRemote;            //0:ï¿½ï¿½ï¿½ï¿½,1:Ô¶ï¿½ï¿½
+    int16_t   Pwm_StartEn;            //Pwmï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½
+    int16_t   OutLoop_En;             //ï¿½ï¿½ï¿½ï¿½ï¿½â»·Ê¹ï¿½ï¿½    0ï¿½ï¿½ï¿½Ø±ï¿½ï¿½â»·ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½â»·
+    int16_t   SoftStart_En;           //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½   0ï¿½ï¿½ï¿½Ø±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    int16_t   debugMode;              //0:ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½1:ï¿½ï¿½ï¿½ï¿½Ä£Ê½
+    int16_t   OpenLoopMode;           //0:ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½1:ï¿½Õ»ï¿½Ä£Ê½
+    int16_t   pcsLineMode;            //0:3P3Lï¿½ï¿½1:3P4L
+    int16_t   ClearFault;             //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?:ï¿½ï¿½ï¿?
+    int16_t   debugData_TxEn;         //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý·ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½
+    int16_t   Reset_En;               //ï¿½ï¿½Î»Ê¹ï¿½ï¿½ ï¿½Ø±Õ¿ï¿½ï¿½Å¹ï¿½
+    //ï¿½ï¿½ï¿½Æ²ï¿½ï¿½ï¿½ï¿½è¶¨
+    int16_t   ActivePowerSet;         //ï¿½Ð¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è¶¨
+    int16_t   ReActivePowerSet;       //ï¿½Þ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è¶¨
+    int16_t   DcConstCurrSet;         //ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è¶¨
+    int16_t   DcConstVolSet;          //ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½è¶¨
+    int16_t   AcConstCurrSet;         //ï¿½ã½»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è¶¨
+    int16_t   PowerFactorSet;         //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è¶¨
+    int16_t   VF_VoSet;               //VFï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½ï¿?
+    int16_t   VF_FreqSet;             //VFï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
+    int16_t   DcEqualChargeVol;       //DCï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½ï¿?
+    int16_t   DcFloatChargeVol;       //DCï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½ï¿?
+    int16_t   RatedVoltage;             //ï¿½î¶¨ï¿½ï¿½Ñ¹ï¿½è¶¨
+    int16_t   RatedCurrent;             //ï¿½î¶¨ï¿½ï¿½ï¿½ï¿½ï¿½è¶¨
+    int16_t   RatedPower;               //ï¿½î¶¨ï¿½ï¿½ï¿½ï¿½ï¿½è¶¨
+    int16_t   DcEqual2FloatCurrent;   //DCï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
+    int16_t   BattHighVolSet;         //ï¿½ï¿½Øµï¿½Ñ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
+    int16_t   BattLowVolSet;          //ï¿½ï¿½Øµï¿½Ñ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
+    int16_t   BattEODVol;             //EODï¿½ï¿½Ö¹ï¿½Åµï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½ï¿?
+    int16_t   DODGridConnect;         //ï¿½ï¿½ï¿½ï¿½DODï¿½ï¿½ï¿½ï¿½ ï¿½Åµï¿½ï¿½ï¿½ï¿?
+    int16_t   DODDisGridConnect;      //ï¿½ï¿½ï¿½ï¿½DODï¿½ï¿½ï¿½ï¿½ ï¿½Åµï¿½ï¿½ï¿½ï¿?
+    //ADÐ£×¼ï¿½ï¿½ï¿½ï¿½
+    int16_t   VgridA_Calibrat;    //Aï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹Ð£×?(80.00%~120.00%) 8000~12000
+    int16_t   VgridB_Calibrat;    //Bï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹Ð£×?(80.00%~120.00%) 8000~12000
+    int16_t   VgridC_Calibrat;    //Cï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹Ð£×?(80.00%~120.00%) 8000~12000
+    int16_t   VInvA_Calibrat;     //Aï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹Ð£×¼ (80.00%~120.00%) 8000~12000
+    int16_t   VInvB_Calibrat;     //Bï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹Ð£×¼ (80.00%~120.00%) 8000~12000
+    int16_t   VInvC_Calibrat;     //Cï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹Ð£×¼ (80.00%~120.00%) 8000~12000
+    int16_t   IGridA_Calibrat;    //Aï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£×?(80.00%~120.00%) 8000~12000
+    int16_t   IGridB_Calibrat;    //Bï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£×?(80.00%~120.00%) 8000~12000
+    int16_t   IGridC_Calibrat;    //Cï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£×?(80.00%~120.00%) 8000~12000
+    int16_t   IInvA_Calibrat;     //Aï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£×¼ (80.00%~120.00%) 8000~12000
+    int16_t   IInvB_Calibrat;     //Bï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£×¼ (80.00%~120.00%) 8000~12000
+    int16_t   IInvC_Calibrat;     //Cï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£×¼ (80.00%~120.00%) 8000~12000
+    int16_t   VdcP_Calibrat;      //Ö±ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½Ð£×¼ (80.00%~120.00%) 8000~12000
+    int16_t   VdcN_Calibrat;      //Ö±ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½Ð£×¼ (80.00%~120.00%) 8000~12000
+    int16_t   Idc_Calibrat;       //Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£×¼ (80.00%~120.00%) 8000~12000
+    int16_t   Vdc_Calibrat;       //Ö±ï¿½ï¿½ï¿½ï¿½Ñ¹Ð£×¼ (80.00%~120.00%) 8000~12000
+    int16_t   Ref1v5_Calibrat;      //Ö±ï¿½ï¿½ï¿½ï¿½Ñ¹Æ«ï¿½ï¿½Ð£×¼ (80.00%~120.00%) 8000~12000
+    int16_t   IN_Calibrat;        //Nï¿½ßµï¿½ï¿½ï¿½Ð£×¼ (80.00%~120.00%) 8000~12000
     int16_t   Idc_offset;
     int16_t   Iac_Aoffset;
     int16_t   Iac_Boffset;
@@ -351,48 +367,48 @@ typedef struct _IPC_DATA_CM2CPU //
     int16_t   Ilac_Coffset;
     int16_t   IdcN_offset;
     int16_t   Reserved_Calibrat;
-    //PI¿ØÖÆ²ÎÊý
-    int16_t   IlInter_Kp;               //µç¸ÐµçÁ÷ÄÚ»·Kp²ÎÊý
-    int16_t   IlInter_Ki;               //µç¸ÐµçÁ÷ÄÚ»·Ki²ÎÊý
-    int16_t   IAcOuter_Kp;              //ACµçÁ÷Íâ»·Kp²ÎÊý
-    int16_t   IAcOuter_Ki;              //ACµçÁ÷Íâ»·Ki²ÎÊý
-    int16_t   IDcOuter_Kp;              //DCµçÁ÷Íâ»·Kp²ÎÊý
-    int16_t   IDcOuter_Ki;              //DCµçÁ÷Íâ»·Ki²ÎÊý
-    int16_t   VAcOuter_Kp;              //ACµçÑ¹Íâ»·Kp²ÎÊý
-    int16_t   VAcOuter_Ki;              //ACµçÑ¹Íâ»·Ki²ÎÊý
-    int16_t   VDcOuter_Kp;              //DCµçÑ¹Íâ»·Kp²ÎÊý
-    int16_t   VDcOuter_Ki;              //DCµçÑ¹Íâ»·Ki²ÎÊý
-    //¹ÊÕÏ±£»¤ãÐÖµ
-    int16_t   AC_OverVol_Value;        //½»Á÷¹ýÑ¹±£»¤ãÐÖµ
-    int16_t   AC_UnderVol_Value;       //½»Á÷Ç·Ñ¹±£»¤ãÐÖµ
-    int16_t   AC_OverCurr_Value;       //½»Á÷¹ýÁ÷±£»¤ãÐÖµ
-    int16_t   AC_UnbanceVol_Value;     //½»Á÷µçÑ¹²»Æ½ºâ±¨»¤ãÐÖµ
+    //PIï¿½ï¿½ï¿½Æ²ï¿½ï¿½ï¿½
+    int16_t   IlInter_Kp;               //ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½Ú»ï¿½Kpï¿½ï¿½ï¿½ï¿½
+    int16_t   IlInter_Ki;               //ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½Ú»ï¿½Kiï¿½ï¿½ï¿½ï¿½
+    int16_t   IAcOuter_Kp;              //ACï¿½ï¿½ï¿½ï¿½ï¿½â»·Kpï¿½ï¿½ï¿½ï¿½
+    int16_t   IAcOuter_Ki;              //ACï¿½ï¿½ï¿½ï¿½ï¿½â»·Kiï¿½ï¿½ï¿½ï¿½
+    int16_t   IDcOuter_Kp;              //DCï¿½ï¿½ï¿½ï¿½ï¿½â»·Kpï¿½ï¿½ï¿½ï¿½
+    int16_t   IDcOuter_Ki;              //DCï¿½ï¿½ï¿½ï¿½ï¿½â»·Kiï¿½ï¿½ï¿½ï¿½
+    int16_t   VAcOuter_Kp;              //ACï¿½ï¿½Ñ¹ï¿½â»·Kpï¿½ï¿½ï¿½ï¿½
+    int16_t   VAcOuter_Ki;              //ACï¿½ï¿½Ñ¹ï¿½â»·Kiï¿½ï¿½ï¿½ï¿½
+    int16_t   VDcOuter_Kp;              //DCï¿½ï¿½Ñ¹ï¿½â»·Kpï¿½ï¿½ï¿½ï¿½
+    int16_t   VDcOuter_Ki;              //DCï¿½ï¿½Ñ¹ï¿½â»·Kiï¿½ï¿½ï¿½ï¿½
+    //ï¿½ï¿½ï¿½Ï±ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+    int16_t   AC_OverVol_Value;        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+    int16_t   AC_UnderVol_Value;       //ï¿½ï¿½ï¿½ï¿½Ç·Ñ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+    int16_t   AC_OverCurr_Value;       //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+    int16_t   AC_UnbanceVol_Value;     //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½Æ½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½Öµ
 
-    int16_t   DC_OverVol_Value;        //Ö±Á÷¹ýÑ¹±£»¤ãÐÖµ
-    int16_t   DC_OverCurr_Value;       //Ö±Á÷¹ýÁ÷±£»¤ãÐÖµ
-    int16_t   DC_UnderVol_Value;       //Ö±Á÷Ç·Ñ¹±£»¤ãÐÖµ
-    int16_t   DC_UnbanceVol_Value;     //Ö±Á÷µçÑ¹²»Æ½ºâ±¨»¤ãÐÖµ
-    int16_t   TempAmb_Over_Value;      //»·¾³¹ýÎÂ±£»¤ãÐÖµ
-    int16_t   TempIgbt_Over_Value;     //IGBT¹ýÎÂ±£»¤ãÐÖµ
-    //ÊÖ¶¯¿ØÖÆÊ±£¬ÓÉCM´«¸øCPU1
-    int16_t   FanCtrl_duty;           //·çÉÈ¿ØÖÆ
-    int16_t   RelayCtrl_DCSoft;       //Ö±Á÷ÈíÆð¼ÌµçÆ÷¿ØÖÆ×´Ì¬
-    int16_t   RelayCtrl_DCMaster;     //Ö±Á÷Ö÷¼ÌµçÆ÷¿ØÖÆ×´Ì¬
-    int16_t   RelayCtrl_ACSoft;       //½»Á÷ÈíÆð¼ÌµçÆ÷¿ØÖÆ×´Ì¬
-    int16_t   RelayCtrl_ACMaster;     //½»Á÷Ö÷¼ÌµçÆ÷¿ØÖÆ×´Ì¬
-    int16_t   RelayCtrl_FanCtrl;      //·çÉÈ¿ØÖÆ
-    int16_t   RelayCtrl_WorkLed;      //¹¤×÷Ö¸Ê¾µÆ
-    int16_t   RelayCtrl_FaultLed;     //¹ÊÕÏÖ¸Ê¾µÆ
-    //CMÉÏµç×Ô¼ì×´Ì¬
-    int16_t   SelfCheckOK;            //CMÉÏµç×Ô¼ì×´Ì¬
-    int16_t   IpcCpu2Cm_Fault;        //CPUµ½CM IpcÍ¨ÐÅ¹ÊÕÏ
-    int16_t   Rs485_1_Fault;          //RS485_1Í¨ÐÅ¹ÊÕÏ
-    int16_t   Rs485_2_Fault;          //RS485_2Í¨ÐÅ¹ÊÕÏ
-    int16_t   CAN_1_Fault;            //CAN_1Í¨ÐÅ¹ÊÕÏ
-    int16_t   CAN_2_Fault;            //CAN_2Í¨ÐÅ¹ÊÕÏ
-    int16_t   EE_Fault;               //EEPROM¹ÊÕÏ
-    int16_t   Sflash_Fault;           //spi flashÍ¨ÐÅ¹ÊÕÏ
-    int16_t   PtpSynced;              //0:Î´Í¬²½,1:ÒÑÍ¬²½
+    int16_t   DC_OverVol_Value;        //Ö±ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+    int16_t   DC_OverCurr_Value;       //Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+    int16_t   DC_UnderVol_Value;       //Ö±ï¿½ï¿½Ç·Ñ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+    int16_t   DC_UnbanceVol_Value;     //Ö±ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½Æ½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½Öµ
+    int16_t   TempAmb_Over_Value;      //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+    int16_t   TempIgbt_Over_Value;     //IGBTï¿½ï¿½ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+    //ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½CMï¿½ï¿½ï¿½ï¿½CPU1
+    int16_t   FanCtrl_duty;           //ï¿½ï¿½ï¿½È¿ï¿½ï¿½ï¿½
+    int16_t   RelayCtrl_DCSoft;       //Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì?
+    int16_t   RelayCtrl_DCMaster;     //Ö±ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+    int16_t   RelayCtrl_ACSoft;       //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì?
+    int16_t   RelayCtrl_ACMaster;     //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+    int16_t   RelayCtrl_FanCtrl;      //ï¿½ï¿½ï¿½È¿ï¿½ï¿½ï¿½
+    int16_t   RelayCtrl_WorkLed;      //ï¿½ï¿½ï¿½ï¿½Ö¸Ê¾ï¿½ï¿½
+    int16_t   RelayCtrl_FaultLed;     //ï¿½ï¿½ï¿½ï¿½Ö¸Ê¾ï¿½ï¿½
+    //CMï¿½Ïµï¿½ï¿½Ô¼ï¿½×´Ì¬
+    int16_t   SelfCheckOK;            //CMï¿½Ïµï¿½ï¿½Ô¼ï¿½×´Ì¬
+    int16_t   IpcCpu2Cm_Fault;        //CPUï¿½ï¿½CM IpcÍ¨ï¿½Å¹ï¿½ï¿½ï¿½
+    int16_t   Rs485_1_Fault;          //RS485_1Í¨ï¿½Å¹ï¿½ï¿½ï¿½
+    int16_t   Rs485_2_Fault;          //RS485_2Í¨ï¿½Å¹ï¿½ï¿½ï¿½
+    int16_t   CAN_1_Fault;            //CAN_1Í¨ï¿½Å¹ï¿½ï¿½ï¿½
+    int16_t   CAN_2_Fault;            //CAN_2Í¨ï¿½Å¹ï¿½ï¿½ï¿½
+    int16_t   EE_Fault;               //EEPROMï¿½ï¿½ï¿½ï¿½
+    int16_t   Sflash_Fault;           //spi flashÍ¨ï¿½Å¹ï¿½ï¿½ï¿½
+    int16_t   PtpSynced;              //0:Î´Í¬ï¿½ï¿½,1:ï¿½ï¿½Í¬ï¿½ï¿½
 }IPC_DATA_CM2CPU;
 
 extern IPC_DATA_CPU2CM         Cpu1Ipc_cpu2cm;

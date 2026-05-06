@@ -1,195 +1,364 @@
 /*
  * pwm_slave_sync.c
  *
- *  Created on: 2026Äê4ÔÂ7ÈÕ
- *      Author: whl
+ * åŠŸèƒ½ï¼š
+ *    Slaveä¾§PPSåŒæ­¥PWMã€‚
+ *    é€šè¿‡eCAP1æ•è·ç»PTPåè®®åŒæ­¥åçš„PPSä¸Šå‡æ²¿ï¼Œ
+ *    åœ¨ç¡®è®¤PTPå·²é”å®šï¼ˆCpu1Ipc_cm2cpu.PtpSynced==1ï¼‰åï¼Œ
+ *    æ ¡æ­£EPWM1ç›¸ä½ï¼Œä½¿å…¶ä¸Masterçš„PWMé—´æ¥å¯¹é½ã€‚
  */
 
 #include "pwm_slave_sync.h"
 #include "bsp.h"
-#include <math.h>
-
-/*============================ PI¿ØÖÆÆ÷²ÎÊı ============================*/
-
-// PI²ÎÊı
-#define SLAVE_PWM_KP                0.1f    // ±ÈÀıÔöÒæ
-#define SLAVE_PWM_KI                0.01f   // »ı·ÖÔöÒæ
-#define SLAVE_PHASE_MAX_STEP        100U    // ×î´óÏàÎ»µ÷Õû²½³¤
-
-// PWM»ù×¼ÏàÎ»£¨PPSµ½À´Ê±PWMµÄÄ¿±êTBCTRÖµ£©
-// ÉÏÏÂ¼ÆÊıÄ£Ê½ÏÂ£¬0ÊÇÖÜÆÚÖĞµã
-#define SLAVE_PWM_BASE_PHASE        0U
-#define MAX_INTERGRAL_THRESHOLD     500.0f
-
-// PPSÖĞ¶Ï¼ÆÊı
-static volatile uint32_t g_slavePpsIsrCount = 0;
-// ÏàÎ»Îó²î
-static volatile int32_t  g_slavePhaseError = 0;
-// »ı·ÖÏî
-static volatile float  g_slavePhaseIntegral = 0.0f;
-// PWM»ù×¼ÏàÎ»
-static uint16_t g_slavePwmBasePhase = SLAVE_PWM_BASE_PHASE;
-
-// ´ÓCMºË»ñÈ¡PTPÍ¬²½×´Ì¬
-extern IPC_DATA_CPU2CM    Cpu1Ipc_cpu2cm;
-extern IPC_DATA_CM2CPU    Cpu1Ipc_cm2cpu;
 
 
-static void Slave_InitEPwm1(void);
+#define PPS_INPUTXBAR_CHANNEL       XBAR_INPUT7            // GPIO47 -> INPUTXBAR7
+#define PPS_ECAP_INPUT_SEL          ECAP_INPUT_INPUTXBAR7  // INPUTXBAR7 -> ECAP1
+#define PPS_ECAP_BASE               ECAP1_BASE
+#define PPS_ECAP_INT                INT_ECAP1
+#define PPS_GPIO                    47U
+#define SYNC_EPWM_BASE              EPWM1_BASE             // ePWM1ä¸ºåŒæ­¥åŸºå‡†æ¨¡å—
+#define EPWM_TBCLK_HZ               200000000UL            // æ—¶é’Ÿé¢‘ç‡
+#define ECAP_TSCTR_HZ               200000000UL
 
-static void Slave_InitPPS_Input_GPIO(void);
+// æ§åˆ¶å‚æ•°
+#define PWM_MAX_STEP_NS             100L
+#define PWM_LOCK_THRESHOLD_NS       50L
+#define PPS_ISR_MAX_LATENCY_NS      5000UL
+
+#define SLAVE_PWM_BASE_PHASE        0U       // PWMåŸºå‡†ç›¸ä½
+#define MAX_INTERGRAL_THRESHOLD     500.0f   // ç§¯åˆ†é™å¹…
+#define PPS_PHASE_OFFSET_NS         0L       // ä¸»ä»å›ºå®šé“¾è·¯å»¶è¿Ÿè¡¥å¿
+
+#define PPS_ECAP_ALL_INT_FLAGS      (ECAP_ISR_SOURCE_CAPTURE_EVENT_1 | \
+                                     ECAP_ISR_SOURCE_CAPTURE_EVENT_2 | \
+                                     ECAP_ISR_SOURCE_CAPTURE_EVENT_3 | \
+                                     ECAP_ISR_SOURCE_CAPTURE_EVENT_4 | \
+                                     ECAP_ISR_SOURCE_COUNTER_OVERFLOW | \
+                                     ECAP_ISR_SOURCE_COUNTER_PERIOD | \
+                                     ECAP_ISR_SOURCE_COUNTER_COMPARE)
+
+extern IPC_DATA_CM2CPU    Cpu1Ipc_cm2cpu;    //ä»CMæ ¸è·å–PTPåŒæ­¥çŠ¶æ€
+
+volatile uint32_t g_slavePpsCapCount = 0;
+volatile int32_t  g_slavePwmPhaseErrTicks = 0;
+volatile int32_t  g_slavePwmPhaseErrNs = 0;
+volatile uint32_t g_slavePwmLockCount = 0U;
+volatile uint32_t g_slavePwmSkipCount = 0U;
+volatile bool     g_slavePwmLocked = false;
 
 
-/*============================ ³õÊ¼»¯º¯Êı ============================*/
+static void Slave_InitEPwmSync(void);
+static void Slave_InitPpsEcap(void);
+static void Slave_ServicePpsCapture(bool allowSync);
+
+static int32_t  ns_to_tbclk_ticks(int32_t ns);
+static uint32_t ns_to_ecap_ticks(uint32_t ns);
+static uint32_t ecap_ticks_to_tbclk(uint32_t ecapTicks);
+static uint32_t get_epwm_up_down_phase(uint32_t base, uint32_t tbprd);
+static void     set_epwm_up_down_phase(uint32_t base, uint32_t phase, uint32_t tbprd);
+static uint32_t wrap_u32(int32_t value, uint32_t modulo);
+static int32_t  signed_phase_error(uint32_t actual, uint32_t target, uint32_t modulo);
+static int32_t  clamp_i32(int32_t value, int32_t minValue, int32_t maxValue);
+
+
+// åˆå§‹åŒ–å‡½æ•°
 void PWM_SlaveSync_Init(void)
 {
-    // 1. ÅäÖÃPWM1Í¬²½¹¦ÄÜ
-    Slave_InitEPwm1();
+    // 1.é…ç½®PWM1åŒæ­¥åŠŸèƒ½
+    Slave_InitEPwmSync();
 
-    // 2.ÅäÖÃGPIO47×÷ÎªPPSÊäÈëÖĞ¶Ï
-    Slave_InitPPS_Input_GPIO();
+    // 2.PPS eCAP
+    Slave_InitPpsEcap();
 }
 
-// Slave PWM1Í¬²½ÅäÖÃ
-static void Slave_InitEPwm1(void)
+// Slave EPWM1åŒæ­¥é…ç½®
+static void Slave_InitEPwmSync(void)
 {
     EALLOW;
 
-//    // ÅäÖÃPWM1Í¬²½ÊäÈë, EPWM1Ê¹ÓÃEXTSYNCIN1×÷ÎªÍ¬²½ÊäÈëÔ´
-//    SysCtl_setSyncInputConfig(SYSCTL_SYNC_IN_EPWM1, SYSCTL_SYNC_IN_SRC_EXTSYNCIN1);
-//    //ÅäÖÃÍ¬²½Ô´EPWM1£¬Ê¹Æä×÷ÎªÍ¬²½Á´µÄÆğµã
-//    EPWM_setSyncInPulseSource(EPWM1_BASE, EPWM_SYNC_IN_PULSE_SRC_DISABLE);
-//    // ÅäÖÃÍ¬²½ºó¼ÆÊıÄ£Ê½
-//    EPWM_setCountModeAfterSync(EPWM1_BASE, EPWM_COUNT_MODE_UP_AFTER_SYNC);
-//    // Ê¹ÄÜÏàÎ»¼ÓÔØ
-//    EPWM_enablePhaseShiftLoad(EPWM1_BASE);
-//    // ³õÊ¼ÏàÎ»ÖÃ0
-//    EPWM_setPhaseShift(EPWM1_BASE, 0);
-
-    // 1.½ûÖ¹ËùÓĞEPWMÄ£¿éµÄÊ±»ùÊ±ÖÓ
+    // å†»ç»“æ—¶åŸºæ—¶é’Ÿ
     SysCtl_disablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
 
-    // 2.ÅäÖÃÓëEPWM1Í¬²½µÄ´Ó»úÄ£¿é, ÅäÖÃEPWM1½ÓÊÕÍ¬²½ÊäÈë²¢¼ÓÔØÏàÎ»
-    EPWM_setSyncInPulseSource(EPWM1_BASE, EPWM_SYNC_IN_PULSE_SRC_SYNCOUT_EPWM1);
+    // 1.é…ç½®EPWM1ï¼šä¸æ¥æ”¶å¤–éƒ¨åŒæ­¥
+    EPWM_setSyncInPulseSource(SYNC_EPWM_BASE, EPWM_SYNC_IN_PULSE_SRC_DISABLE);
 
-    // 3.ÅäÖÃÍ¬²½ºó¼ÆÊıÄ£Ê½
-    EPWM_setCountModeAfterSync(EPWM1_BASE, EPWM_COUNT_MODE_UP_AFTER_SYNC);
+    // 2.åˆå§‹ç›¸ä½åç§»
+    EPWM_setPhaseShift(SYNC_EPWM_BASE, 0U);
+    EPWM_enablePhaseShiftLoad(SYNC_EPWM_BASE);
+    EPWM_setCountModeAfterSync(SYNC_EPWM_BASE, EPWM_COUNT_MODE_UP_AFTER_SYNC);
 
-    // 4.³õÊ¼ÏàÎ»Æ«ÒÆ
-    EPWM_setPhaseShift(EPWM1_BASE, 0U);
+    // 3.EPWM1åœ¨CTR=0æ—¶è¾“å‡ºåŒæ­¥è„‰å†²ï¼Œä¾›å…¶ä½™é€šé“çº§è”
+    EPWM_enableSyncOutPulseSource(SYNC_EPWM_BASE, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
 
-    // 5.Ê¹ÄÜÏàÎ»¼ÓÔØ
-    EPWM_enablePhaseShiftLoad(EPWM1_BASE);
-
-    // 6.½ûÓÃEPWM1×ÔÉíµÄÍ¬²½Êä³ö
-    EPWM_disableSyncOutPulseSource(EPWM1_BASE, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
-
-    // 7.½â¶³Ê±»ùÊ±ÖÓ
+    // 4.æ¢å¤æ—¶åŸºæ—¶é’Ÿâ€”â€”å…³é”®ï¼
     SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
 
     EDIS;
 }
 
-// PPS_OUTÊäÈëÖĞ¶ÏÅäÖÃ£¬ÔÚCPU1¶ËÅäÖÃÎªGPIOÊäÈëÖĞ¶Ï
-static void Slave_InitPPS_Input_GPIO(void)
+// PPS eCAPåˆå§‹åŒ–
+static void Slave_InitPpsEcap(void)
 {
     EALLOW;
 
-    // Slave¶ËÅäÖÃGPIO47ÎªGPIOÊäÈë
-    GPIO_setPinConfig(GPIO_47_GPIO47);
-    GPIO_setDirectionMode(47, GPIO_DIR_MODE_IN);
-    GPIO_setPadConfig(47, GPIO_PIN_TYPE_STD);
-    GPIO_setQualificationMode(47, GPIO_QUAL_ASYNC); // Òì²½ÊäÈë£¬¼õÉÙÑÓ³Ù
+    // æ¿ä¸ŠGPIO47å¤ç”¨ä¸ºENET_PPS0ï¼Œè¿™é‡ŒæŠŠè¯¥å¼•è„šå›è¯»åˆ°INPUTXBAR7 -> ECAP1ã€‚
+    XBAR_setInputPin(INPUTXBAR_BASE, PPS_INPUTXBAR_CHANNEL, PPS_GPIO);
 
-    // ÅäÖÃGPIO47ÉÏÉıÑØÖĞ¶Ï
-    GPIO_setInterruptPin(47, GPIO_INT_XINT4);
-    GPIO_setInterruptType(GPIO_INT_XINT4, GPIO_INT_TYPE_RISING_EDGE); // Interrupt on rising edge
+    // é€‰æ‹©eCAPçš„è¾“å…¥æº
+    ECAP_selectECAPInput(PPS_ECAP_BASE, PPS_ECAP_INPUT_SEL);
 
-    // Çå³ıÖĞ¶Ï±êÖ¾
-    GPIO_disableInterrupt(GPIO_INT_XINT4);
+    // æ³¨å†Œä¸­æ–­æœåŠ¡
+    Interrupt_register(PPS_ECAP_INT, PPS_Slave_ECAP_ISR);
 
-    // ×¢²áÖĞ¶Ï·şÎñ
-    Interrupt_register(INT_XINT4, PPS_Slave_ISR);
+    ECAP_disableInterrupt(PPS_ECAP_BASE, PPS_ECAP_ALL_INT_FLAGS);
+    ECAP_stopCounter(PPS_ECAP_BASE);
+    ECAP_enableCaptureMode(PPS_ECAP_BASE);
+
+    // è¿ç»­æ•è·æ¨¡å¼ï¼šEVENT1é”å­˜æ—¶é—´æˆ³åˆ°CAP1
+    ECAP_setCaptureMode(PPS_ECAP_BASE, ECAP_CONTINUOUS_CAPTURE_MODE, ECAP_EVENT_1);
+    ECAP_setEventPolarity(PPS_ECAP_BASE, ECAP_EVENT_1, ECAP_EVNT_RISING_EDGE);
+
+    // æ•è·åTSCTRä¸è‡ªåŠ¨æ¸…é›¶
+    ECAP_disableCounterResetOnEvent(PPS_ECAP_BASE, ECAP_EVENT_1);
+    ECAP_enableTimeStampCapture(PPS_ECAP_BASE);
+
+    // æ¸…é™¤eCAPæ—§äº‹ä»¶æ ‡å¿—
+    ECAP_clearInterrupt(PPS_ECAP_BASE,
+                        ECAP_ISR_SOURCE_CAPTURE_EVENT_1 |
+                        ECAP_ISR_SOURCE_COUNTER_OVERFLOW);
+    ECAP_clearGlobalInterrupt(PPS_ECAP_BASE);
+
+    // æ‰“å¼€CAP1ä¸­æ–­
+    ECAP_enableInterrupt(PPS_ECAP_BASE, ECAP_ISR_SOURCE_CAPTURE_EVENT_1);
+
+    // å¯åŠ¨eCAPè®¡æ•°å™¨å¹¶é‡æ–°arm
+    ECAP_startCounter(PPS_ECAP_BASE);
+    ECAP_reArm(PPS_ECAP_BASE);
+
+    // ä½¿èƒ½CPU/PIEå±‚eCAPä¸­æ–­
+    Interrupt_enable(PPS_ECAP_INT);
 
     EDIS;
 }
 
-/*============================ PPSÖĞ¶Ï·şÎñ ============================*/
-__interrupt void PPS_Slave_ISR(void)
+// PPS ä¸­æ–­æœåŠ¡
+__interrupt void PPS_Slave_ECAP_ISR(void)
 {
-    // Çå³ıGPIOÖĞ¶Ï±êÖ¾
-    GPIO_disableInterrupt(GPIO_INT_XINT4);
+    Slave_ServicePpsCapture(true);
+    Drv_Led_toggle(PWM_SYNC_PPS_CAPTURE_LED_CH);
 
-    // PPSÖĞ¶Ï¼ÆÊı
-    g_slavePpsIsrCount++;
+    ECAP_clearInterrupt(PPS_ECAP_BASE, ECAP_ISR_SOURCE_CAPTURE_EVENT_1);
+    ECAP_clearGlobalInterrupt(PPS_ECAP_BASE);
+    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP4);
+}
 
-    // ¼ì²éCMºËPTPÍ¬²½ÊÇ·ñÍê³É
-    if (Cpu1Ipc_cm2cpu.PtpSynced == 1)
+// PPS æ•è·å¤„ç†æ ¸å¿ƒå‡½æ•°
+static void Slave_ServicePpsCapture(bool allowSync)
+{
+    uint32_t capTs;
+    uint32_t nowTs;
+    uint32_t dtEcap;
+    uint32_t dtTbclk;
+    uint32_t tbprd;
+    uint32_t modulo;
+    uint32_t targetAtPps;
+    uint32_t targetNow;
+    uint32_t actualNow;
+    int32_t  err;
+    int32_t  step;
+    uint32_t newPhase;
+
+    g_slavePpsCapCount++;
+
+    // è¯»å– PPS æ—¶é—´æˆ³ä¸å½“å‰æ—¶é—´æˆ³
+    capTs = ECAP_getEventTimeStamp(PPS_ECAP_BASE, ECAP_EVENT_1);
+    nowTs = ECAP_getTimeBaseCounter(PPS_ECAP_BASE);
+    dtEcap = nowTs - capTs;
+    dtTbclk = ecap_ticks_to_tbclk(dtEcap);
+
+    if (allowSync == false)
     {
-        //1. ¶ÁÈ¡µ±Ç°PWM¼ÆÊıÆ÷Öµ
-        uint16_t tbctr = EPWM_getTimeBaseCounterValue(EPWM1_BASE);
+        g_slavePwmLocked = false;
+        g_slavePwmLockCount = 0U;
+        return;
+    }
 
-        //2. ¼ÆËãÏàÎ»Îó²î£¬µ±Ç°¼ÆÊıÆ÷Öµ - Ä¿±êÏàÎ»
-        int32_t err = (int32_t)tbctr - (int32_t)g_slavePwmBasePhase;
+    /*
+     * å…³é”®ä¿æŠ¤ï¼šPTP æœªåŒæ­¥æ—¶ï¼ŒPPS ç›¸ä½å¯èƒ½æ¼‚ç§»ï¼Œæ­¤æ—¶ç¦æ­¢æ ¡æ­£ PWMã€‚
+     * ç­‰å¾… PTP åè®®é”å®šåï¼ˆPtpSynced==1ï¼‰ï¼Œå†å¼€å§‹ç›¸ä½é—­ç¯ã€‚
+     */
+    if (Cpu1Ipc_cm2cpu.PtpSynced == 0)
+    {
+        g_slavePwmLocked = false;
+        g_slavePwmLockCount = 0U;
+        return;
+    }
 
-        // ´¦Àí»·ÈÆ
-        uint16_t tbprd = EPWM_getTimeBasePeriod(EPWM1_BASE);
-        if (err > tbprd / 2)
+    // ISR å»¶è¿Ÿè¿‡å¤§åˆ™è·³è¿‡æœ¬æ¬¡
+    if (dtEcap > ns_to_ecap_ticks(PPS_ISR_MAX_LATENCY_NS))
+    {
+        g_slavePwmSkipCount++;
+        return;
+    }
+
+    tbprd = EPWM_getTimeBasePeriod(SYNC_EPWM_BASE);
+
+    if (tbprd == 0U)
+    {
+        g_slavePwmSkipCount++;
+        return;
+    }
+
+    // å½“å‰å·¥ç¨‹ ePWM ä½¿ç”¨ UP-DOWN countï¼Œä¸€ä¸ªå®Œæ•´ PWM å‘¨æœŸä¸º 2 * TBPRDã€‚
+    modulo = 2U * tbprd;
+
+    // PPS æ—¶åˆ»çš„ç›®æ ‡ç›¸ä½
+    targetAtPps = wrap_u32(ns_to_tbclk_ticks(PPS_PHASE_OFFSET_NS), modulo);
+
+    // å½“å‰æ—¶åˆ»ç›®æ ‡ç›¸ä½
+    targetNow = (targetAtPps + (dtTbclk % modulo)) % modulo;
+
+    // å®é™… EPWM ç›¸ä½ï¼šTBCTR + è®¡æ•°æ–¹å‘ï¼Œçº¿æ€§å±•å¼€åˆ° 0..2*TBPRDã€‚
+    actualNow = get_epwm_up_down_phase(SYNC_EPWM_BASE, tbprd);
+
+    // å¸¦ç¯ç»•å¤„ç†çš„æœ€çŸ­ç›¸ä½è¯¯å·®
+    err = signed_phase_error(actualNow, targetNow, modulo);
+
+    g_slavePwmPhaseErrTicks = err;
+    g_slavePwmPhaseErrNs = (int32_t)(((int64_t)err * 1000000000LL) / (int64_t)EPWM_TBCLK_HZ);
+
+    //
+    // å¹¶æœºå‰/æœªé”å®šï¼šç›´æ¥æ‹‰åˆ°ç›®æ ‡ç›¸ä½ã€‚
+    // å·²é”å®šè¿è¡Œï¼šå°æ­¥è¿›æ ¡æ­£ï¼Œé¿å…PWMç›¸ä½çªè·³ã€‚
+    //
+    if ((g_slavePwmLocked == false) ||
+        (err > ns_to_tbclk_ticks(PWM_LOCK_THRESHOLD_NS)) ||
+        (err < -ns_to_tbclk_ticks(PWM_LOCK_THRESHOLD_NS)))
+    {
+        if (g_slavePwmLocked == false)
         {
-            err -= tbprd;
+            newPhase = targetNow;   // é¦–æ¬¡å¯¹é½ç›´æ¥æ‹‰è¿‡å»
         }
-        else if (err < -(int32_t)(tbprd / 2))
+        else
         {
-            err += tbprd;
+            step = clamp_i32(err,
+                             -ns_to_tbclk_ticks(PWM_MAX_STEP_NS),
+                              ns_to_tbclk_ticks(PWM_MAX_STEP_NS));
+            newPhase = wrap_u32((int32_t)actualNow - step, modulo);
         }
 
-        g_slavePwmBasePhase = err;
+        // ä½¿ç”¨ ePWM åŒæ­¥æœºåˆ¶è£…è½½ TBPHS/PHSDIRã€‚
+        set_epwm_up_down_phase(SYNC_EPWM_BASE, newPhase, tbprd);
 
-        //3.PI¼ÆËãµ÷½ÚÏàÎ»Îó²î
-        //3.1»ı·ÖÏî
-        g_slavePhaseIntegral += SLAVE_PWM_KI * (float)err;
-
-        // ±ß½çÏŞ¶¨£¬·ÀÖ¹¹ı±¥ºÍ
-        if (g_slavePhaseIntegral > MAX_INTERGRAL_THRESHOLD)
+        g_slavePwmLockCount = 0U;
+    }
+    else
+    {
+        if (g_slavePwmLockCount < 0xFFFFFFFFU)
         {
-            g_slavePhaseIntegral = MAX_INTERGRAL_THRESHOLD;
+            g_slavePwmLockCount++;
         }
-        else if (g_slavePhaseIntegral < -MAX_INTERGRAL_THRESHOLD)
+        if (g_slavePwmLockCount >= 3U)
         {
-            g_slavePhaseIntegral = -MAX_INTERGRAL_THRESHOLD;
+            g_slavePwmLocked = true;
         }
-
-        //3.2±ÈÀıÏî
-        float g_slavePhaseProportional = SLAVE_PWM_KP * (float)err;
-
-        //3.3×ÜµÄÔöÒæ
-        float delta = g_slavePhaseProportional + g_slavePhaseIntegral;
-
-        //3.4 ÏŞÖÆµ÷Õûstride
-        if (delta > (float)SLAVE_PHASE_MAX_STEP)
-        {
-            delta = (float)SLAVE_PHASE_MAX_STEP;
-        }
-        else if (delta < -(float)SLAVE_PHASE_MAX_STEP)
-        {
-            delta = -(float)SLAVE_PHASE_MAX_STEP;
-        }
-
-        //4.¼ÆËãĞÂµÄÏàÎ»²î
-        int32_t newPhase = (int32_t)g_slavePwmBasePhase - (int32_t)delta;
-
-        //´¦Àí»·ÈÆ
-        if (newPhase < 0)
-        {
-            newPhase += tbprd;
-        }
-        else if (newPhase >= tbprd)
-        {
-            newPhase -= tbprd;
-        }
-
-        // Ğ´ÈëÏàÎ»¼Ä´æÆ÷
-        EPWM_setPhaseShift(EPWM1_BASE, (uint16_t)newPhase);
     }
 }
 
+// è¾…åŠ©å‡½æ•°
+static int32_t ns_to_tbclk_ticks(int32_t ns)
+{
+    int64_t ticks = ((int64_t)ns * (int64_t)EPWM_TBCLK_HZ) / 1000000000LL;
+    return (int32_t)ticks;
+}
+
+static uint32_t ns_to_ecap_ticks(uint32_t ns)
+{
+    return (uint32_t)(((uint64_t)ns * (uint64_t)ECAP_TSCTR_HZ) / 1000000000ULL);
+}
+
+static uint32_t ecap_ticks_to_tbclk(uint32_t ecapTicks)
+{
+    return (uint32_t)(((uint64_t)ecapTicks * (uint64_t)EPWM_TBCLK_HZ) /
+                       (uint64_t)ECAP_TSCTR_HZ);
+}
+
+static uint32_t get_epwm_up_down_phase(uint32_t base, uint32_t tbprd)
+{
+    uint32_t ctr = (uint32_t)EPWM_getTimeBaseCounterValue(base);
+    uint32_t modulo = 2U * tbprd;
+    uint32_t phase;
+
+    if (EPWM_getTimeBaseCounterDirection(base) == EPWM_TIME_BASE_STATUS_COUNT_UP)
+    {
+        phase = ctr;
+    }
+    else
+    {
+        phase = modulo - ctr;
+    }
+
+    return phase % modulo;
+}
+
+static void set_epwm_up_down_phase(uint32_t base, uint32_t phase, uint32_t tbprd)
+{
+    uint32_t modulo = 2U * tbprd;
+    uint32_t wrappedPhase = phase % modulo;
+    uint32_t tbphs;
+
+    if (wrappedPhase <= tbprd)
+    {
+        tbphs = wrappedPhase;
+        EPWM_setCountModeAfterSync(base, EPWM_COUNT_MODE_UP_AFTER_SYNC);
+    }
+    else
+    {
+        tbphs = modulo - wrappedPhase;
+        EPWM_setCountModeAfterSync(base, EPWM_COUNT_MODE_DOWN_AFTER_SYNC);
+    }
+
+    EPWM_setPhaseShift(base, (uint16_t)tbphs);
+    EPWM_forceSyncPulse(base);
+}
+
+static uint32_t wrap_u32(int32_t value, uint32_t modulo)
+{
+    int32_t m = (int32_t)modulo;
+    int32_t r = value % m;
+    if (r < 0)
+    {
+        r += m;
+    }
+    return (uint32_t)r;
+}
+
+static int32_t signed_phase_error(uint32_t actual, uint32_t target, uint32_t modulo)
+{
+    int32_t err = (int32_t)actual - (int32_t)target;
+    int32_t half = (int32_t)(modulo / 2U);
+
+    if (err > half)
+    {
+        err -= (int32_t)modulo;
+    }
+    else if (err < -half)
+    {
+        err += (int32_t)modulo;
+    }
+    return err;
+}
+
+static int32_t clamp_i32(int32_t value, int32_t minValue, int32_t maxValue)
+{
+    if (value > maxValue)
+    {
+        return maxValue;
+    }
+    if (value < minValue)
+    {
+        return minValue;
+    }
+    return value;
+}

@@ -10,9 +10,9 @@
 #include "bsp.h"
 #include "board.h"
 #include "math.h"
+#include "pwm_master_sync.h"
+#include "pwm_slave_sync.h"
 
-
-#define  PTP_MODE_MASTER 1    // 1=Master£¬0=Slave
 
 //static void* gAllowPpsSync = NULL;
 
@@ -20,16 +20,16 @@ void main(void)
 {
     bsp_init();
 
-//#if PTP_MODE_MASTER
-//    PWM_MasterSync_Init(); // Master PWM³õÊ¼»¯
-//#else
-//    PWM_SlaveSync_Init();  // Slave PWM³õÊ¼»¯
-//#endif
+#if (PWM_SYNC_ROLE == PWM_SYNC_ROLE_MASTER)
+    PWM_MasterSync_Init();
+#elif (PWM_SYNC_ROLE == PWM_SYNC_ROLE_SLAVE)
+    PWM_SlaveSync_Init();
+#endif
 
     for(;;)
     {
         if(Cpu1Ipc_cm2cpu.Reset_En == 0)
-            SysCtl_serviceWatchdog();//¿´ÃÅ¹·Î¹¹·
+            SysCtl_serviceWatchdog();  //çœ‹é—¨ç‹—å–‚ç‹—
         Drv_Timer_ClockMaintain();
         cpu2claParam_Upgrade();
         App_AllFault_Deal();
@@ -39,13 +39,13 @@ void main(void)
                 Pcs_InvCtrl_SoftStar();
             else
             {
-                if(Cpu1Ipc_cm2cpu.OnGridMode == 2)//ºãÖ±Á÷µçÑ¹Ä£Ê½
+                if(Cpu1Ipc_cm2cpu.OnGridMode == 2)      //æ’ç›´æµç”µå‹æ¨¡å¼
                     Pcs_DcConstVolCtrl_SoftStar();
-                else if(Cpu1Ipc_cm2cpu.OnGridMode == 1)//ºã½»Á÷µçÁ÷
+                else if(Cpu1Ipc_cm2cpu.OnGridMode == 1)  //æ’äº¤æµç”µæµ
                     Pcs_AcConstCurrCtrl_SoftStar();
-                else if(Cpu1Ipc_cm2cpu.OnGridMode == 3)//ºãÖ±Á÷µçÁ÷
+                else if(Cpu1Ipc_cm2cpu.OnGridMode == 3)  //æ’ç›´æµç”µæµ
                     Pcs_DcConstCurrCtrl_SoftStar();
-                else if(Cpu1Ipc_cm2cpu.OnGridMode == 0)//ºã¹¦ÂÊ
+                else if(Cpu1Ipc_cm2cpu.OnGridMode == 0)  //æ’åŠŸç‡
                     Pcs_PQConstCtrl_SoftStar();
             }
         }
@@ -56,13 +56,6 @@ void main(void)
         objControl_LedControl();
         SciC_Poll();
         SciD_Poll();
-
-//        // ¼ì²éCM²àÊÇ·ñÒÑ¾­Íê³ÉPTPÍ¬²½
-//#if PTP_MODE_MASTER
-//        PWM_MasterSync_run(gAllowPpsSync);
-//#else
-//        PWM_SlaveSync_run(gAllowPpsSync);
-//#endif
     }
 }
 

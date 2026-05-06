@@ -1,7 +1,7 @@
 /*
  * pwm_slave_sync.h
  *
- *  Created on: 2026Äê4ÔÂ7ÈÕ
+ *  Created on: 2026ï¿½ï¿½4ï¿½ï¿½7ï¿½ï¿½
  *      Author: whl
  */
 
@@ -20,7 +20,14 @@ extern "C" {
 
 void PWM_SlaveSync_Init(void);
 
-__interrupt void PPS_Slave_ISR(void);
+__interrupt void PPS_Slave_ECAP_ISR(void);
+
+extern volatile uint32_t g_slavePpsCapCount;
+extern volatile int32_t  g_slavePwmPhaseErrTicks;
+extern volatile int32_t  g_slavePwmPhaseErrNs;
+extern volatile uint32_t g_slavePwmLockCount;
+extern volatile uint32_t g_slavePwmSkipCount;
+extern volatile bool     g_slavePwmLocked;
 
 
 #ifdef __cplusplus
