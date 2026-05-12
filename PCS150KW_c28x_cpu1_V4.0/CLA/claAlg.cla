@@ -10,6 +10,11 @@
 //
 #include "initial_CLA.h"
 
+#ifndef PWM_SYNC_TEST_MODE
+#define PWM_SYNC_TEST_MODE 0
+#endif
+
+
 
 DQ0_ABC         PCS_vInv_dq0;      //
 ABC_DQ0_POS     PCS_iGrid_dq0_pos; //Êä³öµçÁ÷
@@ -748,6 +753,9 @@ inline void PCS_CLA_updatePWMDuty(float32_t dutyA,float32_t dutyB,float32_t duty
 //    dutyBN_ticks = PWM_Limit(dutyBN_ticks,EPWM_MIN,EPWM_TBPRD);
 //    dutyCP_ticks = PWM_Limit(dutyCP_ticks,EPWM_MIN,EPWM_TBPRD);
 //    dutyCN_ticks = PWM_Limit(dutyCN_ticks,EPWM_MIN,EPWM_TBPRD);
+#if PWM_SYNC_TEST_MODE
+    dutyAP_ticks = (uint32_t)(epwm_perid * 0.5f);
+#endif
     //
     // Set PWM outputs
     EPWM_setCounterCompareValue(PCS_Q1_Q3_A_PWM_BASE,EPWM_COUNTER_COMPARE_A,dutyAP_ticks);

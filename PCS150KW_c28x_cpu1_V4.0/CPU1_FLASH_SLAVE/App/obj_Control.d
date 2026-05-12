@@ -150,6 +150,7 @@ App/obj_Control.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/spll/spl
 App/obj_Control.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/power_measurement/power_meas_sine_analyzer.h
 App/obj_Control.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/FPUfastRTS/fastrts.h
 App/obj_Control.obj: D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/FPUfastRTS/fpu32/C28x_FPU_FastRTS.h
+App/obj_Control.obj: ../App/pwm_master_sync.h
 
 ../App/obj_Control.c:
 
@@ -450,4 +451,6 @@ D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/power_measurement/power_meas_
 D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/FPUfastRTS/fastrts.h:
 
 D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/FPUfastRTS/fpu32/C28x_FPU_FastRTS.h:
+
+../App/pwm_master_sync.h:
 

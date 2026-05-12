@@ -11,6 +11,7 @@
 #include "bsp.h"
 #include "fastrts.h"
 #include "fpu32/C28x_FPU_FastRTS.h"
+#include "pwm_master_sync.h"
 
 
 //�ڲ��źŷ�����
@@ -38,7 +39,6 @@ float32_t Pcs_Gridpllfo;
 static int16_t i16_IntCnt = 0;
 
 
-
 void  PCS_Spll_Init(void)
 {
 //�������ڲ��źŷ��������ɵ����������ź�
@@ -49,7 +49,7 @@ void  PCS_Spll_Init(void)
     PCS_spll_3ph_rgen.lpf_coeff.b0 = 333.807f;
     PCS_spll_3ph_rgen.lpf_coeff.b1 = -333.674f;
 
-//������������������?
+//������������������?
     SPLL_3PH_DDSRF_init(PCS_AC_FREQ_HZ,
                                 (float32_t)(1.0 / PCS_ISR1_FREQUENCY_HZ),
                                 (float32_t)(0.0029366f),(float32_t)(-0.9941268f),
@@ -203,8 +203,13 @@ inline void Pcs_runISR1(void)
     else
     {
         Cnt_PwmEnDelay = 0;
-        Drv_PwmOffset();
+        if(g_pwmScopeDebugEnable == 0U)
+        {
+            Drv_PwmOffset();
+        }
     }
+
+    PWM_SyncScopeDebug_Service();
 }
 
 
@@ -671,3 +676,4 @@ int16_t  Pcs_PQConstCtrl_SoftStar(void)
 
     return 0;
 }
+

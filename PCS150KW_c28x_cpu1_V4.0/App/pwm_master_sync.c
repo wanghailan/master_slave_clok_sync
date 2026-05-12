@@ -1,11 +1,7 @@
 /*
  * pwm_master_sync.c
  *
- * 功能：
- *    Master侧PPS同步PWM。
- *    通过eCAP1捕获CM核经PTP对齐后的PPS上升沿，
- *    计算ISR延迟并修正EPWM1相位；EPWM1的SYNCO供其余EPWM模块级联。
- *
+ * Master-side PPS to PWM phase sync.
  */
 
 #include "pwm_master_sync.h"
@@ -17,19 +13,14 @@
 #define PPS_ECAP_INT                INT_ECAP1
 #define PPS_GPIO                    47U
 
-// ePWM1为同步基准模块
 #define SYNC_EPWM_BASE              EPWM1_BASE
 
-// 时钟频率
-#define EPWM_TBCLK_HZ               200000000UL
+#define EPWM_TBCLK_HZ               100000000UL
 #define ECAP_TSCTR_HZ               200000000UL
 
-// 控制参数
 #define PWM_MAX_STEP_NS             100L
-#define PWM_LOCK_THRESHOLD_NS       50L
+#define PWM_LOCK_THRESHOLD_NS       1000L
 #define PPS_ISR_MAX_LATENCY_NS      5000UL
-
-// 相位偏移量
 #define PPS_PHASE_OFFSET_NS         0L
 
 #define PPS_ECAP_ALL_INT_FLAGS      (ECAP_ISR_SOURCE_CAPTURE_EVENT_1 | \
@@ -40,17 +31,47 @@
                                      ECAP_ISR_SOURCE_COUNTER_PERIOD | \
                                      ECAP_ISR_SOURCE_COUNTER_COMPARE)
 
+#define PWM_SCOPE_TZ_CBC_FLAGS      (EPWM_TZ_CBC_FLAG_1 | \
+                                     EPWM_TZ_CBC_FLAG_2 | \
+                                     EPWM_TZ_CBC_FLAG_3 | \
+                                     EPWM_TZ_CBC_FLAG_4 | \
+                                     EPWM_TZ_CBC_FLAG_5 | \
+                                     EPWM_TZ_CBC_FLAG_6 | \
+                                     EPWM_TZ_CBC_FLAG_DCAEVT2 | \
+                                     EPWM_TZ_CBC_FLAG_DCBEVT2)
+
+#define PWM_SCOPE_DEBUG_STATE_IDLE        0U
+#define PWM_SCOPE_DEBUG_STATE_WAIT_PPS    1U
+#define PWM_SCOPE_DEBUG_STATE_ACTIVE      2U
+#define PWM_SCOPE_DEBUG_STATE_NORMAL_ON   3U
+
+#define ETHERNET_DEBUG
+
+volatile uint16_t g_pwmScopeDebugEnable = 1U;
+volatile uint16_t g_pwmScopeDebugState = PWM_SCOPE_DEBUG_STATE_IDLE;
+volatile uint16_t g_pwmScopeDebugCmpTicks = (uint16_t)(EPWM_TBPRD >> 1U);
+volatile uint32_t g_pwmScopeDebugPpsCount = 0U;
+volatile uint16_t g_pwmScopeDebugForceConfig = 1U;
+volatile uint16_t g_pwmScopeDebugGpioMode = 0U;
+volatile uint16_t g_pwmScopeDebugEpwmToggleMode = 1U;
+volatile uint16_t g_pwmScopeDebugForceReload = 1U;
+volatile uint16_t g_pwmScopeDebugLastToggleMode = 0xFFFFU;
+volatile uint32_t g_pwmScopeDebugConfigCount = 0U;
+volatile uint32_t g_pwmScopeDebugServiceCount = 0U;
+
 volatile uint32_t g_masterPpsCapCount = 0U;
 volatile int32_t  g_masterPwmPhaseErrTicks = 0;
 volatile int32_t  g_masterPwmPhaseErrNs = 0;
 volatile uint32_t g_masterPwmLockCount = 0U;
 volatile uint32_t g_masterPwmSkipCount = 0U;
 volatile bool     g_masterPwmLocked = false;
-
+volatile uint16_t g_masterPwmApplySync = 1U;
 
 static void Master_InitEPwmSync(void);
 static void Master_InitPpsEcap(void);
 static void Master_ServicePpsCapture(bool allowSync);
+static void ScopeDebug_ForceEPwmConfig(uint16_t cmpTicks);
+static void ScopeDebug_ForceGpioOutput(void);
 
 static int32_t  ns_to_tbclk_ticks(int32_t ns);
 static uint32_t ns_to_ecap_ticks(uint32_t ns);
@@ -60,102 +81,258 @@ static void     set_epwm_up_down_phase(uint32_t base, uint32_t phase, uint32_t t
 static uint32_t wrap_u32(int32_t value, uint32_t modulo);
 static int32_t  signed_phase_error(uint32_t actual, uint32_t target, uint32_t modulo);
 static int32_t  clamp_i32(int32_t value, int32_t minValue, int32_t maxValue);
+static uint32_t get_scope_debug_pps_count(void);
 
-
-// 初始化函数
 void PWM_MasterSync_Init(void)
 {
-    // 1. 配置 PWM 同步功能
     Master_InitEPwmSync();
-
-    // 2. 配置 PPS eCAP
     Master_InitPpsEcap();
 }
 
-// Master EPWM1同步配置, 在此函数内一并配置它们接收EPWM1的SYNCO, EPWM1被PPS拉齐
+void PWM_SyncScopeDebug_Service(void)
+{
+    uint16_t cmpTicks;
+
+    if (g_pwmScopeDebugEnable == 0U)
+    {
+        g_pwmScopeDebugState = PWM_SCOPE_DEBUG_STATE_IDLE;
+        g_pwmScopeDebugForceReload = 1U;
+        return;
+    }
+
+    g_pwmScopeDebugServiceCount++;
+    g_pwmScopeDebugPpsCount = get_scope_debug_pps_count();
+    if (g_pwmScopeDebugPpsCount < 2U)
+    {
+        g_pwmScopeDebugState = PWM_SCOPE_DEBUG_STATE_WAIT_PPS;
+        return;
+    }
+
+    if (g_pwmScopeDebugGpioMode != 0U)
+    {
+        g_pwmScopeDebugForceReload = 1U;
+        ScopeDebug_ForceGpioOutput();
+        Drv_PwmOnset();
+        g_pwmScopeDebugState = PWM_SCOPE_DEBUG_STATE_ACTIVE;
+        return;
+    }
+
+    cmpTicks = g_pwmScopeDebugCmpTicks;
+    if ((cmpTicks == 0U) || (cmpTicks >= EPWM_TBPRD))
+    {
+        cmpTicks = (uint16_t)(EPWM_TBPRD >> 1U);
+        g_pwmScopeDebugCmpTicks = cmpTicks;
+    }
+
+    EALLOW;
+
+    if (g_pwmScopeDebugForceConfig != 0U)
+    {
+        if ((g_pwmScopeDebugForceReload != 0U) ||
+            (g_pwmScopeDebugLastToggleMode != g_pwmScopeDebugEpwmToggleMode))
+        {
+            ScopeDebug_ForceEPwmConfig(cmpTicks);
+            g_pwmScopeDebugLastToggleMode = g_pwmScopeDebugEpwmToggleMode;
+            g_pwmScopeDebugForceReload = 0U;
+            g_pwmScopeDebugConfigCount++;
+        }
+    }
+    else
+    {
+        g_pwmScopeDebugForceReload = 1U;
+        EPWM_setCounterCompareValue(SYNC_EPWM_BASE, EPWM_COUNTER_COMPARE_A, cmpTicks);
+        EPWM_setCounterCompareValue(SYNC_EPWM_BASE, EPWM_COUNTER_COMPARE_B, cmpTicks);
+        EPWM_setActionQualifierContSWForceShadowMode(SYNC_EPWM_BASE, EPWM_AQ_SW_IMMEDIATE_LOAD);
+        EPWM_setActionQualifierContSWForceAction(SYNC_EPWM_BASE, EPWM_AQ_OUTPUT_A, EPWM_AQ_SW_DISABLED);
+        EPWM_setActionQualifierContSWForceAction(SYNC_EPWM_BASE, EPWM_AQ_OUTPUT_B, EPWM_AQ_SW_DISABLED);
+    }
+
+    EDIS;
+
+    Drv_PwmOnset();
+    g_pwmScopeDebugState = PWM_SCOPE_DEBUG_STATE_ACTIVE;
+}
+
 static void Master_InitEPwmSync(void)
 {
     EALLOW;
-
-    // 冻结所有EPWM时基时钟，防止配置期间计数器跑动
     SysCtl_disablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
-
-    // 1. 禁止外部同步输入（Master 自主对齐，不接收外部SYNC）
     EPWM_setSyncInPulseSource(SYNC_EPWM_BASE, EPWM_SYNC_IN_PULSE_SRC_DISABLE);
-
-    // 2. 初始相位偏移 0
     EPWM_setPhaseShift(SYNC_EPWM_BASE, 0U);
-    EPWM_enablePhaseShiftLoad(SYNC_EPWM_BASE);
+    EPWM_disablePhaseShiftLoad(SYNC_EPWM_BASE);
     EPWM_setCountModeAfterSync(SYNC_EPWM_BASE, EPWM_COUNT_MODE_UP_AFTER_SYNC);
-
-    // 3. EPWM1在CTR=0时输出同步脉冲，供其他EPWM级联
     EPWM_enableSyncOutPulseSource(SYNC_EPWM_BASE, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
-
-    // 4. 恢复时基时钟——关键！否则所有EPWM停止计数
     SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
-
     EDIS;
 }
 
-// PPS eCAP初始化
 static void Master_InitPpsEcap(void)
 {
     EALLOW;
-
-    // 板上GPIO47复用为ENET_PPS0，这里把该引脚回读到INPUTXBAR7 -> ECAP1。
     XBAR_setInputPin(INPUTXBAR_BASE, PPS_INPUTXBAR_CHANNEL, PPS_GPIO);
-
-    // 选择eCAP输入源
     ECAP_selectECAPInput(PPS_ECAP_BASE, PPS_ECAP_INPUT_SEL);
 
-    // 注册eCAP中断服务函数
     Interrupt_register(PPS_ECAP_INT, &PPS_Master_ECAP_ISR);
 
-    // 关中断、停计数器，防止配置期间误触发
     ECAP_disableInterrupt(PPS_ECAP_BASE, PPS_ECAP_ALL_INT_FLAGS);
     ECAP_stopCounter(PPS_ECAP_BASE);
-
-    // 连续捕获模式：EVENT1锁存PPS上升沿时间戳到CAP1
     ECAP_enableCaptureMode(PPS_ECAP_BASE);
     ECAP_setCaptureMode(PPS_ECAP_BASE, ECAP_CONTINUOUS_CAPTURE_MODE, ECAP_EVENT_1);
     ECAP_setEventPolarity(PPS_ECAP_BASE, ECAP_EVENT_1, ECAP_EVNT_RISING_EDGE);
-
-    // 捕获后TSCTR不自动清零（计算ISR延迟:nowTs - capTs）
     ECAP_disableCounterResetOnEvent(PPS_ECAP_BASE, ECAP_EVENT_1);
     ECAP_enableTimeStampCapture(PPS_ECAP_BASE);
 
-    // 清除旧标志
     ECAP_clearInterrupt(PPS_ECAP_BASE,
-                       ECAP_ISR_SOURCE_CAPTURE_EVENT_1 |
-                       ECAP_ISR_SOURCE_COUNTER_OVERFLOW);
+                        ECAP_ISR_SOURCE_CAPTURE_EVENT_1 |
+                        ECAP_ISR_SOURCE_COUNTER_OVERFLOW);
     ECAP_clearGlobalInterrupt(PPS_ECAP_BASE);
-
-    // 打开CAP1中断并启动计数器
     ECAP_enableInterrupt(PPS_ECAP_BASE, ECAP_ISR_SOURCE_CAPTURE_EVENT_1);
+
     ECAP_startCounter(PPS_ECAP_BASE);
     ECAP_reArm(PPS_ECAP_BASE);
-
-    // 使能CPU/PIE层中断
     Interrupt_enable(PPS_ECAP_INT);
-
     EDIS;
 }
 
-// PPS中断服务
+static void ScopeDebug_ForceEPwmConfig(uint16_t cmpTicks)
+{
+    GPIO_setPinConfig(GPIO_0_EPWM1A);
+    GPIO_setPadConfig(0U, GPIO_PIN_TYPE_STD);
+    GPIO_setDirectionMode(0U, GPIO_DIR_MODE_OUT);
+    GPIO_setQualificationMode(0U, GPIO_QUAL_SYNC);
+    GPIO_setPinConfig(GPIO_1_EPWM1B);
+    GPIO_setPadConfig(1U, GPIO_PIN_TYPE_STD);
+    GPIO_setDirectionMode(1U, GPIO_DIR_MODE_OUT);
+    GPIO_setQualificationMode(1U, GPIO_QUAL_SYNC);
+
+    EPWM_setClockPrescaler(SYNC_EPWM_BASE,
+                           EPWM_CLOCK_DIVIDER_1,
+                           EPWM_HSCLOCK_DIVIDER_1);
+    EPWM_setTimeBasePeriod(SYNC_EPWM_BASE, EPWM_TBPRD);
+    EPWM_setTimeBaseCounter(SYNC_EPWM_BASE, 0U);
+    EPWM_setTimeBaseCounterMode(SYNC_EPWM_BASE, EPWM_COUNTER_MODE_UP_DOWN);
+    EPWM_setPhaseShift(SYNC_EPWM_BASE, 0U);
+    EPWM_disablePhaseShiftLoad(SYNC_EPWM_BASE);
+    EPWM_setCountModeAfterSync(SYNC_EPWM_BASE, EPWM_COUNT_MODE_UP_AFTER_SYNC);
+    EPWM_setCounterCompareShadowLoadMode(SYNC_EPWM_BASE,
+                                         EPWM_COUNTER_COMPARE_A,
+                                         EPWM_COMP_LOAD_ON_CNTR_ZERO_PERIOD);
+    EPWM_setCounterCompareShadowLoadMode(SYNC_EPWM_BASE,
+                                         EPWM_COUNTER_COMPARE_B,
+                                         EPWM_COMP_LOAD_ON_CNTR_ZERO_PERIOD);
+    EPWM_setCounterCompareValue(SYNC_EPWM_BASE, EPWM_COUNTER_COMPARE_A, cmpTicks);
+    EPWM_setCounterCompareValue(SYNC_EPWM_BASE, EPWM_COUNTER_COMPARE_B, cmpTicks);
+
+    EPWM_setAdditionalActionQualifierActionComplete(SYNC_EPWM_BASE,
+                                                    EPWM_AQ_OUTPUT_A,
+                                                    0U);
+    EPWM_setAdditionalActionQualifierActionComplete(SYNC_EPWM_BASE,
+                                                    EPWM_AQ_OUTPUT_B,
+                                                    0U);
+    if (g_pwmScopeDebugEpwmToggleMode != 0U)
+    {
+        EPWM_setActionQualifierActionComplete(SYNC_EPWM_BASE,
+                                              EPWM_AQ_OUTPUT_A,
+                                              EPWM_AQ_OUTPUT_HIGH_ZERO |
+                                              EPWM_AQ_OUTPUT_LOW_PERIOD);
+        EPWM_setActionQualifierActionComplete(SYNC_EPWM_BASE,
+                                              EPWM_AQ_OUTPUT_B,
+                                              EPWM_AQ_OUTPUT_HIGH_ZERO |
+                                              EPWM_AQ_OUTPUT_LOW_PERIOD);
+        EPWM_setActionQualifierSWAction(SYNC_EPWM_BASE,
+                                        EPWM_AQ_OUTPUT_A,
+                                        EPWM_AQ_OUTPUT_HIGH);
+        EPWM_setActionQualifierSWAction(SYNC_EPWM_BASE,
+                                        EPWM_AQ_OUTPUT_B,
+                                        EPWM_AQ_OUTPUT_HIGH);
+        EPWM_forceActionQualifierSWAction(SYNC_EPWM_BASE, EPWM_AQ_OUTPUT_A);
+        EPWM_forceActionQualifierSWAction(SYNC_EPWM_BASE, EPWM_AQ_OUTPUT_B);
+    }
+    else
+    {
+        EPWM_setActionQualifierActionComplete(SYNC_EPWM_BASE,
+                                              EPWM_AQ_OUTPUT_A,
+                                              EPWM_AQ_OUTPUT_LOW_UP_CMPA |
+                                              EPWM_AQ_OUTPUT_HIGH_DOWN_CMPA);
+        EPWM_setActionQualifierActionComplete(SYNC_EPWM_BASE,
+                                              EPWM_AQ_OUTPUT_B,
+                                              EPWM_AQ_OUTPUT_LOW_UP_CMPB |
+                                              EPWM_AQ_OUTPUT_HIGH_DOWN_CMPB);
+    }
+    EPWM_setActionQualifierContSWForceShadowMode(SYNC_EPWM_BASE,
+                                                 EPWM_AQ_SW_IMMEDIATE_LOAD);
+    EPWM_setActionQualifierContSWForceAction(SYNC_EPWM_BASE,
+                                             EPWM_AQ_OUTPUT_A,
+                                             EPWM_AQ_SW_DISABLED);
+    EPWM_setActionQualifierContSWForceAction(SYNC_EPWM_BASE,
+                                             EPWM_AQ_OUTPUT_B,
+                                             EPWM_AQ_SW_DISABLED);
+    EPWM_setDeadBandDelayMode(SYNC_EPWM_BASE, EPWM_DB_RED, false);
+    EPWM_setDeadBandDelayMode(SYNC_EPWM_BASE, EPWM_DB_FED, false);
+    EPWM_setDeadBandOutputSwapMode(SYNC_EPWM_BASE, EPWM_DB_OUTPUT_A, false);
+    EPWM_setDeadBandOutputSwapMode(SYNC_EPWM_BASE, EPWM_DB_OUTPUT_B, false);
+    EPWM_disableChopper(SYNC_EPWM_BASE);
+    EPWM_disableTripZoneSignals(SYNC_EPWM_BASE, 0xFFFFU);
+    EPWM_clearTripZoneFlag(SYNC_EPWM_BASE,
+                           EPWM_TZ_INTERRUPT |
+                           EPWM_TZ_FLAG_CBC |
+                           EPWM_TZ_FLAG_OST |
+                           EPWM_TZ_FLAG_DCAEVT1 |
+                           EPWM_TZ_FLAG_DCAEVT2 |
+                           EPWM_TZ_FLAG_DCBEVT1 |
+                           EPWM_TZ_FLAG_DCBEVT2);
+    EPWM_clearCycleByCycleTripZoneFlag(SYNC_EPWM_BASE, PWM_SCOPE_TZ_CBC_FLAGS);
+}
+
+static void ScopeDebug_ForceGpioOutput(void)
+{
+    static uint32_t div = 0U;
+
+    GPIO_setPinConfig(GPIO_0_GPIO0);
+    GPIO_setPadConfig(0U, GPIO_PIN_TYPE_STD);
+    GPIO_setDirectionMode(0U, GPIO_DIR_MODE_OUT);
+    GPIO_setQualificationMode(0U, GPIO_QUAL_SYNC);
+
+    GPIO_setPinConfig(GPIO_1_GPIO1);
+    GPIO_setPadConfig(1U, GPIO_PIN_TYPE_STD);
+    GPIO_setDirectionMode(1U, GPIO_DIR_MODE_OUT);
+    GPIO_setQualificationMode(1U, GPIO_QUAL_SYNC);
+
+    if (g_pwmScopeDebugGpioMode == 1U)
+    {
+        div++;
+        if (div >= 10000U)
+        {
+            div = 0U;
+            GPIO_togglePin(0U);
+            GPIO_togglePin(1U);
+        }
+    }
+    else if (g_pwmScopeDebugGpioMode == 2U)
+    {
+        GPIO_writePin(0U, 1U);
+        GPIO_writePin(1U, 1U);
+    }
+    else
+    {
+        GPIO_writePin(0U, 0U);
+        GPIO_writePin(1U, 0U);
+    }
+}
+
 __interrupt void PPS_Master_ECAP_ISR(void)
 {
-    Master_ServicePpsCapture(true);
-    Drv_Led_toggle(PWM_SYNC_PPS_CAPTURE_LED_CH);
+    Master_ServicePpsCapture(g_masterPwmApplySync != 0U);
 
-    // 清除eCAP EVENT1捕获标志
+#ifdef ETHERNET_DEBUG
+    Drv_Led_toggle(PWM_SYNC_PPS_CAPTURE_LED_CH);
+#endif
+
     ECAP_clearInterrupt(PPS_ECAP_BASE, ECAP_ISR_SOURCE_CAPTURE_EVENT_1);
-    // 清除eCAP全局中断标志
     ECAP_clearGlobalInterrupt(PPS_ECAP_BASE);
-    // 清除PIE ACK
     Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP4);
 }
 
-// PPS捕获处理核心函数
 static void Master_ServicePpsCapture(bool allowSync)
 {
     uint32_t capTs;
@@ -169,24 +346,16 @@ static void Master_ServicePpsCapture(bool allowSync)
     uint32_t actualNow;
     int32_t  err;
     int32_t  step;
+    int32_t  lockThresholdTicks;
     uint32_t newPhase;
 
     g_masterPpsCapCount++;
 
-    // 读取PPS发生时的eCAP时间戳与当前时间戳
     capTs = ECAP_getEventTimeStamp(PPS_ECAP_BASE, ECAP_EVENT_1);
     nowTs = ECAP_getTimeBaseCounter(PPS_ECAP_BASE);
     dtEcap = nowTs - capTs;
     dtTbclk = ecap_ticks_to_tbclk(dtEcap);
 
-    if (allowSync == false)
-    {
-        g_masterPwmLocked = false;
-        g_masterPwmLockCount = 0U;
-        return;
-    }
-
-    // 若ISR延迟过大（>5us），认为本次捕获不可信，跳过
     if (dtEcap > ns_to_ecap_ticks(PPS_ISR_MAX_LATENCY_NS))
     {
         g_masterPwmSkipCount++;
@@ -194,44 +363,34 @@ static void Master_ServicePpsCapture(bool allowSync)
     }
 
     tbprd = EPWM_getTimeBasePeriod(SYNC_EPWM_BASE);
-
     if (tbprd == 0U)
     {
         g_masterPwmSkipCount++;
         return;
     }
 
-    // 当前工程ePWM使用UP-DOWN count，一个完整PWM周期为2 * TBPRD。
     modulo = 2U * tbprd;
-
-    // PPS 时刻的目标相位（经过PHASE_OFFSET补偿）
     targetAtPps = wrap_u32(ns_to_tbclk_ticks(PPS_PHASE_OFFSET_NS), modulo);
-
-    // 当前时刻的目标相位 = PPS时刻目标 + ISR延迟对应的tick数
     targetNow = (targetAtPps + (dtTbclk % modulo)) % modulo;
-
-    // 当前EPWM实际相位：TBCTR + 计数方向，线性展开到0..2*TBPRD。
     actualNow = get_epwm_up_down_phase(SYNC_EPWM_BASE, tbprd);
-
-    // 计算带符号的最短相位误差（处理环形环绕）
     err = signed_phase_error(actualNow, targetNow, modulo);
 
     g_masterPwmPhaseErrTicks = err;
     g_masterPwmPhaseErrNs = (int32_t)(((int64_t)err * 1000000000LL) / (int64_t)EPWM_TBCLK_HZ);
 
-    //
-    // 相位锁定策略：
-    //   1. 未锁定状态：直接force sync，把相位拉到targetNow。
-    //   2. 已锁定，但误差超过阈值：步进校正（限制最大步长），避免PWM突跳。
-    //   3. 已锁定且误差小于阈值：计数连续锁定次数，>=3 次认为稳定锁定。
-    //
-    if ((g_masterPwmLocked == false) ||
-        (err > ns_to_tbclk_ticks(PWM_LOCK_THRESHOLD_NS)) ||
-        (err < -ns_to_tbclk_ticks(PWM_LOCK_THRESHOLD_NS)))
+    lockThresholdTicks = ns_to_tbclk_ticks(PWM_LOCK_THRESHOLD_NS);
+    if (allowSync == false)
+    {
+        g_masterPwmLocked = false;
+        g_masterPwmLockCount = 0U;
+        return;
+    }
+
+    if ((err > lockThresholdTicks) || (err < -lockThresholdTicks))
     {
         if (g_masterPwmLocked == false)
         {
-            newPhase = targetNow;   // 首次/失锁后直接对齐
+            newPhase = targetNow;
         }
         else
         {
@@ -241,9 +400,8 @@ static void Master_ServicePpsCapture(bool allowSync)
             newPhase = wrap_u32((int32_t)actualNow - step, modulo);
         }
 
-        // 通过ePWM同步机制装载TBPHS/PHSDIR并强制加载。
         set_epwm_up_down_phase(SYNC_EPWM_BASE, newPhase, tbprd);
-
+        g_masterPwmLocked = false;
         g_masterPwmLockCount = 0U;
     }
     else
@@ -259,7 +417,6 @@ static void Master_ServicePpsCapture(bool allowSync)
     }
 }
 
-// 辅助函数
 static int32_t ns_to_tbclk_ticks(int32_t ns)
 {
     int64_t ticks = ((int64_t)ns * (int64_t)EPWM_TBCLK_HZ) / 1000000000LL;
@@ -274,7 +431,7 @@ static uint32_t ns_to_ecap_ticks(uint32_t ns)
 static uint32_t ecap_ticks_to_tbclk(uint32_t ecapTicks)
 {
     return (uint32_t)(((uint64_t)ecapTicks * (uint64_t)EPWM_TBCLK_HZ) /
-                       (uint64_t)ECAP_TSCTR_HZ);
+                      (uint64_t)ECAP_TSCTR_HZ);
 }
 
 static uint32_t get_epwm_up_down_phase(uint32_t base, uint32_t tbprd)
@@ -313,6 +470,7 @@ static void set_epwm_up_down_phase(uint32_t base, uint32_t phase, uint32_t tbprd
     }
 
     EPWM_setPhaseShift(base, (uint16_t)tbphs);
+    EPWM_enablePhaseShiftLoad(base);
     EPWM_forceSyncPulse(base);
 }
 
@@ -320,10 +478,12 @@ static uint32_t wrap_u32(int32_t value, uint32_t modulo)
 {
     int32_t m = (int32_t)modulo;
     int32_t r = value % m;
+
     if (r < 0)
     {
         r += m;
     }
+
     return (uint32_t)r;
 }
 
@@ -340,6 +500,7 @@ static int32_t signed_phase_error(uint32_t actual, uint32_t target, uint32_t mod
     {
         err += (int32_t)modulo;
     }
+
     return err;
 }
 
@@ -349,9 +510,23 @@ static int32_t clamp_i32(int32_t value, int32_t minValue, int32_t maxValue)
     {
         return maxValue;
     }
+
     if (value < minValue)
     {
         return minValue;
     }
+
     return value;
+}
+
+static uint32_t get_scope_debug_pps_count(void)
+{
+#if (PWM_SYNC_ROLE == PWM_SYNC_ROLE_MASTER)
+    return g_masterPpsCapCount;
+#elif (PWM_SYNC_ROLE == PWM_SYNC_ROLE_SLAVE)
+    extern volatile uint32_t g_slavePpsCapCount;
+    return g_slavePpsCapCount;
+#else
+    return 0U;
+#endif
 }

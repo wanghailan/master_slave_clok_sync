@@ -62,11 +62,11 @@
 #define EPWM6_EPWMB_GPIO            11
 #define EPWM6_EPWMB_PIN_CONFIG      GPIO_11_EPWM6B
 
-// EPWM7_A - GPIO Settings  Æ½ºâ¹ÜÉÏ¹Ü
+// EPWM7_A - GPIO Settings  Æ½ï¿½ï¿½ï¿½ï¿½Ï¹ï¿½
 #define GPIO_PIN_EPWM7_A            12
 #define EPWM7_EPWMA_GPIO            12
 #define EPWM7_EPWMA_PIN_CONFIG      GPIO_12_EPWM7A
-// EPWM7_B - GPIO Settings  Æ½ºâ¹ÜÏÂ¹Ü
+// EPWM7_B - GPIO Settings  Æ½ï¿½ï¿½ï¿½ï¿½Â¹ï¿½
 #define GPIO_PIN_EPWM7_B            13
 #define EPWM7_EPWMB_GPIO            13
 #define EPWM7_EPWMB_PIN_CONFIG      GPIO_13_EPWM7B
@@ -84,20 +84,24 @@
 #define EPWM5_TIMER_TBPRD           EPWM_TBPRD
 #define EPWM6_TIMER_TBPRD           EPWM_TBPRD
 
-#define EPWM_DEAD_TIME              250 //ËÀÇøÊ±¼ä2.4us 240*10
+#define EPWM_DEAD_TIME              250 //ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½2.4us 240*10
 
 #define GPIO_PIN_PWMEN              97U  // GPIO number for PWMEN
+#define GPIO_CFG_PWMEN              GPIO_97_GPIO97
 
 
 void Drv_Pwm_PinMux_Init(void);
 void Drv_PWM_SYNC_Init(void);
 void Drv_PWM_ParamInit(void);
 
+volatile uint32_t g_pwmOnsetCount = 0U;
+volatile uint32_t g_pwmOffsetCount = 0U;
+volatile uint16_t g_pwmLastGateCmd = 0U;
+
 static void Drv_EPWMx_Init(uint32_t PwmXBase,uint32_t PwmPrd,uint32_t PhaseShift,uint32_t ComPareA,uint32_t ComPareB,int16_t DeadZEn,int16_t SyncEn);
 //
 // Globals to hold the ePWM information used in this example
 //
-
 void PWMEN_Open(void)
 {
     GPIO_writePin(GPIO_PIN_PWMEN, 0);
@@ -117,12 +121,14 @@ void PWMEN_Close(void)
 void Drv_PwmPin_Init(void)
 {
     // EPWM1A -> EPWM1A Pinmux
-    GPIO_setPinConfig(EPWM1_EPWMA_PIN_CONFIG);//ÅäÖÃPIN¸´ÓÃÄ£Ê½
+    GPIO_setPinConfig(EPWM1_EPWMA_PIN_CONFIG);//é…ç½®PINå¤ç”¨æ¨¡å¼
     GPIO_setPadConfig(EPWM1_EPWMA_GPIO, GPIO_PIN_TYPE_STD);
+    GPIO_setDirectionMode(EPWM1_EPWMA_GPIO, GPIO_DIR_MODE_OUT);
     GPIO_setQualificationMode(EPWM1_EPWMA_GPIO, GPIO_QUAL_SYNC);
     // EPWM1B
     GPIO_setPinConfig(EPWM1_EPWMB_PIN_CONFIG);
     GPIO_setPadConfig(EPWM1_EPWMB_GPIO, GPIO_PIN_TYPE_STD);
+    GPIO_setDirectionMode(EPWM1_EPWMB_GPIO, GPIO_DIR_MODE_OUT);
     GPIO_setQualificationMode(EPWM1_EPWMB_GPIO, GPIO_QUAL_SYNC);
 
     // EPWM2A -> myEPWM2 Pinmux
@@ -183,12 +189,19 @@ void Drv_PwmPin_Init(void)
     GPIO_setPinConfig(EPWM8_EPWMA_PIN_CONFIG);
     GPIO_setPadConfig(EPWM8_EPWMA_GPIO, GPIO_PIN_TYPE_STD);
     GPIO_setQualificationMode(EPWM8_EPWMA_GPIO, GPIO_QUAL_SYNC);
+
+    // PWMEN, low active.
+    GPIO_setPinConfig(GPIO_CFG_PWMEN);
+    GPIO_setPadConfig(GPIO_PIN_PWMEN, GPIO_PIN_TYPE_STD);
+    GPIO_setDirectionMode(GPIO_PIN_PWMEN, GPIO_DIR_MODE_OUT);
+    GPIO_setQualificationMode(GPIO_PIN_PWMEN, GPIO_QUAL_SYNC);
+    GPIO_writePin(GPIO_PIN_PWMEN, 1);
 }
 
 void Drv_Pwm_Init(void)
 {
     EALLOW;
-    PWMEN_Close();//¸ßµçÆ½²»Êä³ö,PWMÓ²¿ª¹Ø
+    PWMEN_Close();//é«˜ç”µå¹³ä¸è¾“å‡º,PWMç¡¬å¼€å…³
     Drv_PWM_SYNC_Init();
     Drv_PWM_ParamInit();
     Drv_PwmOffset();
@@ -202,24 +215,24 @@ void Drv_Pwm_Init(void)
 //*****************************************************************************
 void Drv_PWM_SYNC_Init(void)
 {
-//    if(m_i16_MasterSlave == 1)//Ö÷»úÄ£Ê½
+//    if(m_i16_MasterSlave == 1)//ä¸»æœºæ¨¡å¼
 //    {
 //        SysCtl_setSyncOutputConfig(SYSCTL_SYNC_OUT_SRC_EPWM1SYNCOUT);
-//        //ÉèÖÃGPIO5Îª±ê×¼ÍÆÍìÊä³ö
+//        //è®¾ç½®GPIO5ä¸ºæ ‡å‡†æ¨æŒ½è¾“å‡º
 //        GPIO_setDirectionMode(28, GPIO_DIR_MODE_OUT);
 //        GPIO_setPadConfig(28, GPIO_PIN_TYPE_STD);
 //        GPIO_setQualificationMode(28, GPIO_QUAL_ASYNC);
-//        //ÉèÖÃGPIO28ÎªXBAR_OUTPUT5
+//        //è®¾ç½®GPIO28ä¸ºXBAR_OUTPUT5
 //        GPIO_setPinConfig(GPIO_28_OUTPUTXBAR5);
 //
-//        //ÉèÖÃXBAR_OUTPUT5µÄĞÅºÅÔ´ÎªMUX14µÄEXTSYNCOUT
+//        //è®¾ç½®XBAR_OUTPUT5çš„ä¿¡å·æºä¸ºMUX14çš„EXTSYNCOUT
 //        XBAR_setOutputMuxConfig(XBAR_OUTPUT5, XBAR_OUT_MUX14_EXTSYNCOUT);
 //        XBAR_enableOutputMux(XBAR_OUTPUT5,XBAR_MUX14);
 //
 //    }
 //    else
 //    {
-//        // ÉèÖÃEXTSYNCIN1ĞÅºÅ×÷ÎªEPWM1µÄÍ¬²½ĞÅºÅ£»EXTSYNCIN1¹Ì¶¨½Óµ½XBAR_INPUT5£¬EXTSYNCIN2¹Ì¶¨½Óµ½XBAR_INPUT6
+//        // è®¾ç½®EXTSYNCIN1ä¿¡å·ä½œä¸ºEPWM1çš„åŒæ­¥ä¿¡å·ï¼›EXTSYNCIN1å›ºå®šæ¥åˆ°XBAR_INPUT5ï¼ŒEXTSYNCIN2å›ºå®šæ¥åˆ°XBAR_INPUT6
 //        SysCtl_setSyncInputConfig(SYSCTL_SYNC_IN_EPWM1,SYSCTL_SYNC_IN_SRC_EXTSYNCIN1);
 //
 //        GPIO_setDirectionMode(28, GPIO_DIR_MODE_IN);
@@ -237,10 +250,10 @@ void Drv_PWM_SYNC_Init(void)
 //    SysCtl_setSyncInputConfig(SYSCTL_SYNC_IN_ECAP1, SYSCTL_SYNC_IN_SRC_EPWM1SYNCOUT);
 //    SysCtl_setSyncInputConfig(SYSCTL_SYNC_IN_ECAP4, SYSCTL_SYNC_IN_SRC_EPWM1SYNCOUT);
 //    SysCtl_setSyncInputConfig(SYSCTL_SYNC_IN_ECAP6, SYSCTL_SYNC_IN_SRC_EPWM1SYNCOUT);
-    //Í¬²½Êä³öÔ´ÊÇEPWM1SYNCOUT
+    //åŒæ­¥è¾“å‡ºæºæ˜¯EPWM1SYNCOUT
     SysCtl_setSyncOutputConfig(SYSCTL_SYNC_OUT_SRC_EPWM1SYNCOUT);
     // SOCA
-    SysCtl_enableExtADCSOCSource(SYSCTL_ADCSOC_SRC_PWM1SOCA);//ÉèÖÃSOCAµÄÔ´
+    SysCtl_enableExtADCSOCSource(SYSCTL_ADCSOC_SRC_PWM1SOCA);//è®¾ç½®SOCAçš„æº
     // SOCB
     SysCtl_enableExtADCSOCSource(0);
 }
@@ -252,24 +265,24 @@ void Drv_PWM_SYNC_Init(void)
 
 static void Drv_EPWMx_Init(uint32_t PwmXBase,uint32_t PwmPrd,uint32_t PhaseShift,uint32_t ComPareA,uint32_t ComPareB,int16_t DeadZEn,int16_t SyncEn)
 {
-    //EPWMÅäÖÃ
+    //EPWMé…ç½®
     EPWM_setClockPrescaler(PwmXBase, EPWM_CLOCK_DIVIDER_1, EPWM_HSCLOCK_DIVIDER_1);
-    EPWM_setTimeBasePeriod(PwmXBase, PwmPrd);   //ÉèÖÃ¶¨Ê±ÖÜÆÚ
+    EPWM_setTimeBasePeriod(PwmXBase, PwmPrd);   //è®¾ç½®å®šæ—¶å‘¨æœŸ
     EPWM_setTimeBaseCounter(PwmXBase, 0);     //Clear counter
     EPWM_setTimeBaseCounterMode(PwmXBase, EPWM_COUNTER_MODE_UP_DOWN); //up down mode
 
-//    EPWM_disablePhaseShiftLoad(PwmXBase); //¹Ø±ÕÏàÎ»Æ«ÒÆ¼ÓÔØ
-    //µ±Í¬²½ĞÅºÅµ½À´£¬¼ÆÊıÆ÷LoadÏàÒÆÖµ
-    EPWM_setPhaseShift(PwmXBase, PhaseShift);//ÏàÎ»Æ«ÒÆ
+//    EPWM_disablePhaseShiftLoad(PwmXBase); //å…³é—­ç›¸ä½åç§»åŠ è½½
+    //å½“åŒæ­¥ä¿¡å·åˆ°æ¥ï¼Œè®¡æ•°å™¨Loadç›¸ç§»å€¼
+    EPWM_setPhaseShift(PwmXBase, PhaseShift);//ç›¸ä½åç§»
     EPWM_enablePhaseShiftLoad(PwmXBase);
-    // ÉèÖÃSyncOutÎªSyncIn£¬¼´PWM1²úÉúµÄÍ¬²½ĞÅºÅbypassP PWM2Ö±½ÓÊä³ö
+    // è®¾ç½®SyncOutä¸ºSyncInï¼Œå³PWM1äº§ç”Ÿçš„åŒæ­¥ä¿¡å·bypassP PWM2ç›´æ¥è¾“å‡º
 //    EPWM_setSyncOutPulseMode(PwmXBase, EPWM_SYNC_OUT_PULSE_ON_EPWMxSYNCIN);
 //    EPWM_enableSyncOutPulseSource(PwmXBase, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
     if(SyncEn)
     {
-        //ÉèÖÃÓëEPWM1Í¬²½
+        //è®¾ç½®ä¸EPWM1åŒæ­¥
         EPWM_setSyncInPulseSource(PwmXBase, EPWM_SYNC_IN_PULSE_SRC_SYNCOUT_EPWM1);
-        // ÉèÖÃÍ¬²½ºóµÄCounter·½Ïò£»
+        // è®¾ç½®åŒæ­¥åçš„Counteræ–¹å‘ï¼›
         EPWM_setCountModeAfterSync(PwmXBase, EPWM_COUNT_MODE_UP_AFTER_SYNC);
     }
 
@@ -283,49 +296,49 @@ static void Drv_EPWMx_Init(uint32_t PwmXBase,uint32_t PwmPrd,uint32_t PhaseShift
     EPWM_setActionQualifierAction(PwmXBase, EPWM_AQ_OUTPUT_A, EPWM_AQ_OUTPUT_HIGH, EPWM_AQ_OUTPUT_ON_TIMEBASE_DOWN_CMPA);
     EPWM_setActionQualifierAction(PwmXBase, EPWM_AQ_OUTPUT_B, EPWM_AQ_OUTPUT_LOW, EPWM_AQ_OUTPUT_ON_TIMEBASE_UP_CMPB);
     EPWM_setActionQualifierAction(PwmXBase, EPWM_AQ_OUTPUT_B, EPWM_AQ_OUTPUT_HIGH, EPWM_AQ_OUTPUT_ON_TIMEBASE_DOWN_CMPB);
-    //ËÀÇøÉèÖÃ
+    //æ­»åŒºè®¾ç½®
     if(DeadZEn)
     {
-        EPWM_setDeadBandCounterClock(PwmXBase,EPWM_DB_COUNTER_CLOCK_FULL_CYCLE);//Ê±ÖÓÖÜÆÚ100M 10ns
-        EPWM_setRisingEdgeDelayCount(PwmXBase,EPWM_DEAD_TIME);//ÉèÖÃËÀÇøÊ±¼ä
+        EPWM_setDeadBandCounterClock(PwmXBase,EPWM_DB_COUNTER_CLOCK_FULL_CYCLE);//æ—¶é’Ÿå‘¨æœŸ100M 10ns
+        EPWM_setRisingEdgeDelayCount(PwmXBase,EPWM_DEAD_TIME);//è®¾ç½®æ­»åŒºæ—¶é—´
         EPWM_setFallingEdgeDelayCount(PwmXBase,EPWM_DEAD_TIME);
-        EPWM_setDeadBandDelayMode(PwmXBase,EPWM_DB_RED,true);//ËÀÇøÊ¹ÄÜ
+        EPWM_setDeadBandDelayMode(PwmXBase,EPWM_DB_RED,true);//æ­»åŒºä½¿èƒ½
         EPWM_setDeadBandDelayMode(PwmXBase,EPWM_DB_FED,true);
-        EPWM_setRisingEdgeDeadBandDelayInput(PwmXBase,EPWM_DB_INPUT_EPWMA);//ÉÏÉıÑØËÀÇø¼ÆÊıÆ÷ÊäÈëÑ¡ÎªEPWMA
-        EPWM_setFallingEdgeDeadBandDelayInput(PwmXBase,EPWM_DB_INPUT_EPWMA);//ÏÂ½µÑØËÀÇø¼ÆÊıÆ÷ÊäÈëÑ¡ÎªEPWMA
-        EPWM_setDeadBandDelayPolarity(PwmXBase,EPWM_DB_RED,EPWM_DB_POLARITY_ACTIVE_HIGH);//ÉèÖÃPWMÉÏÉıÑØËÀÇø¼ÆÊıºó²»·´×ª¼«ĞÔ
-        EPWM_setDeadBandDelayPolarity(PwmXBase,EPWM_DB_FED,EPWM_DB_POLARITY_ACTIVE_LOW);//ÉèÖÃPWMÏÂ½µÑØËÀÇø¼ÆÊıºó·´×ª¼«ĞÔ
+        EPWM_setRisingEdgeDeadBandDelayInput(PwmXBase,EPWM_DB_INPUT_EPWMA);//ä¸Šå‡æ²¿æ­»åŒºè®¡æ•°å™¨è¾“å…¥é€‰ä¸ºEPWMA
+        EPWM_setFallingEdgeDeadBandDelayInput(PwmXBase,EPWM_DB_INPUT_EPWMA);//ä¸‹é™æ²¿æ­»åŒºè®¡æ•°å™¨è¾“å…¥é€‰ä¸ºEPWMA
+        EPWM_setDeadBandDelayPolarity(PwmXBase,EPWM_DB_RED,EPWM_DB_POLARITY_ACTIVE_HIGH);//è®¾ç½®PWMä¸Šå‡æ²¿æ­»åŒºè®¡æ•°åä¸åè½¬ææ€§
+        EPWM_setDeadBandDelayPolarity(PwmXBase,EPWM_DB_FED,EPWM_DB_POLARITY_ACTIVE_LOW);//è®¾ç½®PWMä¸‹é™æ²¿æ­»åŒºè®¡æ•°ååè½¬ææ€§
     }
-    //TZ·âËøPWM
+    //TZå°é”PWM
 //    EPWM_setTripZoneAction(PwmXBase, EPWM_TZ_ACTION_EVENT_TZA, EPWM_TZ_ACTION_LOW);
 //    EPWM_enableTripZoneSignals(PwmXBase, EPWM_TZ_SIGNAL_OSHT1);
 
-//    EPWM_setActionQualifierContSWForceShadowMode(PwmXBase,EPWM_AQ_SW_IMMEDIATE_LOAD);//ÏÈÇ¿ÖÆÊä³öµÍ£¬²»Êä³ö
+//    EPWM_setActionQualifierContSWForceShadowMode(PwmXBase,EPWM_AQ_SW_IMMEDIATE_LOAD);//å…ˆå¼ºåˆ¶è¾“å‡ºä½ï¼Œä¸è¾“å‡º
 //    EPWM_setActionQualifierContSWForceAction(PwmXBase,EPWM_AQ_OUTPUT_A,EPWM_AQ_SW_OUTPUT_LOW);
 //    EPWM_setActionQualifierContSWForceAction(PwmXBase,EPWM_AQ_OUTPUT_B,EPWM_AQ_SW_OUTPUT_LOW);
     EPWM_setActionQualifierContSWForceShadowMode(PwmXBase,EPWM_AQ_SW_IMMEDIATE_LOAD);
     EPWM_setActionQualifierContSWForceAction(PwmXBase,EPWM_AQ_OUTPUT_A,EPWM_AQ_SW_DISABLED);
     EPWM_setActionQualifierContSWForceAction(PwmXBase,EPWM_AQ_OUTPUT_B,EPWM_AQ_SW_DISABLED);
 
-    EPWM_disableChopper(PwmXBase);//¹Ø±ÕÕ¶²¨¹¦ÄÜ
+    EPWM_disableChopper(PwmXBase);//å…³é—­æ–©æ³¢åŠŸèƒ½
 }
 
 static void Drv_EPWM1_Init(void)
 {
-/*    //µ±PWM1²úÉúµÄÍ¬²½ĞÅºÅµ½À´£¬¼ÆÊıÆ÷LoadÏàÒÆÖµ
-//    EPWM_setPhaseShift(EPWM1_BASE, 0);//0¶È
+/*    //å½“PWM1äº§ç”Ÿçš„åŒæ­¥ä¿¡å·åˆ°æ¥ï¼Œè®¡æ•°å™¨Loadç›¸ç§»å€¼
+//    EPWM_setPhaseShift(EPWM1_BASE, 0);//0åº¦
 //    EPWM_enablePhaseShiftLoad(EPWM1_BASE);
-//    if(m_i16_MasterSlave == 1)//Ö÷»úÄ£Ê½
+//    if(m_i16_MasterSlave == 1)//ä¸»æœºæ¨¡å¼
     {
         EPWM_enableSyncOutPulseSource(EPWM1_BASE, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
     }
 //    else
 //    {
-//        // ÉèÖÃÍ¬²½ºóCounter·½Ïò
+//        // è®¾ç½®åŒæ­¥åCounteræ–¹å‘
 //        EPWM_setCountModeAfterSync(EPWM1_BASE, EPWM_COUNT_MODE_UP_AFTER_SYNC);
 //        EPWM_setSyncOutPulseMode(EPWM1_BASE, EPWM_SYNC_OUT_PULSE_ON_EPWMxSYNCIN);
-//        // Ê¹ÄÜÏàÎ»×°ÔØ£»
-//        EPWM_setPhaseShift(EPWM1_BASE, 0);//0¶È
+//        // ä½¿èƒ½ç›¸ä½è£…è½½ï¼›
+//        EPWM_setPhaseShift(EPWM1_BASE, 0);//0åº¦
 //        EPWM_enablePhaseShiftLoad(EPWM1_BASE);
 //    }*/
 
@@ -334,7 +347,7 @@ static void Drv_EPWM1_Init(void)
     // Disable SOCA
     EPWM_disableADCTrigger(EPWM1_BASE, EPWM_SOC_A);
     // Configure the SOC to occur on the ET_CTR_PRDZERO
-    EPWM_setADCTriggerSource(EPWM1_BASE, EPWM_SOC_A, EPWM_SOC_TBCTR_ZERO_OR_PERIOD);//ADC³ö·¢ÆµÂÊ32KHZ
+    EPWM_setADCTriggerSource(EPWM1_BASE, EPWM_SOC_A, EPWM_SOC_TBCTR_ZERO_OR_PERIOD);//ADCå‡ºå‘é¢‘ç‡32KHZ
     EPWM_setADCTriggerEventPrescale(EPWM1_BASE, EPWM_SOC_A, 1);
     EPWM_enableADCTrigger(EPWM1_BASE, EPWM_SOC_A);
 //    EPWM_enableInterrupt(EPWM1_BASE);
@@ -352,19 +365,23 @@ void Drv_PWM_ParamInit(void)
     Drv_EPWMx_Init(EPWM7_BASE,EPWM6_TIMER_TBPRD,0,EPWM_TBPRD,EPWM_TBPRD,0,1);
 
 //    EPWM_setActionQualifierContSWForceShadowMode(EPWM7_BASE,EPWM_AQ_SW_IMMEDIATE_LOAD);
-//    EPWM_setActionQualifierContSWForceAction(EPWM7_BASE,EPWM_AQ_OUTPUT_A,EPWM_AQ_SW_OUTPUT_LOW); //Ç¿ÖÆÊä³öµÍ
-//    EPWM_setActionQualifierContSWForceAction(EPWM7_BASE,EPWM_AQ_OUTPUT_B,EPWM_AQ_SW_OUTPUT_LOW); //Ç¿ÖÆÊä³öµÍ
+//    EPWM_setActionQualifierContSWForceAction(EPWM7_BASE,EPWM_AQ_OUTPUT_A,EPWM_AQ_SW_OUTPUT_LOW); //å¼ºåˆ¶è¾“å‡ºä½
+//    EPWM_setActionQualifierContSWForceAction(EPWM7_BASE,EPWM_AQ_OUTPUT_B,EPWM_AQ_SW_OUTPUT_LOW); //å¼ºåˆ¶è¾“å‡ºä½
 }
 
 void Drv_PwmOnset(void)
 {
+    g_pwmOnsetCount++;
+    g_pwmLastGateCmd = 1U;
     bsp_clb_pwmEnCtrl(1);
     PWMEN_Open();
 }
 
 void Drv_PwmOffset(void)
 {
-    //¹Ø±ÕPWMÊä³ö
+    g_pwmOffsetCount++;
+    g_pwmLastGateCmd = 0U;
+    //å…³é—­PWMè¾“å‡º
     bsp_clb_pwmEnCtrl(0);
     PWMEN_Close();
 }
@@ -388,8 +405,8 @@ void FanPwm_ON(void)
 void FanPwm_OFF(void)
 {
     EPWM_setActionQualifierContSWForceShadowMode(EPWM9_BASE,EPWM_AQ_SW_IMMEDIATE_LOAD);
-//    EPWM_setActionQualifierContSWForceAction(EPWM16_BASE,EPWM_AQ_OUTPUT_A,EPWM_AQ_SW_OUTPUT_LOW); //Ç¿ÖÆÊä³öµÍ
-    EPWM_setActionQualifierContSWForceAction(EPWM9_BASE,EPWM_AQ_OUTPUT_A,EPWM_AQ_SW_OUTPUT_LOW); //Ç¿ÖÆÊä³öµÍ
+//    EPWM_setActionQualifierContSWForceAction(EPWM16_BASE,EPWM_AQ_OUTPUT_A,EPWM_AQ_SW_OUTPUT_LOW); //å¼ºåˆ¶è¾“å‡ºä½
+    EPWM_setActionQualifierContSWForceAction(EPWM9_BASE,EPWM_AQ_OUTPUT_A,EPWM_AQ_SW_OUTPUT_LOW); //å¼ºåˆ¶è¾“å‡ºä½
 //    EPWM_setActionQualifierContSWForceShadowMode(EPWM16_BASE,EPWM_AQ_SW_SH_LOAD_ON_CNTR_ZERO_PERIOD);
 }
 
@@ -403,10 +420,5 @@ void FanPwm_SpeedCtrl(int16_t duty)
     EPWM_setCounterCompareValue(EPWM8_BASE, EPWM_COUNTER_COMPARE_A, PwmCmpDat);
     EPWM_setCounterCompareValue(EPWM8_BASE, EPWM_COUNTER_COMPARE_B, PwmCmpDat);
 }
-
-
-
-
-
 
 

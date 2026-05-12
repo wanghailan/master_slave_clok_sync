@@ -21,7 +21,7 @@ IPC_DATA_CM2CPU         Cpu1Ipc_cm2cpu;
 
 void cpu2claParam_Upgrade(void)
 {
-    //软关断这需要放在CM里去
+    //锟斤拷囟锟斤拷锟斤拷锟揭拷锟斤拷锟紺M锟斤拷去
     if(Cpu1Ipc_cm2cpu.Pwm_StartEn==1)
     {
         if(Cpu1Ipc_cpu2cm.PcsCtrlState == PcsOn_Mode)
@@ -117,9 +117,9 @@ void GloabParam_Init(void)
     Cpu1Ipc_cpu2cm.Relay_FaultLed = 0;
     Cpu1Ipc_cm2cpu.Pwm_StartEn = 0;
     Cpu1Ipc_cm2cpu.StartEn  = 0;
-    Cpu1Ipc_cm2cpu.debugMode = 0;//默认正常模式
-    Cpu1Ipc_cm2cpu.SoftStart_En = 1;//默认打开软起动
-    Cpu1Ipc_cm2cpu.OutLoop_En   = 1;//默认打开外环
+    Cpu1Ipc_cm2cpu.debugMode = 0;//默锟斤拷锟斤拷锟斤拷模式
+    Cpu1Ipc_cm2cpu.SoftStart_En = 1;//默锟较达拷锟斤拷锟斤拷
+    Cpu1Ipc_cm2cpu.OutLoop_En   = 1;//默锟较达拷锟解环
     Cpu1Ipc_cm2cpu.Reset_En  = 0;
     cpu2claParam_Upgrade();
 }
@@ -128,6 +128,7 @@ void bsp_init(void)
 {
     // Initialize device clock and peripherals
     Device_init();
+    SysCtl_setEnetClk(SYSCTL_ENETCLKOUT_DIV_2, SYSCTL_SOURCE_SYSPLL);
 
     // Boot CPU2 core
 /*#ifdef _FLASH
@@ -155,6 +156,7 @@ void bsp_init(void)
 //    Drv_SCIDPin_Init();
     Drv_I2CAPin_Init();
     Drv_W5500Pin_Init();
+
 
     GPIO_setPinConfig(GPIO_47_ENET_PPS0);
     GPIO_setDirectionMode(47, GPIO_DIR_MODE_OUT);
@@ -192,7 +194,7 @@ void bsp_init(void)
 	Drv_ADC_Init();
 	GloabParam_Init();
     Board_init();
-    //通过CLB交换EPWM2和EPWM3接口,硬件调序后可取消
+    //通锟斤拷CLB锟斤拷锟斤拷EPWM2锟斤拷EPWM3锟接匡拷,硬锟斤拷锟斤拷锟斤拷锟斤拷取锟斤拷
     initCLBTILE5(myCLB5_BASE);
     initCLBTILE6(myCLB6_BASE);
     initCLBTILE7(myCLB7_BASE);
@@ -229,10 +231,10 @@ void bsp_clb_pwmEnCtrl(int16_t enable)
 {
     if(enable == 1)
     {
-        CLB_setGPREG(myCLB5_BASE, 0x04);//bit2  is soft in bit 1:打开，0:关闭
-        CLB_setGPREG(myCLB6_BASE, 0x04);//bit2  is soft in bit 1:打开，0:关闭
-        CLB_setGPREG(myCLB7_BASE, 0x04);//bit2  is soft in bit 1:打开，0:关闭
-        CLB_setGPREG(myCLB8_BASE, 0x04);//bit2  is soft in bit 1:打开，0:关闭
+        CLB_setGPREG(myCLB5_BASE, 0x04);//bit2  is soft in bit 1:锟津开ｏ拷0:锟截憋拷
+        CLB_setGPREG(myCLB6_BASE, 0x04);//bit2  is soft in bit 1:锟津开ｏ拷0:锟截憋拷
+        CLB_setGPREG(myCLB7_BASE, 0x04);//bit2  is soft in bit 1:锟津开ｏ拷0:锟截憋拷
+        CLB_setGPREG(myCLB8_BASE, 0x04);//bit2  is soft in bit 1:锟津开ｏ拷0:锟截憋拷
     }
     else
     {

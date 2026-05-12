@@ -28,6 +28,7 @@ extern volatile int32_t  g_slavePwmPhaseErrNs;
 extern volatile uint32_t g_slavePwmLockCount;
 extern volatile uint32_t g_slavePwmSkipCount;
 extern volatile bool     g_slavePwmLocked;
+extern volatile uint16_t g_slavePwmApplySync;
 
 
 #ifdef __cplusplus
