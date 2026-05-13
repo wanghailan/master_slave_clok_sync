@@ -1,0 +1,373 @@
+//#############################################################################
+//
+// FILE:   ethernet_ex4_ptp_basic_master.c
+//
+// TITLE:  Ethernet PTP Basic Master Example
+//
+//! \addtogroup driver_example_cm_list
+//! <h1> Ethernet PTP Basic Master </h1>
+//!
+//! This example configures the device in IEEE PTPv2 Master mode and then
+//! periodically sends Sync packets to the slave. On receiving the DelayReq
+//! packets from the slave, the master also sends out the DelayResp packets.
+//!
+//! \b External \b Connections \n
+//! This example programs the Ethernet module in PTP Basic Master mode.
+//! The example project \e Ethernet \e PTP \e Basic \e Slave is intended to
+//! be used along with this project to see the whole PTP Protocol state in
+//! action. The second device is configured as \e Slave and both devices in
+//! conjunction exchange Sync, DelayReq and DelayResp packets.
+//!
+//! Refer to the C28x CPU1 code of ethernet_config_c28x project for configuring
+//! the PTP clock that drives the system time counter on the Ethernet module.
+//!
+//! \b Watch \b Variables \n
+//!  - gPtpMasterState
+//!
+//
+//#############################################################################
+//
+//
+// $Copyright:
+// Copyright (C) 2022 Texas Instruments Incorporated - http://www.ti.com
+//
+// Redistribution and use in source and binary forms, with or without 
+// modification, are permitted provided that the following conditions 
+// are met:
+// 
+//   Redistributions of source code must retain the above copyright 
+//   notice, this list of conditions and the following disclaimer.
+// 
+//   Redistributions in binary form must reproduce the above copyright
+//   notice, this list of conditions and the following disclaimer in the 
+//   documentation and/or other materials provided with the   
+//   distribution.
+// 
+//   Neither the name of Texas Instruments Incorporated nor the names of
+//   its contributors may be used to endorse or promote products derived
+//   from this software without specific prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// $
+//#############################################################################
+
+#include "driverlib_cm.h"
+#include "string.h"
+#include "cm.h"
+#include "gpio.h"
+
+#include "ethernet_dispatch.h"
+
+#define PTP_TEST_ENABLE_PCS_GENERIC_ISR   1U
+
+extern interrupt void Ethernet_genericISRCustom(void);
+
+
+//extern uint8_t Ethernet_rxBuffer[ETHERNET_NO_OF_RX_PACKETS *
+//                          ETHERNET_MAX_PACKET_LENGTH];
+//
+//extern Ethernet_Device Ethernet_device_struct;
+//
+//extern uint32_t Ethernet_numGetPacketBufferCallback;
+
+
+extern PTPMasterState gPtpMasterState;
+
+extern Ethernet_Handle emac_handle;
+
+extern uint8_t Ethernet_rxBuffer[ETHERNET_NO_OF_RX_PACKETS *
+                          ETHERNET_MAX_PACKET_LENGTH];
+
+
+static void InitConstants(PTPMasterState *ptpMasterState)
+{
+    uint32_t mac_low,mac_high, i, j;
+    uint8_t *pucTemp;
+
+    Ethernet_getMACAddr(EMAC_BASE, 0, &mac_high, &mac_low);
+
+    pucTemp = (uint8_t *)&mac_low;
+    ptpMasterState->port_uuid_field[0] = pucTemp[0];
+    ptpMasterState->port_uuid_field[1] = pucTemp[1];
+    ptpMasterState->port_uuid_field[2] = pucTemp[2];
+    ptpMasterState->port_uuid_field[3] = pucTemp[3];
+
+    pucTemp = (uint8_t *)&mac_high;
+    ptpMasterState->port_uuid_field[4] = pucTemp[0];
+    ptpMasterState->port_uuid_field[5] = pucTemp[1];
+
+    //
+    // Init global constants.
+    //
+    for (i = 0, j = 0; i < CLOCK_IDENTITY_LENGTH; i++)
+    {
+       if (i == 3) ptpMasterState->portIdentity.clockIdentity[i] = 0xFF;
+       else if (i == 4) ptpMasterState->portIdentity.clockIdentity[i] = 0xFE;
+       else
+       {
+           ptpMasterState->portIdentity.clockIdentity[i] =
+                   ptpMasterState->port_uuid_field[j];
+           j++;
+       }
+    }
+
+    ptpMasterState->portIdentity.portNumber = 1U;
+}
+
+
+
+main(void)
+{
+    Ethernet_InitConfig *pInitCfg;
+    uint32_t i;
+    uint32_t varPtpConfig = 0;
+    Ethernet_InitInterfaceConfig initInterfaceConfig;
+    uint32_t timeSec;
+    uint32_t timeNanosec;
+    float subSecondInc;
+    const uint32_t TIMEOUT_MAX = 2000000U;
+    uint32_t timeout = 0U;
+
+    //
+    // Initialize device clock and peripherals
+    //
+    CM_init();
+
+    initInterfaceConfig.ssbase = EMAC_SS_BASE;
+    initInterfaceConfig.enet_base = EMAC_BASE;
+    initInterfaceConfig.phyMode = ETHERNET_SS_PHY_INTF_SEL_MII;
+    initInterfaceConfig.ptrPlatformInterruptDisable = &Platform_disableInterrupt;
+    initInterfaceConfig.ptrPlatformInterruptEnable = &Platform_enableInterrupt;
+    initInterfaceConfig.ptrPlatformPeripheralEnable = &Platform_enablePeripheral;
+    initInterfaceConfig.ptrPlatformPeripheralReset = &Platform_resetPeripheral;
+    //
+    //Assign the peripheral number at the SoC
+    //
+    initInterfaceConfig.peripheralNum = SYSCTL_PERIPH_CLK_ENET;
+    //
+    //Assign the default SoC specific interrupt numbers of Ethernet interrupts
+    //
+    initInterfaceConfig.interruptNum[0] = INT_EMAC;
+    initInterfaceConfig.interruptNum[1] = INT_EMAC_TX0;
+    initInterfaceConfig.interruptNum[2] = INT_EMAC_TX1;
+    initInterfaceConfig.interruptNum[3] = INT_EMAC_RX0;
+    initInterfaceConfig.interruptNum[4] = INT_EMAC_RX1;
+
+    pInitCfg = Ethernet_initInterface(initInterfaceConfig);
+
+    Ethernet_getInitConfig(pInitCfg);
+
+    pInitCfg->pfcbFreePacket = &Ethernet_releaseTxPacketBufferCustomPTP;
+    pInitCfg->pfcbRxPacket = &Ethernet_receivePacketCallbackCustomPTP;
+    pInitCfg->pfcbGetPacket = &Ethernet_getPacketBufferCustom;
+#if PTP_TEST_ENABLE_PCS_GENERIC_ISR
+    pInitCfg->dmaMode.InterruptMode = ETHERNET_DMA_MODE_INTM_MODE2;
+#endif
+
+    varPtpConfig = (0 << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
+                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
+                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
+                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
+                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;
+
+    //
+    // Subsecond increment is added to the systime counter every ptp clock tick
+    // hence for Digital rollover, it is simply the time period of the clock
+    // tick.
+    //
+    subSecondInc = PTP_REF_CLOCK_PERIOD;
+
+    Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
+    Ethernet_enableSysTimePTP(EMAC_BASE);
+
+    //
+    // Start the system with a random value.
+    //
+//    Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCA, 0x25a5a5a5);
+    Ethernet_setSysTimePTP(EMAC_BASE, 0, 0);
+
+    //
+    //Assign the Buffer to be used by the Low level driver for receiving
+    //Packets. This should be accessible by the Ethernet DMA
+    //
+    pInitCfg->rxBuffer = Ethernet_rxBuffer;
+    Ethernet_getHandle((Ethernet_Handle)1, pInitCfg , &emac_handle);
+
+#if PTP_TEST_ENABLE_PCS_GENERIC_ISR
+    Ethernet_disableDmaInterrupt(EMAC_BASE,
+                                 0,
+                                 (ETHERNET_DMA_CH0_INTERRUPT_ENABLE_TBUE |
+                                  ETHERNET_DMA_CH0_INTERRUPT_ENABLE_NIE));
+
+    Ethernet_enableMTLInterrupt(EMAC_BASE,
+                                0,
+                                ETHERNET_MTL_Q0_INTERRUPT_CONTROL_STATUS_RXOIE);
+
+    HWREG(EMAC_BASE + ETHERNET_O_MMC_RX_INTERRUPT_MASK) = 0xFFFFFFFFU;
+    HWREG(EMAC_BASE + ETHERNET_O_MMC_IPC_RX_INTERRUPT_MASK) = 0xFFFFFFFFU;
+    HWREG(EMAC_BASE + ETHERNET_O_MMC_TX_INTERRUPT_MASK) = 0xFFFFFFFFU;
+#endif
+    //
+    //Do global Interrupt Enable
+    //
+    (void)Interrupt_enableInProcessor();
+    //
+    //Assign default ISRs
+    //
+    Interrupt_registerHandler(INT_EMAC_TX0, Ethernet_transmitISR);
+    Interrupt_registerHandler(INT_EMAC_RX0, Ethernet_receiveISR);
+#if PTP_TEST_ENABLE_PCS_GENERIC_ISR
+    Interrupt_registerHandler(INT_EMAC, Ethernet_genericISRCustom);
+#endif
+    //
+    //Enable the default interrupt handlers
+    //
+    Interrupt_enable(INT_EMAC_TX0);
+    Interrupt_enable(INT_EMAC_RX0);
+#if PTP_TEST_ENABLE_PCS_GENERIC_ISR
+    Interrupt_enable(INT_EMAC);
+#endif
+
+    Ethernet_setMACAddr(EMAC_BASE,
+                        0,
+                        0x00000506U,
+                        0x01030304U,
+                        ETHERNET_CHANNEL_0);
+
+    //
+    // We need to program this standard multicast address so that this device
+    // identifies PTP over Ethernet packets correctly. "01:1B:19:00:00:00"
+    //
+    Ethernet_setMACAddr(EMAC_BASE,
+                        1,
+                        0x00000000,
+                        0x00191B01,
+                        ETHERNET_CHANNEL_0);
+
+    // set Digital Rollover mode
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |=
+            ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
+
+    while((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) &
+           ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR) == 0U)
+    {
+        HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |=
+                ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
+    }
+
+    //
+    // Configure PPS0 as fixed 1Hz waveform output.
+    // Do NOT use PPS0 target-time pulse for Sync scheduling.
+    //
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = 0x00U;
+
+    // Set PULSE mode
+    Ethernet_selectTargetInterruptOrPulsePPS(
+                        EMAC_BASE,
+                        ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                        ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
+
+    // Set interval and purlse width
+    Ethernet_setPeriodPPS(EMAC_BASE,
+                          ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                          PTP_REF_CLOCK_FREQ / 100U,
+                          PTP_REF_CLOCK_FREQ - 1U);
+
+    Ethernet_setFixedModePPS(EMAC_BASE,
+                             ETHERNET_MAC_PPS_CONTROL_PPSCTRL_PPS_OUTPUT_1HZ);
+
+
+    // We need to set a standard defined Multicast address : 01:1B:19:00:00:00
+    // as the Destination address in the ethernet frame and that is how the
+    // receiver will recognize it as a valid PTP over Ethernet packet.
+    //
+    i=0; *((uint32_t *)gMsgBuf + i) = 0x00191B01;
+    i++; *((uint32_t *)gMsgBuf + i)  = 0xF7880000;
+
+    InitConstants(&gPtpMasterState);
+
+
+    /////////////////////////////////////////////
+    uint32_t nextSyncSec = 0U;
+    Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+    nextSyncSec = timeSec + 1U;
+
+    while(1)
+    {
+        Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+
+        //
+        // Send Sync/Follow_Up once each second when system time
+        // crosses the integer-second boundary.
+        //
+        if((timeSec > nextSyncSec) ||
+           ((timeSec == nextSyncSec) && (timeNanosec < 1000000U)))
+        {
+            //
+            // Save the state. We want to capture the timestamp of the next
+            // SYNC packet that is being sent.
+            //
+            gPtpMasterState.syncTimestampAvailable = FALSE;
+
+            //
+            // Send out the SYNC packet.
+            //
+            sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
+
+            //
+            // Wait till the latest sync timestamp is captured.
+            //
+            timeout = 0U;
+            while((gPtpMasterState.syncTimestampAvailable == FALSE) &&
+                  (timeout < TIMEOUT_MAX))
+            {
+                timeout++;
+            }
+
+            //
+            // Fallback if hardware timestamp callback is delayed.
+            //
+            if(timeout >= TIMEOUT_MAX)
+            {
+                uint32_t estSec, estNs;
+                Ethernet_getSysTimePTP(EMAC_BASE, &estSec, &estNs);
+                gPtpMasterState.syncTimestamp.secondsField.lsb = estSec;
+                gPtpMasterState.syncTimestamp.secondsField.msb = 0;
+                gPtpMasterState.syncTimestamp.nanosecondsField = estNs;
+                gPtpMasterState.syncTimestampAvailable = TRUE;
+            }
+
+            //
+            // Since the timestamp for the last SYNC packet has been
+            // captured, send out the associated FOLLOW_UP packet.
+            //
+            sendMessage((Octet *)gMsgBuf, FOLLOW_UP, &gPtpMasterState, &gPktDesc);
+
+            //
+            // Schedule next second.
+            //
+            nextSyncSec = timeSec + 1U;
+
+            //
+            // Avoid re-entering multiple times inside the same second.
+            //
+            do
+            {
+                Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+            }
+            while(timeSec < nextSyncSec);
+        }
+    }
+}
+
+

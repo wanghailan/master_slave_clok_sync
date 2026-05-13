@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<section name="com.ti.ccstudio.project.ui.internal.preferences.CodegenToolsPreferencePage">
+		<item key="ToolsPreferencePage.BROWSE_FILTER" value="C:\ti\ccs1280\ccs\tools\compiler\ti-cgt-arm_20.2.7.LTS"/>
+	</section>
+	<section name="com.ti.common.project.ui.internal.preferences.ProductsPreferencePage">
+		<item key="ToolsPreferencePage.BROWSE_FILTER" value="C:\ti\c2000\C2000Ware_5_01_00_00"/>
+	</section>
+	<section name="com.ti.common.project.ui.internal.dialogs.ProductSelectionDialog">
+	</section>
+</section>

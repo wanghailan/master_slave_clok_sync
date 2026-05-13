@@ -1,0 +1,116 @@
+/*
+ * pwm_master_sync.c
+ *
+ * 功能：
+ *    Master侧PPS同步PWM。
+ *    通过eCAP1捕获CM核经PTP对齐后的PPS上升沿，
+ *    计算ISR延迟并修正EPWM1相位；EPWM1的SYNCO供其余EPWM模块级联。
+ *
+ */
+
+#include "pwm_master_sync.h"
+#include "bsp.h"
+
+#define PPS_INPUTXBAR_CHANNEL       XBAR_INPUT7
+#define PPS_ECAP_INPUT_SEL          ECAP_INPUT_INPUTXBAR7
+
+// ePWM1为同步基准模块
+#define SYNC_EPWM_BASE              EPWM1_BASE
+
+// 时钟频率
+#define EPWM_TBCLK_HZ               200000000UL
+#define ECAP_TSCTR_HZ               200000000UL
+
+#define XBAR_INPUT7_SRC_AUX_SIG2    0x12U
+
+
+static void Master_InitEPwmSync(void);
+static void Master_InitPpsEcap(void);
+static void Master_ServicePpsCapture(bool allowSync);
+
+static int32_t  ns_to_tbclk_ticks(int32_t ns);
+static uint32_t ns_to_ecap_ticks(uint32_t ns);
+static uint32_t ecap_ticks_to_tbclk(uint32_t ecapTicks);
+static uint32_t wrap_u32(int32_t value, uint32_t modulo);
+static int32_t  signed_phase_error(uint32_t actual, uint32_t target, uint32_t modulo);
+static int32_t  clamp_i32(int32_t value, int32_t minValue, int32_t maxValue);
+
+
+// 初始化函数
+void PWM_MasterSync_Init(void)
+{
+    // 1. 配置 PWM 同步功能
+    Master_InitEPwmSync();
+
+    // 2. 配置 PPS eCAP
+    Master_InitPpsEcap();
+}
+
+// Master EPWM1 同步配置, 在此函数内一并配置它们接收 EPWM1 的 SYNCO
+
+
+
+static void PWM_MasterSync_ConfigPpsRoute(void)
+{
+    GPIO_setQualificationMode(PPS_GPIO, GPIO_QUAL_ASYNC);
+    XBAR_setInputPin(INPUTXBAR_BASE, PPS_INPUT_XBAR, PPS_GPIO);
+    XBAR_clearInputFlag(PPS_INPUT_XBAR_FLAG);
+
+    EPWM_setSyncInPulseSource(EPWM1_BASE,
+                              EPWM_SYNC_IN_PULSE_SRC_INPUTXBAR_OUT5);
+    EPWM_setPhaseShift(EPWM1_BASE, 0U);
+    EPWM_enablePhaseShiftLoad(EPWM1_BASE);
+    EPWM_setCountModeAfterSync(EPWM1_BASE, EPWM_COUNT_MODE_UP_AFTER_SYNC);
+
+    EPWM_enableSyncOutPulseSource(EPWM1_BASE,
+                                  EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO |
+                                  EPWM_SYNC_OUT_PULSE_ON_SOFTWARE);
+    SysCtl_setSyncOutputConfig(SYSCTL_SYNC_OUT_SRC_EPWM1SYNCOUT);
+}
+
+static void PWM_MasterSync_ConfigEcap(void)
+{
+    ECAP_disableInterrupt(PPS_ECAP_BASE, PPS_ECAP_ALL_FLAGS);
+    ECAP_clearInterrupt(PPS_ECAP_BASE, PPS_ECAP_ALL_FLAGS);
+    ECAP_clearGlobalInterrupt(PPS_ECAP_BASE);
+
+    ECAP_stopCounter(PPS_ECAP_BASE);
+    ECAP_enableCaptureMode(PPS_ECAP_BASE);
+    ECAP_selectECAPInput(PPS_ECAP_BASE, PPS_ECAP_INPUT);
+    ECAP_setCaptureMode(PPS_ECAP_BASE,
+                        ECAP_CONTINUOUS_CAPTURE_MODE,
+                        ECAP_EVENT_1);
+    ECAP_setEventPolarity(PPS_ECAP_BASE,
+                          ECAP_EVENT_1,
+                          ECAP_EVNT_RISING_EDGE);
+    ECAP_enableCounterResetOnEvent(PPS_ECAP_BASE, ECAP_EVENT_1);
+    ECAP_enableTimeStampCapture(PPS_ECAP_BASE);
+    ECAP_resetCounters(PPS_ECAP_BASE);
+
+    ECAP_enableInterrupt(PPS_ECAP_BASE, ECAP_ISR_SOURCE_CAPTURE_EVENT_1);
+    ECAP_startCounter(PPS_ECAP_BASE);
+}
+
+void PWM_MasterSync_Init(void)
+{
+    PWM_MasterSync_ConfigPpsRoute();
+
+    Interrupt_register(PPS_ECAP_INT, &PPS_Master_ISR);
+    PWM_MasterSync_ConfigEcap();
+    Interrupt_enable(PPS_ECAP_INT);
+}
+
+__interrupt void PPS_Master_ISR(void)
+{
+    if((ECAP_getInterruptSource(PPS_ECAP_BASE) &
+        ECAP_ISR_SOURCE_CAPTURE_EVENT_1) != 0U)
+    {
+        g_masterPpsCap1 = ECAP_getEventTimeStamp(PPS_ECAP_BASE,
+                                                 ECAP_EVENT_1);
+        g_masterPpsIsrCount++;
+    }
+
+    ECAP_clearInterrupt(PPS_ECAP_BASE, PPS_ECAP_ALL_FLAGS);
+    ECAP_clearGlobalInterrupt(PPS_ECAP_BASE);
+    Interrupt_clearACKGroup(PPS_ECAP_ACK_GROUP);
+}

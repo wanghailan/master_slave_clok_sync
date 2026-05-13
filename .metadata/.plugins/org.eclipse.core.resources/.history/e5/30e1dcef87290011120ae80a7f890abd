@@ -1,0 +1,546 @@
+/*
+ * Eth_mii.c
+ *
+ *  Created on: 2025年6月26日
+ *      Author: guowei
+ */
+
+#include "driverlib_cm/ethernet.h"
+#include "lwipopts.h"
+#include "bsp.h"
+#include "utils/lwiplib.h"
+#include "lwipopts.h"
+#include "ethernet_dispatch.h"
+
+#define ETHERNET_NO_OF_RX_PACKETS   2U
+#define ETHERNET_MAX_PACKET_LENGTH 1538U
+
+#define NUM_PACKET_DESC_RX_APPLICATION PBUF_POOL_SIZE //8 - same as PBUF_POOL_SIZE
+
+#define MAKE_IP_ADDRESS(a3,a2,a1,a0) (((a3<<24) & 0xFF000000) | ((a2<<16) & 0x00FF0000) | ((a1<<8)  & 0x0000FF00) | (a0 & 0x000000FF) )
+
+Ethernet_Handle emac_handle;
+Ethernet_InitConfig *pInitCfg;
+
+uint32_t Ethernet_numRxCallbackCustom = 0;
+uint32_t releaseTxCount = 0;
+uint32_t genericISRCustomcount = 0;
+uint32_t genericISRCustomRBUcount = 0;
+uint32_t genericISRCustomROVcount = 0;
+uint32_t genericISRCustomRIcount = 0;
+
+Ethernet_Pkt_Desc  pktDescriptorRXCustom[NUM_PACKET_DESC_RX_APPLICATION];
+
+uint8_t Ethernet_rxBuffer[ETHERNET_NO_OF_RX_PACKETS *
+                          ETHERNET_MAX_PACKET_LENGTH];
+
+uint32_t sendPacketFailedCount = 0;
+
+//uint32_t IPAddr =  0xC0A80004; // 0xC0A80004; //192.168.0.4
+//uint32_t NetMask = 0xFFFFFF00;
+//uint32_t GWAddr = 0x00000000;
+
+
+extern uint32_t Ethernet_numGetPacketBufferCallback;
+extern Ethernet_Device Ethernet_device_struct;
+
+extern Ethernet_Pkt_Desc*
+lwIPEthernetIntHandler(Ethernet_Pkt_Desc *pPacket);
+
+// 以太网接收回调分发器：同时处理LwIP和PTP
+Ethernet_Pkt_Desc* Ethernet_Rx_Dispatch(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
+
+// 以太网发送释放回调分发器：同时释放LwIP缓冲区+捕获PTP时间戳
+void Ethernet_Tx_Free_Dispatch(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
+
+//*****************************************************************************
+//
+//  This function is a callback function called by the example to
+//  get a Packet Buffer. Has to return a ETHERNET_Pkt_Desc Structure.
+//  Rewrite this API for custom use case.
+//
+//*****************************************************************************
+Ethernet_Pkt_Desc* Ethernet_getPacketBufferCustom(void)
+{
+    //
+    // Get the next packet descriptor from the descriptor pool
+    //
+    uint32_t shortIndex = (Ethernet_numGetPacketBufferCallback + 3)
+                % NUM_PACKET_DESC_RX_APPLICATION;
+
+    //
+    // Increment the book-keeping pointer which acts as a head pointer
+    // to the circular array of packet descriptor pool.
+    //
+    Ethernet_numGetPacketBufferCallback++;
+
+    //
+    // Update buffer length information to the newly procured packet
+    // descriptor.
+    //
+    pktDescriptorRXCustom[shortIndex].bufferLength =
+                                  ETHERNET_MAX_PACKET_LENGTH;
+
+    //
+    // Update the receive buffer address in the packer descriptor.
+    //
+    pktDescriptorRXCustom[shortIndex].dataBuffer =
+                                      &Ethernet_device_struct.rxBuffer [ \
+               (ETHERNET_MAX_PACKET_LENGTH*Ethernet_device_struct.rxBuffIndex)];
+
+    //
+    // Update the receive buffer pool index.
+    //
+    Ethernet_device_struct.rxBuffIndex += 1U;
+    Ethernet_device_struct.rxBuffIndex  = \
+    (Ethernet_device_struct.rxBuffIndex%ETHERNET_NO_OF_RX_PACKETS);
+
+    //
+    // Receive buffer is usable from Address 0
+    //
+    pktDescriptorRXCustom[shortIndex].dataOffset = 0U;
+
+    //
+    // Return this new descriptor to the driver.
+    //
+    return (&(pktDescriptorRXCustom[shortIndex]));
+}
+
+//*****************************************************************************
+//
+//  This is a hook function and called by the driver when it receives a
+//  packet. Application is expected to replenish the buffer after consuming it.
+//  Has to return a ETHERNET_Pkt_Desc Structure.
+//  Rewrite this API for custom use case.
+//
+//*****************************************************************************
+Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackCustom(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket)
+{
+
+    Ethernet_Pkt_Desc* temp_eth_pkt;
+    //
+    // Book-keeping to maintain number of callbacks received.
+    //
+#ifdef ETHERNET_DEBUG
+    Ethernet_numRxCallbackCustom++;
+#endif
+
+      Ethernet_disableRxDMAReception(EMAC_BASE,0);
+
+    //
+    // This is a placeholder for Application specific handling
+    // We are replenishing the buffer received with another buffer
+    //
+  //  return lwIPEthernetIntHandler(pPacket);
+
+      temp_eth_pkt=lwIPEthernetIntHandler(pPacket);
+
+
+      Ethernet_enableRxDMAReception(EMAC_BASE,0);
+
+      return temp_eth_pkt;
+}
+
+void Ethernet_releaseTxPacketBufferCustom(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket)
+{
+    //
+    // Once the packet is sent, reuse the packet memory to avoid
+    // memory leaks. Call this interrupt handler function which will take care
+    // of freeing the memory used by the packet descriptor.
+    //
+    lwIPEthernetIntHandler(pPacket);
+
+    //
+    // Increment the book-keeping counter.
+    //
+#ifdef ETHERNET_DEBUG
+    releaseTxCount++;
+#endif
+}
+
+Ethernet_Pkt_Desc *Ethernet_performPopOnPacketQueueCustom(
+            Ethernet_PKT_Queue_T *pktQueuePtr)
+{
+    Ethernet_Pkt_Desc *pktDescHdrPtr;
+
+    pktDescHdrPtr = pktQueuePtr->head;
+
+    if(0U != pktDescHdrPtr)
+    {
+        pktQueuePtr->head = pktDescHdrPtr->nextPacketDesc;
+        pktQueuePtr->count--;
+    }
+
+    return(pktDescHdrPtr);
+}
+void Ethernet_performPushOnPacketQueueCustom(
+        Ethernet_PKT_Queue_T *pktQueuePtr,
+        Ethernet_Pkt_Desc *pktDescHdrPtr)
+{
+    pktDescHdrPtr->nextPacketDesc = 0U;
+
+    if(0U == pktQueuePtr->head)
+    {
+        //
+        // Queue is empty - Initialize it with this one packet
+        //
+        pktQueuePtr->head = pktDescHdrPtr;
+        pktQueuePtr->tail = pktDescHdrPtr;
+    }
+    else
+    {
+        //
+        // Queue is not empty - Push onto END
+        //
+        pktQueuePtr->tail->nextPacketDesc = pktDescHdrPtr;
+        pktQueuePtr->tail        = pktDescHdrPtr;
+    }
+    pktQueuePtr->count++;
+}
+void Ethernet_setMACConfigurationCustom(uint32_t base, uint32_t flags)
+{
+    HWREG(base + ETHERNET_O_MAC_CONFIGURATION) |= flags;
+}
+void Ethernet_clearMACConfigurationCustom(uint32_t base, uint32_t flags)
+{
+    HWREG(base + ETHERNET_O_MAC_CONFIGURATION) &= ~flags;
+
+}
+
+interrupt void Ethernet_genericISRCustom(void)
+{
+    genericISRCustomcount++;
+    Ethernet_RxChDesc *rxChan;
+    Ethernet_TxChDesc *txChan;
+//    Ethernet_HW_descriptor    *descPtr;
+//    Ethernet_HW_descriptor    *tailPtr;
+    uint16_t i=0;
+    Ethernet_clearMACConfigurationCustom(Ethernet_device_struct.baseAddresses.enet_base,ETHERNET_MAC_CONFIGURATION_RE);
+    Ethernet_clearMACConfigurationCustom(Ethernet_device_struct.baseAddresses.enet_base,ETHERNET_MAC_CONFIGURATION_TE);
+    for(i = 0U;i < Ethernet_device_struct.initConfig.numChannels;i++)
+     {
+         Ethernet_disableRxDMAReception(
+               Ethernet_device_struct.baseAddresses.enet_base,
+               i);
+     }
+    if(((ETHERNET_DMA_CH0_STATUS_AIS |
+                         ETHERNET_DMA_CH0_STATUS_RBU) ==
+                       (HWREG(Ethernet_device_struct.baseAddresses.enet_base +
+                              ETHERNET_O_DMA_CH0_STATUS) &
+                              (uint32_t)(ETHERNET_DMA_CH0_STATUS_AIS |
+                                         ETHERNET_DMA_CH0_STATUS_RBU))) ||
+          (ETHERNET_MTL_Q0_INTERRUPT_CONTROL_STATUS_RXOVFIS) ==
+                                   (HWREG(Ethernet_device_struct.baseAddresses.enet_base +
+                                          ETHERNET_O_MTL_Q0_INTERRUPT_CONTROL_STATUS) &
+                                          (uint32_t)(ETHERNET_MTL_Q0_INTERRUPT_CONTROL_STATUS_RXOVFIS
+                                                     )))
+      {
+          if((ETHERNET_DMA_CH0_STATUS_AIS |
+                             ETHERNET_DMA_CH0_STATUS_RBU) ==
+                           (HWREG(Ethernet_device_struct.baseAddresses.enet_base +
+                                  ETHERNET_O_DMA_CH0_STATUS) &
+                                  (uint32_t)(ETHERNET_DMA_CH0_STATUS_AIS |
+                                             ETHERNET_DMA_CH0_STATUS_RBU)))
+          {
+          genericISRCustomRBUcount++;
+          }
+          if((ETHERNET_MTL_Q0_INTERRUPT_CONTROL_STATUS_RXOVFIS) ==
+                  (HWREG(Ethernet_device_struct.baseAddresses.enet_base +
+                         ETHERNET_O_MTL_Q0_INTERRUPT_CONTROL_STATUS) &
+                         (uint32_t)(ETHERNET_MTL_Q0_INTERRUPT_CONTROL_STATUS_RXOVFIS
+                                    )))
+          {
+              genericISRCustomROVcount++;
+              Ethernet_enableMTLInterrupt(Ethernet_device_struct.baseAddresses.enet_base,0,
+                                          ETHERNET_MTL_Q0_INTERRUPT_CONTROL_STATUS_RXOVFIS);
+          }
+
+        /*
+             * Clear the AIS and RBU status bit. These MUST be
+             * cleared together!
+             */
+            Ethernet_clearDMAChannelInterrupt(
+                    Ethernet_device_struct.baseAddresses.enet_base,
+                    ETHERNET_DMA_CHANNEL_NUM_0,
+                    ETHERNET_DMA_CH0_STATUS_AIS |
+                    ETHERNET_DMA_CH0_STATUS_RBU);
+
+            /*
+           *Recover from Receive Buffer Unavailable (and hung DMA)
+         *
+         * All descriptor buffers are owned by the application, and
+         * in result the DMA cannot transfer incoming frames to the
+         * buffers (RBU condition). DMA has also entered suspend
+         * mode at this point, too.
+         *
+         * Drain the RX queues
+         */
+
+            /* Upon RBU error, discard all previously received packets */
+            if(Ethernet_device_struct.initConfig.pfcbDeletePackets != NULL)
+                (*Ethernet_device_struct.initConfig.pfcbDeletePackets)();
+
+            rxChan =
+               &Ethernet_device_struct.dmaObj.rxDma[ETHERNET_DMA_CHANNEL_NUM_0];
+            txChan=
+               &Ethernet_device_struct.dmaObj.txDma[ETHERNET_DMA_CHANNEL_NUM_0];
+
+    /*
+     * Need to disable multiple interrupts, so protect the code to do so within
+     * a global disable block (to prevent getting interrupted in between)
+     */
+
+            if(NULL!= Ethernet_device_struct.ptrPlatformInterruptDisable)
+            {
+                (*Ethernet_device_struct.ptrPlatformInterruptDisable)(
+                    Ethernet_device_struct.interruptNum[
+                        ETHERNET_RX_INTR_CH0 + rxChan->chInfo->chNum]);
+
+                (*Ethernet_device_struct.ptrPlatformInterruptDisable)(
+                    Ethernet_device_struct.interruptNum[
+                        ETHERNET_GENERIC_INTERRUPT]);
+            }
+            /* verify we have full capacity in the descriptor queue */
+            if(rxChan->descQueue.count < rxChan->descMax) {
+              /* The queue is not at full capacity due to OOM errors.
+              Try to fill it again */
+                Ethernet_addPacketsIntoRxQueue(rxChan);
+            }
+            Ethernet_initRxChannel(
+                    &Ethernet_device_struct.initConfig.chInfo[ETHERNET_CH_DIR_RX][0]);
+
+            Ethernet_writeRxDescTailPointer(
+                Ethernet_device_struct.baseAddresses.enet_base,
+                0,
+                (&Ethernet_device_struct.rxDesc[
+                 ((uint32_t)ETHERNET_DESCRIPTORS_NUM_RX_PER_CHANNEL) *
+                  (0 + (uint32_t)1U)]));
+
+            if(NULL!= Ethernet_device_struct.ptrPlatformInterruptEnable)
+            {
+                (*Ethernet_device_struct.ptrPlatformInterruptEnable)(
+                    Ethernet_device_struct.interruptNum[
+                        ETHERNET_RX_INTR_CH0 + rxChan->chInfo->chNum]);
+                (*Ethernet_device_struct.ptrPlatformInterruptEnable)(
+                    Ethernet_device_struct.interruptNum[
+                        ETHERNET_GENERIC_INTERRUPT]);
+            }
+
+
+    }
+    if(0U != (HWREG(Ethernet_device_struct.baseAddresses.enet_base +
+                                 ETHERNET_O_DMA_CH0_STATUS) &
+                           (uint32_t) ETHERNET_DMA_CH0_STATUS_RI))
+    {
+        genericISRCustomRIcount++;
+        Ethernet_clearDMAChannelInterrupt(
+                        Ethernet_device_struct.baseAddresses.enet_base,
+                        ETHERNET_DMA_CHANNEL_NUM_0,
+                        ETHERNET_DMA_CH0_STATUS_NIS | ETHERNET_DMA_CH0_STATUS_RI);
+    }
+
+    for(i = 0U;i < Ethernet_device_struct.initConfig.numChannels;i++)
+     {
+         Ethernet_enableRxDMAReception(
+               Ethernet_device_struct.baseAddresses.enet_base,
+               i);
+     }
+    Ethernet_setMACConfigurationCustom(Ethernet_device_struct.baseAddresses.enet_base,ETHERNET_MAC_CONFIGURATION_RE);
+    Ethernet_setMACConfigurationCustom(Ethernet_device_struct.baseAddresses.enet_base,ETHERNET_MAC_CONFIGURATION_TE);
+}
+
+void Ethernet_init(const unsigned char *mac)
+{
+    Ethernet_InitInterfaceConfig initInterfaceConfig;
+    uint32_t macLower;
+    uint32_t macHigher;
+    uint8_t *temp;
+
+    initInterfaceConfig.ssbase = EMAC_SS_BASE;
+    initInterfaceConfig.enet_base = EMAC_BASE;
+    initInterfaceConfig.phyMode = ETHERNET_SS_PHY_INTF_SEL_MII;
+
+    //
+    // Assign SoC specific functions for Enabling,Disabling interrupts
+    // and for enabling the Peripheral at system level
+    //
+    initInterfaceConfig.ptrPlatformInterruptDisable = &Platform_disableInterrupt;
+    initInterfaceConfig.ptrPlatformInterruptEnable  = &Platform_enableInterrupt;
+    initInterfaceConfig.ptrPlatformPeripheralEnable = &Platform_enablePeripheral;
+    initInterfaceConfig.ptrPlatformPeripheralReset  = &Platform_resetPeripheral;
+
+    //
+    // Assign the peripheral number at the SoC
+    //
+    initInterfaceConfig.peripheralNum = SYSCTL_PERIPH_CLK_ENET;
+
+    //
+    // Assign the default SoC specific interrupt numbers of Ethernet interrupts
+    //
+    initInterfaceConfig.interruptNum[0] = INT_EMAC;
+    initInterfaceConfig.interruptNum[1] = INT_EMAC_TX0;
+    initInterfaceConfig.interruptNum[2] = INT_EMAC_TX1;
+    initInterfaceConfig.interruptNum[3] = INT_EMAC_RX0;
+    initInterfaceConfig.interruptNum[4] = INT_EMAC_RX1;
+
+    pInitCfg = Ethernet_initInterface(initInterfaceConfig);
+
+    Ethernet_getInitConfig(pInitCfg);
+    pInitCfg->dmaMode.InterruptMode = ETHERNET_DMA_MODE_INTM_MODE2;
+
+    //
+    // Assign the callbacks for Getting packet buffer when needed
+    // Releasing the TxPacketBuffer on Transmit interrupt callbacks
+    // Receive packet callback on Receive packet completion interrupt
+    //
+    pInitCfg->pfcbRxPacket = &Ethernet_receivePacketCallbackCustom;
+    pInitCfg->pfcbGetPacket = &Ethernet_getPacketBuffer;    //custom
+    pInitCfg->pfcbFreePacket = &Ethernet_releaseTxPacketBufferCustom;
+
+    //
+    //Assign the Buffer to be used by the Low level driver for receiving
+    //Packets. This should be accessible by the Ethernet DMA
+    //
+    pInitCfg->rxBuffer = Ethernet_rxBuffer;
+
+    //
+    // The Application handle is not used by this application
+    // Hence using a dummy value of 1
+    //
+    Ethernet_getHandle((Ethernet_Handle)1, pInitCfg , &emac_handle);
+
+    //
+    // Disable transmit buffer unavailable and normal interrupt which
+    // are enabled by default in Ethernet_getHandle.
+    //
+    Ethernet_disableDmaInterrupt(Ethernet_device_struct.baseAddresses.enet_base,
+                                 0, (ETHERNET_DMA_CH0_INTERRUPT_ENABLE_TBUE |
+                                     ETHERNET_DMA_CH0_INTERRUPT_ENABLE_NIE));
+
+    //
+    // Enable the MTL interrupt to service the receive FIFO overflow
+    // condition in the Ethernet module.
+    //
+    Ethernet_enableMTLInterrupt(Ethernet_device_struct.baseAddresses.enet_base,0,
+                                ETHERNET_MTL_Q0_INTERRUPT_CONTROL_STATUS_RXOIE);
+
+    //
+    // Disable the MAC Management counter interrupts as they are not used
+    // in this application.
+    //
+    HWREG(Ethernet_device_struct.baseAddresses.enet_base + ETHERNET_O_MMC_RX_INTERRUPT_MASK) = 0xFFFFFFFF;
+    HWREG(Ethernet_device_struct.baseAddresses.enet_base + ETHERNET_O_MMC_IPC_RX_INTERRUPT_MASK) = 0xFFFFFFFF;
+    HWREG(Ethernet_device_struct.baseAddresses.enet_base + ETHERNET_O_MMC_TX_INTERRUPT_MASK) = 0xFFFFFFFF;
+    //
+    //Do global Interrupt Enable
+    //
+    (void)Interrupt_enableInProcessor();
+
+    //
+    //Assign default ISRs
+    //
+    Interrupt_registerHandler(INT_EMAC_TX0, Ethernet_transmitISR);
+    Interrupt_registerHandler(INT_EMAC_RX0, Ethernet_receiveISR);
+    Interrupt_registerHandler(INT_EMAC, Ethernet_genericISRCustom);
+
+    //
+    // Convert the mac address string into the 32/16 split variables format
+    // that is required by the driver to program into hardware registers.
+    // Note: This step is done after the Ethernet_getHandle function because
+    //       a dummy MAC address is programmed in that function.
+    //
+    temp = (uint8_t *)&macLower;
+    temp[0] = mac[0];
+    temp[1] = mac[1];
+    temp[2] = mac[2];
+    temp[3] = mac[3];
+
+    temp = (uint8_t *)&macHigher;
+    temp[0] = mac[4];
+    temp[1] = mac[5];
+
+    //
+    // Program the unicast mac address.
+    //
+    Ethernet_setMACAddr(EMAC_BASE,
+                        0,
+                        macHigher,
+                        macLower,
+                        ETHERNET_CHANNEL_0);
+
+    Ethernet_clearMACConfigurationCustom(Ethernet_device_struct.baseAddresses.enet_base,ETHERNET_MAC_CONFIGURATION_RE);
+    Ethernet_setMACConfigurationCustom(Ethernet_device_struct.baseAddresses.enet_base,ETHERNET_MAC_CONFIGURATION_RE);
+}
+
+void  Lwip_ParamInit(void)
+{
+    uint8_t pucMACArray[8];
+    uint32_t IPAddr; // 0xC0A80004; //192.168.0.4
+    uint32_t NetMask;
+    uint32_t GWAddr;
+
+    IPAddr  = MAKE_IP_ADDRESS(CmLocalParam.pIpAddr1[3],CmLocalParam.pIpAddr1[2],CmLocalParam.pIpAddr1[1],CmLocalParam.pIpAddr1[0]);
+    NetMask = MAKE_IP_ADDRESS(255,255,255,0);
+    GWAddr  = MAKE_IP_ADDRESS(CmLocalParam.pIpAddr1[3],CmLocalParam.pIpAddr1[2],CmLocalParam.pIpAddr1[1],1);
+
+    pucMACArray[0] = ((CmIpc_cpu2cm.uniqueID_L >> 0) & 0xff);
+    pucMACArray[1] = ((CmIpc_cpu2cm.uniqueID_L >> 8) & 0xff);
+    pucMACArray[2] = ((CmIpc_cpu2cm.uniqueID_M >> 0) & 0xff);
+    pucMACArray[3] = ((CmIpc_cpu2cm.uniqueID_M >> 8) & 0xff);
+    pucMACArray[4] = 0x08;
+    pucMACArray[5] = 0x01;
+
+    // Initialize ethernet module.
+    Ethernet_init(pucMACArray);
+
+    // Initialze the lwIP library, using DHCP.
+    lwIPInit(0, pucMACArray, IPAddr, NetMask, GWAddr, IPADDR_USE_STATIC);
+
+    // Loop forever. All the work is done in interrupt handlers.
+
+    Interrupt_setPriority(INT_EMAC_TX0, 2);
+    Interrupt_setPriority(INT_EMAC_RX0, 1);
+    Interrupt_enable(INT_EMAC_TX0);
+    Interrupt_enable(INT_EMAC_RX0);
+    Interrupt_enable(INT_EMAC);
+}
+
+//*****************************************************************************
+//
+// Called by lwIP Library. Could be used for periodic custom tasks.
+//
+//*****************************************************************************
+
+uint32_t cnt_ms_lwip_Htimer=0;
+uint32_t cnt_ms_TX_Htimer=0;
+void lwIPHostTimerHandler(void)
+{
+//  msTime++;
+
+    cnt_ms_lwip_Htimer++;
+}
+
+// 以太网接收回调分发器：同时处理LwIP和PTP
+Ethernet_Pkt_Desc* Ethernet_Rx_Dispatch(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket)
+{
+
+}
+
+// 以太网发送释放回调分发器：同时释放LwIP缓冲区+捕获PTP时间戳
+void Ethernet_Tx_Free_Dispatch(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket)
+{
+
+}
+

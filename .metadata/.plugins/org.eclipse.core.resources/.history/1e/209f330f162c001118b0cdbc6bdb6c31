@@ -1,0 +1,31 @@
+
+#include <string.h>
+
+#include "driverlib_cm.h"
+#include "cm.h"
+#include "utils/lwiplib.h"
+
+#include "lwipopts.h"
+#include "Eth_mii.h"
+#include "ipc.h"
+#include "bsp.h"
+
+
+uint32_t systickPeriodValue = 125000; //15000000;
+
+extern void sys_check_timeouts(void);
+
+#define DEVICE_FLASH_WAITSTATES 2
+
+
+
+int main(void)
+{
+
+    while (1)
+    {
+
+    }
+}
+
+

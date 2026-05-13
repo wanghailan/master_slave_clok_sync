@@ -1,0 +1,65 @@
+//#############################################################################
+//
+// FILE:   main.c
+//
+
+// Included Files
+//
+#include <Driver/device/device.h>
+#include <Driver/device/driverlib.h>
+#include "bsp.h"
+#include "board.h"
+#include "math.h"
+#include "pwm_master_sync.h"
+#include "pwm_slave_sync.h"
+
+
+
+
+//static void* gAllowPpsSync = NULL;
+
+void main(void)
+{
+    bsp_init();
+
+#if (PWM_SYNC_ROLE == PWM_SYNC_ROLE_MASTER)
+    PWM_MasterSync_Init();
+#elif (PWM_SYNC_ROLE == PWM_SYNC_ROLE_SLAVE)
+    PWM_SlaveSync_Init();
+#endif
+
+    for(;;)
+    {
+        if(Cpu1Ipc_cm2cpu.Reset_En == 0)
+            SysCtl_serviceWatchdog();  //看门狗喂狗
+        Drv_Timer_ClockMaintain();
+        cpu2claParam_Upgrade();
+        App_AllFault_Deal();
+        if(Cpu1Ipc_cm2cpu.SoftStart_En)
+        {
+            if(Cpu1Ipc_cm2cpu.WorkMode == GridDisConnectMode)
+                Pcs_InvCtrl_SoftStar();
+            else
+            {
+                if(Cpu1Ipc_cm2cpu.OnGridMode == 2)      //恒直流电压模式
+                    Pcs_DcConstVolCtrl_SoftStar();
+                else if(Cpu1Ipc_cm2cpu.OnGridMode == 1)  //恒交流电流
+                    Pcs_AcConstCurrCtrl_SoftStar();
+                else if(Cpu1Ipc_cm2cpu.OnGridMode == 3)  //恒直流电流
+                    Pcs_DcConstCurrCtrl_SoftStar();
+                else if(Cpu1Ipc_cm2cpu.OnGridMode == 0)  //恒功率
+                    Pcs_PQConstCtrl_SoftStar();
+            }
+        }
+        obj_PcsOutput_TempCalc();
+        objControl_StateCtrl();
+        objControl_FanControl();
+        objControl_DOControl();
+        objControl_LedControl();
+        SciC_Poll();
+        SciD_Poll();
+    }
+}
+
+// End of File
+

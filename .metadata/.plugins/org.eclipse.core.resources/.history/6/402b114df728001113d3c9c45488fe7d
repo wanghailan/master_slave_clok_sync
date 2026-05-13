@@ -1,0 +1,41 @@
+/*
+ * Eth_mii.h
+ *
+ *  Created on: 2025Äê6ÔÂ26ÈÕ
+ *      Author: guowei
+ */
+
+#ifndef SRC_ETH_MII_H_
+#define SRC_ETH_MII_H_
+
+#include "driverlib_cm/ethernet.h"
+#include "lwipopts.h"
+
+#define ETHERNET_NO_OF_RX_PACKETS      2U
+#define ETHERNET_MAX_PACKET_LENGTH     1538U
+#define NUM_PACKET_DESC_RX_APPLICATION PBUF_POOL_SIZE //8 - same as PBUF_POOL_SIZ
+
+#define ETH_RX_BUF_SIZE  (ETHERNET_NO_OF_RX_PACKETS * ETHERNET_MAX_PACKET_LENGTH)
+
+extern Ethernet_Pkt_Desc pktDescriptorRXCustom[NUM_PACKET_DESC_RX_APPLICATION];
+extern uint8_t Ethernet_rxBuffer[ETH_RX_BUF_SIZE];
+extern Ethernet_Handle emac_handle;
+
+extern uint32_t Ethernet_numGetPacketBufferCallback;
+extern Ethernet_Device Ethernet_device_struct;
+
+
+void Lwip_ParamInit(void);
+void Ethernet_init(const unsigned char *mac);
+void lwIPHostTimerHandler(void);
+
+extern uint32_t genericISRCustomcount;
+extern uint32_t genericISRCustomRBUcount;
+extern uint32_t genericISRCustomROVcount;
+extern uint32_t genericISRCustomRIcount;
+
+extern uint32_t sendPacketFailedCount;
+
+extern interrupt void Ethernet_genericISRCustom(void);
+
+#endif /* SRC_ETH_MII_H_ */

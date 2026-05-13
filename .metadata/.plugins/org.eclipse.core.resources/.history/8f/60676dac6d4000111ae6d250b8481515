@@ -1,0 +1,8 @@
+################################################################################
+# Automatically-generated file. Do not edit!
+################################################################################
+
+USER_OBJS :=
+
+LIBS := -l"D:/project/dsp-sync-clock/code/PCS150KW_c28x_cm_V4.0/Driver/device/driverlib_cm.lib" -llibc.a
+

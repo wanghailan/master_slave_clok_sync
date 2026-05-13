@@ -1,0 +1,9 @@
+
+**** Build of configuration CPU1_FLASH_SLAVE for project PCS150KW_c28x_cpu1_V4.0 ****
+
+"C:\\ti\\ccs1280\\ccs\\utils\\bin\\gmake" -k -j 16 all -O 
+ 
+gmake[1]: 'PCS150KW_c28x_cpu1_V4.0.out' is up to date.
+gmake[1]: Nothing to be done for 'secondary-outputs'.
+
+**** Build Finished ****

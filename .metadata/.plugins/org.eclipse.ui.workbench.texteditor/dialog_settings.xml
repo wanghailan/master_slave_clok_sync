@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
+		<item key="selection" value="PPS_GPIO"/>
+		<item key="wrap" value="true"/>
+		<item key="casesensitive" value="false"/>
+		<item key="wholeword" value="false"/>
+		<item key="incremental" value="false"/>
+		<item key="isRegEx" value="false"/>
+		<list key="findhistory">
+			<item value="PPS_GPIO"/>
+			<item value="gServoAi"/>
+			<item value="PTP_SERVO_DEFAULT_AI"/>
+			<item value="debug_servo_filtered_offset_ns"/>
+			<item value="debug_ptp_raw_offset_ns"/>
+			<item value="debug_servo_observed_drift_ns_per_s"/>
+			<item value="debug_servo_adj_ns_per_s"/>
+			<item value="debug_master_timebase_delta_ns"/>
+			<item value="debug_master_addend"/>
+			<item value="debug_servo_addend"/>
+			<item value="updateClock"/>
+			<item value="PTP_SERVO_MAX_LOCKED_ADJ_NS"/>
+			<item value="PTP_SERVO_DEADBAND_NS"/>
+			<item value="PTP_SERVO_FILTER_DIV"/>
+			<item value="PTP_SERVO_STEP_NS"/>
+		</list>
+		<list key="replacehistory">
+			<item value="EPWM1_BASE"/>
+			<item value="waitingForDelayResp"/>
+			<item value="delayRespReceived"/>
+			<item value="followUpReceived"/>
+			<item value=""/>
+			<item value="gPtpSlaveState.syncOriginTimestamp"/>
+			<item value="gPtpSlaveState."/>
+			<item value="gPtpSlaveState.lastSyncSeqId"/>
+			<item value="CmIpc_cm2cpu"/>
+		</list>
+	</section>
+	<section name="org.eclipse.ui.texteditor.FindReplaceDialog_dialogBounds">
+		<item key="DIALOG_X_ORIGIN" value="1188"/>
+		<item key="DIALOG_Y_ORIGIN" value="736"/>
+		<item key="DIALOG_WIDTH" value="315"/>
+		<item key="DIALOG_HEIGHT" value="227"/>
+		<item key="DIALOG_FONT_NAME" value="1|Microsoft YaHei UI|9.0|0|WINDOWS|1|-12|0|0|0|400|0|0|0|1|0|0|0|0|Microsoft YaHei UI"/>
+	</section>
+</section>

@@ -1,0 +1,29 @@
+
+**** Build of configuration CM_FLASH for project ethernet_ex4_ptp_basic_slave ****
+
+"C:\\ti\\ccs1280\\ccs\\utils\\bin\\gmake" -k -j 16 all -O 
+ 
+Building file: "../startup_cm.c"
+Invoking: Arm Compiler
+"C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/bin/armcl" -mv7M4 --code_state=16 --float_support=none -me -Ooff --include_path="D:/workspace/CCS/ethernet_ex4_ptp_basic_slave" --include_path="D:/workspace/CCS/ethernet_ex4_ptp_basic_slave/device" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/driverlib_cm" --include_path="C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include" --define=DEBUG --define=_FLASH --diag_warning=225 --diag_wrap=off --display_error_number --gen_func_subsections=on --preproc_with_compile --preproc_dependency="startup_cm.d_raw"  "../startup_cm.c"
+Finished building: "../startup_cm.c"
+ 
+Building file: "../device/cm.c"
+Invoking: Arm Compiler
+"C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/bin/armcl" -mv7M4 --code_state=16 --float_support=none -me -Ooff --include_path="D:/workspace/CCS/ethernet_ex4_ptp_basic_slave" --include_path="D:/workspace/CCS/ethernet_ex4_ptp_basic_slave/device" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/driverlib_cm" --include_path="C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include" --define=DEBUG --define=_FLASH --diag_warning=225 --diag_wrap=off --display_error_number --gen_func_subsections=on --preproc_with_compile --preproc_dependency="device/cm.d_raw" --obj_directory="device"  "../device/cm.c"
+Finished building: "../device/cm.c"
+ 
+Building file: "../main_slave.c"
+Invoking: Arm Compiler
+"C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/bin/armcl" -mv7M4 --code_state=16 --float_support=none -me -Ooff --include_path="D:/workspace/CCS/ethernet_ex4_ptp_basic_slave" --include_path="D:/workspace/CCS/ethernet_ex4_ptp_basic_slave/device" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/driverlib_cm" --include_path="C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include" --define=DEBUG --define=_FLASH --diag_warning=225 --diag_wrap=off --display_error_number --gen_func_subsections=on --preproc_with_compile --preproc_dependency="main_slave.d_raw"  "../main_slave.c"
+"../main_slave.c", line 325: warning #179-D: function "diffNano" was declared but never referenced
+Finished building: "../main_slave.c"
+ 
+Building target: "ethernet_ex4_ptp_basic_slave.out"
+Invoking: Arm Linker
+"C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/bin/armcl" -mv7M4 --code_state=16 --float_support=none -me -Ooff --define=DEBUG --define=_FLASH --diag_warning=225 --diag_wrap=off --display_error_number --gen_func_subsections=on -z -m"ethernet_ex4_ptp_basic_slave.map" --heap_size=1024 --stack_size=1024 -i"C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/lib" -i"C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include" --reread_libs --diag_wrap=off --display_error_number --warn_sections --xml_link_info="ethernet_ex4_ptp_basic_slave_linkInfo.xml" --rom_model -o "ethernet_ex4_ptp_basic_slave.out" "./main_slave.obj" "./startup_cm.obj" "./device/cm.obj" "../2838x_FLASH_lnk_cm.cmd" "C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/driverlib_cm/ccs/Debug/driverlib_cm.lib"  -llibc.a 
+<Linking>
+Finished building target: "ethernet_ex4_ptp_basic_slave.out"
+ 
+
+**** Build Finished ****

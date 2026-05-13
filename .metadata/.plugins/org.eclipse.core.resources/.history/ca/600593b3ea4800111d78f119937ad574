@@ -1,0 +1,147 @@
+/*
+ * pwm_slave_sync.c
+ *
+ * 功能：
+ *    Slave侧PPS同步PWM。
+ *    通过eCAP1捕获经PTP协议同步后的PPS上升沿，
+ *    在确认PTP已锁定（Cpu1Ipc_cm2cpu.PtpSynced==1）后，
+ *    校正EPWM1相位，使其与Master的PWM间接对齐。
+ */
+
+#include "pwm_slave_sync.h"
+#include "bsp.h"
+
+
+#define PPS_INPUTXBAR_CHANNEL       XBAR_INPUT7            // 内部路由(AUXSIG2 -> INPUTXBAR7)
+#define PPS_ECAP_INPUT_SEL          ECAP_INPUT_INPUTXBAR7  // INPUTXBAR7 -> ECAP1
+#define SYNC_EPWM_BASE              EPWM1_BASE             // ePWM1为同步基准模块
+#define EPWM_TBCLK_HZ               200000000UL            // 时钟频率
+#define ECAP_TSCTR_HZ               200000000UL
+
+// 控制参数
+#define PWM_MAX_STEP_NS             100L
+#define PWM_LOCK_THRESHOLD_NS       50L
+#define PPS_ISR_MAX_LATENCY_NS      5000UL
+
+#define SLAVE_PWM_BASE_PHASE        0U       // PWM基准相位
+#define MAX_INTERGRAL_THRESHOLD     500.0f   // 积分限幅
+#define XBAR_INPUT7_SRC_AUX_SIG2    0x12U    // XBAR INPUT7内部源选择AUXSIG2
+
+
+extern IPC_DATA_CM2CPU    Cpu1Ipc_cm2cpu;    //从CM核获取PTP同步状态
+
+static volatile uint32_t g_slavePpsCapCount = 0;
+static volatile int32_t  g_slavePwmPhaseErrTicks = 0;
+static volatile int32_t  g_slavePwmPhaseErrNs = 0;
+static volatile uint32_t g_slavePwmLockCount = 0U;
+static volatile uint32_t g_slavePwmSkipCount = 0U;
+static volatile bool     g_slavePwmLocked = false;
+
+
+static void Slave_InitEPwmSync(void);
+static void Slave_InitPpsEcap(void);
+static void Slave_ServicePpsCapture(bool allowSync);
+
+static int32_t  ns_to_tbclk_ticks(int32_t ns);
+static uint32_t ns_to_ecap_ticks(uint32_t ns);
+static uint32_t ecap_ticks_to_tbclk(uint32_t ecapTicks);
+static uint32_t wrap_u32(int32_t value, uint32_t modulo);
+static int32_t  signed_phase_error(uint32_t actual, uint32_t target, uint32_t modulo);
+static int32_t  clamp_i32(int32_t value, int32_t minValue, int32_t maxValue);
+
+
+// 初始化函数
+void PWM_SlaveSync_Init(void)
+{
+    // 1. 配置 PWM1 同步功能
+    Slave_InitEPwmSync();
+
+    // 2. PPS eCAP
+    Slave_InitPpsEcap();
+}
+
+// Slave EPWM1同步配置
+static void Slave_InitEPwmSync(void)
+{
+    EALLOW;
+
+    // 冻结时基时钟
+    SysCtl_disablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
+
+    // 1. 配置EPWM1：不接收外部同步
+    EPWM_setSyncInPulseSource(SYNC_EPWM_BASE, EPWM_SYNC_IN_PULSE_SRC_DISABLE);
+
+    // 2. 初始相位偏移
+    EPWM_setPhaseShift(SYNC_EPWM_BASE, 0U);
+
+    // 3. EPWM1在CTR=0时输出同步脉冲，供其余通道级联
+    EPWM_enableSyncOutPulseSource(SYNC_EPWM_BASE, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
+}
+
+
+
+
+static void PWM_SlaveSync_ConfigPpsRoute(void)
+{
+    GPIO_setQualificationMode(PPS_GPIO, GPIO_QUAL_ASYNC);
+    XBAR_setInputPin(INPUTXBAR_BASE, PPS_INPUT_XBAR, PPS_GPIO);
+    XBAR_clearInputFlag(PPS_INPUT_XBAR_FLAG);
+
+    EPWM_setSyncInPulseSource(EPWM1_BASE,
+                              EPWM_SYNC_IN_PULSE_SRC_INPUTXBAR_OUT5);
+    EPWM_setPhaseShift(EPWM1_BASE, 0U);
+    EPWM_enablePhaseShiftLoad(EPWM1_BASE);
+    EPWM_setCountModeAfterSync(EPWM1_BASE, EPWM_COUNT_MODE_UP_AFTER_SYNC);
+
+    EPWM_enableSyncOutPulseSource(EPWM1_BASE,
+                                  EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO |
+                                  EPWM_SYNC_OUT_PULSE_ON_SOFTWARE);
+    SysCtl_setSyncOutputConfig(SYSCTL_SYNC_OUT_SRC_EPWM1SYNCOUT);
+}
+
+static void PWM_SlaveSync_ConfigEcap(void)
+{
+    ECAP_disableInterrupt(PPS_ECAP_BASE, PPS_ECAP_ALL_FLAGS);
+    ECAP_clearInterrupt(PPS_ECAP_BASE, PPS_ECAP_ALL_FLAGS);
+    ECAP_clearGlobalInterrupt(PPS_ECAP_BASE);
+
+    ECAP_stopCounter(PPS_ECAP_BASE);
+    ECAP_enableCaptureMode(PPS_ECAP_BASE);
+    ECAP_selectECAPInput(PPS_ECAP_BASE, PPS_ECAP_INPUT);
+    ECAP_setCaptureMode(PPS_ECAP_BASE,
+                        ECAP_CONTINUOUS_CAPTURE_MODE,
+                        ECAP_EVENT_1);
+    ECAP_setEventPolarity(PPS_ECAP_BASE,
+                          ECAP_EVENT_1,
+                          ECAP_EVNT_RISING_EDGE);
+    ECAP_enableCounterResetOnEvent(PPS_ECAP_BASE, ECAP_EVENT_1);
+    ECAP_enableTimeStampCapture(PPS_ECAP_BASE);
+    ECAP_resetCounters(PPS_ECAP_BASE);
+
+    ECAP_enableInterrupt(PPS_ECAP_BASE, ECAP_ISR_SOURCE_CAPTURE_EVENT_1);
+    ECAP_startCounter(PPS_ECAP_BASE);
+}
+
+void PWM_SlaveSync_Init(void)
+{
+    PWM_SlaveSync_ConfigPpsRoute();
+
+    Interrupt_register(PPS_ECAP_INT, &PPS_Slave_ISR);
+    PWM_SlaveSync_ConfigEcap();
+    Interrupt_enable(PPS_ECAP_INT);
+}
+
+__interrupt void PPS_Slave_ISR(void)
+{
+    if((ECAP_getInterruptSource(PPS_ECAP_BASE) &
+        ECAP_ISR_SOURCE_CAPTURE_EVENT_1) != 0U)
+    {
+        g_slavePpsCap1 = ECAP_getEventTimeStamp(PPS_ECAP_BASE,
+                                                ECAP_EVENT_1);
+        g_slavePpsIsrCount++;
+    }
+
+    ECAP_clearInterrupt(PPS_ECAP_BASE, PPS_ECAP_ALL_FLAGS);
+    ECAP_clearGlobalInterrupt(PPS_ECAP_BASE);
+    Interrupt_clearACKGroup(PPS_ECAP_ACK_GROUP);
+}

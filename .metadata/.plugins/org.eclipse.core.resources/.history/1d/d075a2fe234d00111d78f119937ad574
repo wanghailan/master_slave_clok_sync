@@ -1,0 +1,100 @@
+//#############################################################################
+//
+// FILE:   Drv_PWM.c
+//
+// TITLE:  CPU controlled data frame transfers with internal or external
+//
+//#############################################################################
+
+#include <Driver/device/device.h>
+#include <Driver/device/driverlib.h>
+
+#include "Drv_PWM.h"
+#include "bsp.h"
+
+
+// EPWM1_A - GPIO Settings
+#define GPIO_PIN_EPWM1_A            0
+#define EPWM1_EPWMA_GPIO            0
+#define EPWM1_EPWMA_PIN_CONFIG      GPIO_0_EPWM1A
+// EPWM1_B - GPIO Settings
+#define GPIO_PIN_EPWM1_B            1
+#define EPWM1_EPWMB_GPIO            1
+#define EPWM1_EPWMB_PIN_CONFIG      GPIO_1_EPWM1B
+// EPWM2_A - GPIO Settings
+#define GPIO_PIN_EPWM2_A            2
+#define EPWM2_EPWMA_GPIO            2
+#define EPWM2_EPWMA_PIN_CONFIG      GPIO_2_EPWM2A
+// EPWM2_B - GPIO Settings
+#define GPIO_PIN_EPWM2_B            3
+#define EPWM2_EPWMB_GPIO            3
+#define EPWM2_EPWMB_PIN_CONFIG      GPIO_3_EPWM2B
+// EPWM3_A - GPIO Settings
+#define GPIO_PIN_EPWM3_A            4
+#define EPWM3_EPWMA_GPIO            4
+#define EPWM3_EPWMA_PIN_CONFIG      GPIO_4_EPWM3A
+// EPWM3_B - GPIO Settings
+#define GPIO_PIN_EPWM3_B            5
+#define EPWM3_EPWMB_GPIO            5
+#define EPWM3_EPWMB_PIN_CONFIG      GPIO_5_EPWM3B
+// EPWM4_A - GPIO Settings
+#define GPIO_PIN_EPWM4_A            151
+#define EPWM4_EPWMA_GPIO            151
+#define EPWM4_EPWMA_PIN_CONFIG      GPIO_151_EPWM4A
+// EPWM4_B - GPIO Settings
+#define GPIO_PIN_EPWM4_B            152
+#define EPWM4_EPWMB_GPIO            152
+#define EPWM4_EPWMB_PIN_CONFIG      GPIO_152_EPWM4B
+// EPWM5_A - GPIO Settings
+#define GPIO_PIN_EPWM5_A            8
+#define EPWM5_EPWMA_GPIO            8
+#define EPWM5_EPWMA_PIN_CONFIG      GPIO_8_EPWM5A
+// EPWM5_B - GPIO Settings
+#define GPIO_PIN_EPWM5_B            9
+#define EPWM5_EPWMB_GPIO            9
+#define EPWM5_EPWMB_PIN_CONFIG      GPIO_9_EPWM5B
+// EPWM6_A - GPIO Settings
+#define GPIO_PIN_EPWM6_A            10
+#define EPWM6_EPWMA_GPIO            10
+#define EPWM6_EPWMA_PIN_CONFIG      GPIO_10_EPWM6A
+// EPWM6_B - GPIO Settings
+#define GPIO_PIN_EPWM6_B            11
+#define EPWM6_EPWMB_GPIO            11
+#define EPWM6_EPWMB_PIN_CONFIG      GPIO_11_EPWM6B
+
+// EPWM7_A - GPIO Settings  ƽ����Ϲ�
+#define GPIO_PIN_EPWM7_A            12
+#define EPWM7_EPWMA_GPIO            12
+#define EPWM7_EPWMA_PIN_CONFIG      GPIO_12_EPWM7A
+// EPWM7_B - GPIO Settings  ƽ����¹�
+#define GPIO_PIN_EPWM7_B            13
+#define EPWM7_EPWMB_GPIO            13
+#define EPWM7_EPWMB_PIN_CONFIG      GPIO_13_EPWM7B
+
+// EPWM8_A - GPIO Settings   FAN_CTRL
+#define GPIO_PIN_EPWM8_A            14
+#define EPWM8_EPWMA_GPIO            14
+#define EPWM8_EPWMA_PIN_CONFIG      GPIO_14_EPWM8A
+
+
+#define EPWM1_TIMER_TBPRD           EPWM_TBPRD
+#define EPWM2_TIMER_TBPRD           EPWM_TBPRD
+#define EPWM3_TIMER_TBPRD           EPWM_TBPRD
+#define EPWM4_TIMER_TBPRD           EPWM_TBPRD
+#define EPWM5_TIMER_TBPRD           EPWM_TBPRD
+#define EPWM6_TIMER_TBPRD           EPWM_TBPRD
+
+#define EPWM_DEAD_TIME              250 //����ʱ��2.4us 240*10
+
+#define GPIO_PIN_PWMEN              97U  // GPIO number for PWMEN
+#define GPIO_CFG_PWMEN              GPIO_97_GPIO97
+
+
+void Drv_Pwm_PinMux_Init(void);
+void Drv_PWM_SYNC_Init(void);
+void Drv_PWM_ParamInit(void);
+
+static void Drv_EPWMx_Init(uint32_t PwmXBase,uint32_t PwmPrd,uint32_t PhaseShift,uint32_t ComPareA,uint32_t ComPareB,int16_t DeadZEn,int16_t SyncEn);
+//
+// Globals to hold the ePWM information used in this example
+//

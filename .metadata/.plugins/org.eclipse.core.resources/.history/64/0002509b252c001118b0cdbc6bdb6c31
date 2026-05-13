@@ -1,0 +1,15 @@
+eclipse.preferences.version=1
+encoding//CM_FLASH/Driver/W5500/subdir_rules.mk=UTF-8
+encoding//CM_FLASH/Driver/W5500/subdir_vars.mk=UTF-8
+encoding//CM_FLASH/Driver/device/subdir_rules.mk=UTF-8
+encoding//CM_FLASH/Driver/device/subdir_vars.mk=UTF-8
+encoding//CM_FLASH/Driver/subdir_rules.mk=UTF-8
+encoding//CM_FLASH/Driver/subdir_vars.mk=UTF-8
+encoding//CM_FLASH/Flash/Driver/W5500/subdir_rules.mk=UTF-8
+encoding//CM_FLASH/Flash/Driver/W5500/subdir_vars.mk=UTF-8
+encoding//CM_FLASH/Flash/Driver/subdir_rules.mk=UTF-8
+encoding//CM_FLASH/Flash/Driver/subdir_vars.mk=UTF-8
+encoding//CM_FLASH/sources.mk=UTF-8
+encoding//CM_FLASH/subdir_rules.mk=UTF-8
+encoding//CM_FLASH/subdir_vars.mk=UTF-8
+encoding//src/ptp_master_sync.c=UTF-8

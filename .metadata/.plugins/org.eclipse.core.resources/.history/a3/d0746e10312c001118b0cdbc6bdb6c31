@@ -1,0 +1,29 @@
+/*
+ * Eth_mii.h
+ *
+ *  Created on: 2025Äê6ÔÂ26ÈÕ
+ *      Author: guowei
+ */
+
+#ifndef SRC_ETH_MII_H_
+#define SRC_ETH_MII_H_
+
+#include "ethernet_dispatch.h"
+
+
+extern Ethernet_InitConfig *pInitCfg;
+
+void Lwip_ParamInit(void);
+void Ethernet_init(const unsigned char *mac);
+void lwIPHostTimerHandler(void);
+
+
+extern Ethernet_Pkt_Desc* Ethernet_Rx_Dispatch(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
+
+extern void Ethernet_Tx_Release_Dispatch(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket)
+
+#endif /* SRC_ETH_MII_H_ */

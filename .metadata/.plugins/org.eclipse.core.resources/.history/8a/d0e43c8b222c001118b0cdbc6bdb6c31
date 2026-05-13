@@ -1,0 +1,41 @@
+
+#include <string.h>
+
+#include "driverlib_cm.h"
+#include "cm.h"
+#include "utils/lwiplib.h"
+
+#include "lwipopts.h"
+#include "Eth_mii.h"
+#include "ipc.h"
+#include "bsp.h"
+#include "ptp_master_sync.h"
+
+
+uint32_t systickPeriodValue = 125000; //15000000;
+
+extern void sys_check_timeouts(void);
+
+#define DEVICE_FLASH_WAITSTATES 2
+
+static uint16_t u16_b500ms = 1;
+
+
+int main(void)
+{
+    // Initializing the CM. Loading the required functions to SRAM.
+    CM_init();
+
+    while (1)
+    {
+        if (u16_b500ms == 1)
+        {
+            Drv_Led_toggle();
+        }
+
+        // ptp
+        ptp_master_run();
+    }
+}
+
+

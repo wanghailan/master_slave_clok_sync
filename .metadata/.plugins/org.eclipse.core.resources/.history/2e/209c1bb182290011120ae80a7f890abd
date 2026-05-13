@@ -1,0 +1,28 @@
+/*
+ * ethernet_dispatch.c
+ *
+ *  Created on: 2026年3月27日
+ *      Author: whl
+ */
+
+#include "ethernet_dispatch.h"
+
+PTPMasterState gPtpMasterState = {0};
+uint8_t gMsgBuf[PACKET_LENGTH] = {0};
+
+// 接收分发核心逻辑：先LwIP，后PTP
+Ethernet_Pkt_Desc* Ethernet_Rx_Dispatch(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket)
+
+// Function prototypes used in this case
+void msgUnpackHeader(Octet * buf, MsgHeader * header);
+
+void msgPackSync(Octet * buf, PTPMasterState *ptpMasterState);
+
+void msgPackFollowUp(Octet * buf, PTPMasterState *ptpMasterState);
+
+void msgPackHeader(Octet * buf, PTPMasterState *ptpMasterState);
+
+void msgPackDelayResp(Octet * buf, PTPMasterState *ptpMasterState);
+

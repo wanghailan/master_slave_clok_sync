@@ -1,0 +1,16 @@
+/*
+ * pwm_master_sync.c
+ *
+ * 功能：
+ *    Master 侧 PPS 同步 PWM。
+ *    通过 eCAP1 捕获 CM 核经 PTP 对齐后的 PPS 上升沿，
+ *    计算 ISR 延迟并修正 EPWM1 相位；EPWM1 的 SYNCO 供其余 EPWM 模块级联。
+ *
+ * 修改记录：
+ *    1. 补上 PPS_ECAP_BASE / PPS_ECAP_INT 宏（移到 .h）
+ *    2. TBCLKSYNC 配置后恢复使能
+ *    3. PHASE_OFFSET 统一到 0L
+ *    4. 增加多 EPWM 级联注释与示例
+ */
+#include "pwm_master_sync.h"
+#include "bsp.h"

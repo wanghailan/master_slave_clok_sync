@@ -1,0 +1,216 @@
+/*
+ * ptp_basic_master.c
+ *
+ *  Created on: 2026.03.26
+ *      Author: whl
+ */
+#include "ptp_master_sync.h"
+#include "bsp.h"
+#include "Eth_mii.h"
+
+static uint32_t Ethernet_numRxCallbackCustom = 0;
+static uint32_t releaseTxCount = 0;
+
+static void InitConstants(PTPMasterState *ptpMasterState);
+
+// ptpd init test
+void ptp_master_init()
+{
+    uint32_t i;
+    uint32_t varPtpConfig = 0;
+    float subSecondInc;
+
+    // 寮哄埗璁剧疆浠ュお缃慚AC涓�100Mbps妯″紡
+    Ethernet_setMACConfiguration(EMAC_BASE, ETHERNET_MAC_CONFIGURATION_100MBIT);
+
+    // PTP鐩稿叧閰嶇疆
+    varPtpConfig = (0 << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
+                            ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
+                            ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
+                            ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
+                            ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
+                            ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;
+
+    subSecondInc = PTP_REF_CLOCK_PERIOD;
+
+    Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
+    Ethernet_enableSysTimePTP(EMAC_BASE);
+
+    // Start the system with a random value.
+    Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCA, 0x25a5a5a5);
+
+    // We need to program this standard multicast address so that this device
+    // identifies PTP over Ethernet packets correctly. "01:1B:19:00:00:00"
+    Ethernet_setMACAddr(EMAC_BASE,
+                        1,
+                        0x00000000,
+                        0x00191B01,
+                        ETHERNET_CHANNEL_0);
+
+    // 閰嶇疆閫熷害鍜屽弻宸ユā寮�
+    Ethernet_setMACConfiguration(EMAC_BASE, ((uint32_t)1 << 14));
+    Ethernet_setMACConfiguration(EMAC_BASE, ((uint32_t)1 << 13));
+
+    // 閲嶆柊浣胯兘TX/RX
+    Ethernet_setMACConfiguration(EMAC_BASE, 0x2);  // 浣胯兘TX
+    Ethernet_setMACConfiguration(EMAC_BASE, 0x1);  // 浣胯兘RX
+
+    Ethernet_selectTargetInterruptOrPulsePPS(
+                            EMAC_BASE,
+                            ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                            ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT);
+
+    // We need to set a standard defined Multicast address : 01:1B:19:00:00:00
+    // as the Destination address in the ethernet frame and that is how the
+    // receiver will recognize it as a valid PTP over Ethernet packet.
+    //
+    i=0; *((uint32_t *)gMsgBuf + i) = 0x00191B01;
+    i++; *((uint32_t *)gMsgBuf + i)  = 0xF7880000;
+
+    InitConstants(&gPtpMasterState);
+}
+
+#if 0
+void ptp_master_run()
+{
+    uint32_t timeSec;
+    uint32_t timeNanosec;
+    const uint32_t TIMEOUT_MAX = 2000000;
+
+    uint32_t timeout = 0;
+
+    // Use the system time counter to send the sync + followUp messages
+    // every one second.
+    Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+    Ethernet_setTargetTimePPS(EMAC_BASE, ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                              timeSec + 1, timeNanosec);
+
+    // Waiting till the target time that we set above is reached.
+    // We're using the PPSOUT instance 0 as the timer.
+    while((((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS)) &
+         (ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0)) == 0) &&
+         (timeout < TIMEOUT_MAX))
+    {
+        timeout++;
+    }
+
+    if(timeout >= TIMEOUT_MAX)
+    {
+        CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1;
+        return;
+    }
+
+    // Save the state. We want to capture the timestamp of the next SYNC
+    // packet that is being sent.
+    gPtpMasterState.syncTimestampAvailable = FALSE;
+
+    // Send out the SYNC packet.
+    sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
+
+    timeout = 0;
+
+    //  Wait till the latest sync timestamp is captured. As soon as the
+    //  timestamp for the SYNC packet going out is captured, this flag
+    //  will be set to TRUE by the application.
+    while((gPtpMasterState.syncTimestampAvailable == FALSE) && (timeout < TIMEOUT_MAX))
+    {
+        timeout++;
+    }
+
+    if(timeout >= TIMEOUT_MAX)
+    {
+        CmIpc_cm2cpu.IpcCpu2Cm_Fault = 2;
+        return;
+    }
+
+    // Since the timestamp for the last SYNC packet has been captured,
+    // send out the associated FOLLOW-UP packet.
+    sendMessage((Octet *)gMsgBuf, FOLLOW_UP, &gPtpMasterState, &gPktDesc);
+}
+#endif
+
+void ptp_master_run()
+{
+    uint32_t timeSec;
+    uint32_t timeNanosec;
+    const uint32_t TIMEOUT_MAX = 2000000;
+    static bool isSending = false;  // 防重叠
+
+    // 防止重复调用，导致丢包
+    if(isSending)
+        return;
+    isSending = true;
+
+    uint32_t timeout = 0;
+
+    // 1. 设置 1s 后触发
+    Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+    Ethernet_setTargetTimePPS(EMAC_BASE, ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                              timeSec + 1, timeNanosec);
+
+    // 2. 等待PPS触发
+    timeout = 0;
+    while((((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS)) &
+            ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0) == 0) &&
+          (timeout < TIMEOUT_MAX))
+    {
+        timeout++;
+    }
+
+    if(timeout >= TIMEOUT_MAX)
+    {
+        CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1;
+        isSending = false;
+        return;
+    }
+
+    // 3. 发送 SYNC
+    gPtpMasterState.syncTimestampAvailable = FALSE;
+    sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
+
+    // ===================== 核心修复 =====================
+    // 【永久等待硬件时间戳】不会误超时，100% 配对
+    while(gPtpMasterState.syncTimestampAvailable == FALSE)
+    {
+        // 空等，硬件中断会置位
+    }
+    // ====================================================
+
+    // 4. 发送 FOLLOWUP
+    sendMessage((Octet *)gMsgBuf, FOLLOW_UP, &gPtpMasterState, &gPktDesc);
+
+    isSending = false;
+}
+
+
+void InitConstants(PTPMasterState *ptpMasterState)
+{
+    uint32_t mac_low,mac_high, i, j;
+    uint8_t *pucTemp;
+
+    Ethernet_getMACAddr(EMAC_BASE, 0, &mac_high, &mac_low);
+
+    pucTemp = (uint8_t *)&mac_low;
+    ptpMasterState->port_uuid_field[0] = pucTemp[0];
+    ptpMasterState->port_uuid_field[1] = pucTemp[1];
+    ptpMasterState->port_uuid_field[2] = pucTemp[2];
+    ptpMasterState->port_uuid_field[3] = pucTemp[3];
+
+    pucTemp = (uint8_t *)&mac_high;
+    ptpMasterState->port_uuid_field[4] = pucTemp[0];
+    ptpMasterState->port_uuid_field[5] = pucTemp[1];
+
+    // Init global constants.
+    for (i = 0, j = 0; i < CLOCK_IDENTITY_LENGTH; i++)
+    {
+       if (i == 3) ptpMasterState->portIdentity.clockIdentity[i] = 0xFF;
+       else if (i == 4) ptpMasterState->portIdentity.clockIdentity[i] = 0xFE;
+       else
+       {
+           ptpMasterState->portIdentity.clockIdentity[i] =
+                   ptpMasterState->port_uuid_field[j];
+           j++;
+       }
+    }
+}
+

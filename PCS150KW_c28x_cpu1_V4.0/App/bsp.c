@@ -1,0 +1,267 @@
+//#############################################################################
+//
+// FILE:   bsp.c
+//
+// TITLE:  CPU controlled data frame transfers with internal or external
+//
+//#############################################################################
+
+
+#include <Driver/device/device.h>
+#include <Driver/device/driverlib.h>
+#include "bsp.h"
+
+//GRAPH    Graph1;
+//GRAPH    Graph2;
+//GRAPH    Graph3;
+
+IPC_DATA_CPU2CM         Cpu1Ipc_cpu2cm;
+IPC_DATA_CM2CPU         Cpu1Ipc_cm2cpu;
+
+
+void cpu2claParam_Upgrade(void)
+{
+    //��ض�����Ҫ����CM��ȥ
+    if(Cpu1Ipc_cm2cpu.Pwm_StartEn==1)
+    {
+        if(Cpu1Ipc_cpu2cm.PcsCtrlState == PcsOn_Mode)
+            tCpu2Cla.PwmStartEnable  =  1;
+        else
+            tCpu2Cla.PwmStartEnable  =  0;
+    }
+    else
+    {
+        tCpu2Cla.PwmStartEnable  =  0;
+    }
+
+    if(Cpu1Ipc_cm2cpu.ClearFault == 1)
+        App_AllFault_Reset();
+
+    tCpu2Cla.OutLoop_En      = Cpu1Ipc_cm2cpu.OutLoop_En;
+    tCpu2Cla.OpenLoopMode    = Cpu1Ipc_cm2cpu.OpenLoopMode;
+    tCpu2Cla.WorkMode        = Cpu1Ipc_cm2cpu.WorkMode;
+    tCpu2Cla.OnGridMode      = Cpu1Ipc_cm2cpu.OnGridMode;
+    tCpu2Cla.pcsLineMode     = Cpu1Ipc_cm2cpu.pcsLineMode;
+
+    tCpu2Cla.VgridA_Calibrat = (float32_t)Cpu1Ipc_cm2cpu.VgridA_Calibrat*0.0001f;
+    tCpu2Cla.VgridB_Calibrat = (float32_t)Cpu1Ipc_cm2cpu.VgridB_Calibrat*0.0001f;
+    tCpu2Cla.VgridC_Calibrat = (float32_t)Cpu1Ipc_cm2cpu.VgridC_Calibrat*0.0001f;
+    tCpu2Cla.VInvA_Calibrat  = (float32_t)Cpu1Ipc_cm2cpu.VInvA_Calibrat*0.0001f;
+    tCpu2Cla.VInvB_Calibrat  = (float32_t)Cpu1Ipc_cm2cpu.VInvB_Calibrat*0.0001f;
+    tCpu2Cla.VInvC_Calibrat  = (float32_t)Cpu1Ipc_cm2cpu.VInvC_Calibrat*0.0001f;
+    tCpu2Cla.IGridA_Calibrat = (float32_t)Cpu1Ipc_cm2cpu.IGridA_Calibrat*0.0001f;
+    tCpu2Cla.IGridB_Calibrat = (float32_t)Cpu1Ipc_cm2cpu.IGridB_Calibrat*0.0001f;
+    tCpu2Cla.IGridC_Calibrat = (float32_t)Cpu1Ipc_cm2cpu.IGridC_Calibrat*0.0001f;
+    tCpu2Cla.IInvA_Calibrat  = (float32_t)Cpu1Ipc_cm2cpu.IInvA_Calibrat*0.0001f;
+    tCpu2Cla.IInvB_Calibrat  = (float32_t)Cpu1Ipc_cm2cpu.IInvB_Calibrat*0.0001f;
+    tCpu2Cla.IInvC_Calibrat  = (float32_t)Cpu1Ipc_cm2cpu.IInvC_Calibrat*0.0001f;
+    tCpu2Cla.VdcP_Calibrat   = (float32_t)Cpu1Ipc_cm2cpu.VdcP_Calibrat*0.0001f;
+    tCpu2Cla.VdcN_Calibrat   = (float32_t)Cpu1Ipc_cm2cpu.VdcN_Calibrat*0.0001f;
+    tCpu2Cla.Idc_Calibrat    = (float32_t)Cpu1Ipc_cm2cpu.Idc_Calibrat*0.0001f;
+    tCpu2Cla.Vdc_Calibrat    = (float32_t)Cpu1Ipc_cm2cpu.Vdc_Calibrat*0.0001f;
+    tCpu2Cla.Ref1v5_Calibrat = (float32_t)Cpu1Ipc_cm2cpu.Ref1v5_Calibrat*0.0001f;
+    tCpu2Cla.IN_Calibrat     = (float32_t)Cpu1Ipc_cm2cpu.IN_Calibrat*0.0001f;
+    tCpu2Cla.Idc_offset      = (float32_t)Cpu1Ipc_cm2cpu.Idc_offset*0.0001f;
+    tCpu2Cla.Iac_Aoffset     = (float32_t)Cpu1Ipc_cm2cpu.Iac_Aoffset*0.0001f;
+    tCpu2Cla.Iac_Boffset     = (float32_t)Cpu1Ipc_cm2cpu.Iac_Boffset*0.0001f;
+    tCpu2Cla.Iac_Coffset     = (float32_t)Cpu1Ipc_cm2cpu.Iac_Coffset*0.0001f;
+    tCpu2Cla.Ilac_Aoffset    = (float32_t)Cpu1Ipc_cm2cpu.Ilac_Aoffset*0.0001f;
+    tCpu2Cla.Ilac_Boffset    = (float32_t)Cpu1Ipc_cm2cpu.Ilac_Boffset*0.0001f;
+    tCpu2Cla.Ilac_Coffset    = (float32_t)Cpu1Ipc_cm2cpu.Ilac_Coffset*0.0001f;
+    tCpu2Cla.IdcN_offset     = (float32_t)Cpu1Ipc_cm2cpu.IdcN_offset*0.0001f;
+
+    tCpu2Cla.RatedVoltage    = (float32_t)Cpu1Ipc_cm2cpu.RatedVoltage*0.1f;
+    tCpu2Cla.RatedCurrent    = (float32_t)Cpu1Ipc_cm2cpu.RatedCurrent*0.1f;
+    tCpu2Cla.RatedPower      = (float32_t)Cpu1Ipc_cm2cpu.RatedPower*0.1f;
+
+    tCpu2Cla.Pcs_VdcRms      =  Pcs_Output_Meter.PCS_DC_BusVol;
+    if(Cpu1Ipc_cm2cpu.SoftStart_En == 0)
+    {
+        tCpu2Cla.Pcs_VdcRef      = (float32_t)Cpu1Ipc_cm2cpu.DcConstVolSet*0.1f;
+        tCpu2Cla.Pcs_VinvMdRef   = (float32_t)Cpu1Ipc_cm2cpu.VF_VoSet*0.1;
+        tCpu2Cla.Pcs_PacRef      = (float32_t)Cpu1Ipc_cm2cpu.ActivePowerSet*0.1f;
+        tCpu2Cla.Pcs_QacRef      = (float32_t)Cpu1Ipc_cm2cpu.ReActivePowerSet*0.1f;
+        tCpu2Cla.Pcs_ACIoutRef   = (float32_t)Cpu1Ipc_cm2cpu.AcConstCurrSet*0.1f;
+        tCpu2Cla.Pcs_IdcRef      = (float32_t)Cpu1Ipc_cm2cpu.DcConstCurrSet*0.1f;
+    }
+
+    Cpu1Ipc_cpu2cm.PwmRatio    =  (int16_t)(tCla2Cpu.Pcs_vdRatio_pu*1000.0f);
+}
+
+void App_AllFault_Reset(void)
+{
+    Cpu1Ipc_cpu2cm.FaultStatus.PCS_Waring1.PCS_Waring1_All = 0;
+    Cpu1Ipc_cpu2cm.FaultStatus.PCS_Waring2.PCS_Waring2_All = 0;
+    Cpu1Ipc_cpu2cm.FaultStatus.PCS_Fault1.PCS_Fault1_All = 0;
+    Cpu1Ipc_cpu2cm.FaultStatus.PCS_Fault2.PCS_Fault2_All = 0;
+    Cpu1Ipc_cpu2cm.FaultStatus.PCS_Fault3.PCS_Fault3_All = 0;
+    Cpu1Ipc_cpu2cm.FaultStatus.PCS_Fault4.PCS_Fault4_All = 0;
+    Cpu1Ipc_cpu2cm.FaultStatus.PCS_HFault.PCS_HFault_All = 0;
+    Cpu1Ipc_cpu2cm.FaultStatus.globalFault = 0;
+    Cpu1Ipc_cpu2cm.PcsOnAllowed = 1;
+    SPLL_3PH_DDSRF_reset(&PCS_spll_3ph_grid);
+}
+
+void GloabParam_Init(void)
+{
+    App_AllFault_Reset();
+
+    Cpu1Ipc_cpu2cm.PcsCtrlState = PowerOn_Mode;
+    Cpu1Ipc_cpu2cm.PcsOnAllowed = 1;
+    Cpu1Ipc_cpu2cm.Relay_DCSoft   = 0;
+    Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
+    Cpu1Ipc_cpu2cm.Relay_DCMaster = 0;
+    Cpu1Ipc_cpu2cm.Relay_ACMaster = 0;
+    Cpu1Ipc_cpu2cm.Relay_FanCtrl = 0;
+    Cpu1Ipc_cpu2cm.Relay_WorkLed = 0;
+    Cpu1Ipc_cpu2cm.Relay_FaultLed = 0;
+    Cpu1Ipc_cm2cpu.Pwm_StartEn = 0;
+    Cpu1Ipc_cm2cpu.StartEn  = 0;
+    Cpu1Ipc_cm2cpu.debugMode = 0;//Ĭ������ģʽ
+    Cpu1Ipc_cm2cpu.SoftStart_En = 1;//Ĭ�ϴ�����
+    Cpu1Ipc_cm2cpu.OutLoop_En   = 1;//Ĭ�ϴ��⻷
+    Cpu1Ipc_cm2cpu.Reset_En  = 0;
+    cpu2claParam_Upgrade();
+}
+
+void bsp_init(void)
+{
+    // Initialize device clock and peripherals
+    Device_init();
+    SysCtl_setEnetClk(SYSCTL_ENETCLKOUT_DIV_2, SYSCTL_SOURCE_SYSPLL);
+
+    // Boot CPU2 core
+/*#ifdef _FLASH
+    Device_bootCPU2(BOOTMODE_BOOT_TO_FLASH_SECTOR0);
+#else
+    Device_bootCPU2(BOOTMODE_BOOT_TO_M0RAM);
+#endif*/
+    //
+    // Boot CM core
+#ifdef _FLASH
+    Device_bootCM(BOOTMODE_BOOT_TO_FLASH_SECTOR0);
+#else
+    Device_bootCM(BOOTMODE_BOOT_TO_S0RAM);
+#endif
+    //
+    // Initialize GPIO and configure the GPIO pin as a push-pull output
+    //
+    Device_initGPIO();
+	Drv_PwmPin_Init();
+    Drv_DinPin_Init();
+    Drv_LedPin_Init();
+//    Drv_SCIAPin_Init();
+//    Drv_SCIBPin_Init();
+    Drv_SCICPin_Init();
+//    Drv_SCIDPin_Init();
+    Drv_I2CAPin_Init();
+    Drv_W5500Pin_Init();
+
+
+    GPIO_setPinConfig(GPIO_47_ENET_PPS0);
+    GPIO_setDirectionMode(47, GPIO_DIR_MODE_OUT);
+    GPIO_setPadConfig(47, GPIO_PIN_TYPE_STD);
+    GPIO_setQualificationMode(47, GPIO_QUAL_ASYNC);
+
+    Drv_EtherNetPinInit();
+
+    Drv_ClockCntInit();
+    ASysCtl_enableTemperatureSensor();
+    ASysCtl_lockTemperatureSensor();
+    DEVICE_DELAY_US(500);
+    Read_UID();
+    // Initialize PIE and clear PIE registers. Disables CPU interrupts.
+    Interrupt_initModule();
+    Interrupt_initVectorTable();
+    tca9535_io1_init();
+    tca9535_io2_init();
+    Drv_DO_Init();
+    objControl_globalVarInit();
+//    Drv_SCIAInit();
+//    Drv_SCIBInit();
+    Drv_SCICInit();
+    Drv_SCIDInit();
+    // Disable sync(Freeze clock to PWM as well). GTBCLKSYNC is applicable
+    // only for multiple core devices. Uncomment the below statement if applicable.
+    SysCtl_disablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
+    Drv_Pwm_Init();
+	FanPwm_Init();
+
+//    PCS_HAL_setupCBCProtection();
+//    // Enable sync and clock to PWM
+    SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
+	
+	Drv_ADC_Init();
+	GloabParam_Init();
+    Board_init();
+    //ͨ��CLB����EPWM2��EPWM3�ӿ�,Ӳ��������ȡ��
+    initCLBTILE5(myCLB5_BASE);
+    initCLBTILE6(myCLB6_BASE);
+    initCLBTILE7(myCLB7_BASE);
+    initCLBTILE8(myCLB8_BASE);
+    CLB_enableCLB(myCLB5_BASE);
+    CLB_enableCLB(myCLB6_BASE);
+    CLB_enableCLB(myCLB7_BASE);
+    CLB_enableCLB(myCLB8_BASE);
+    bsp_clb_pwmEnCtrl(0);
+    ipc_init();
+    // Configure the CLA memory spaces first followed by
+    initial_CLA();
+//    obj_OutputParam_Init();
+   // Enable Global Interrupt (INTM) and realtime interrupt (DBGM)
+
+    SysCtl_setWatchdogMode(SYSCTL_WD_MODE_RESET);
+
+   EINT;
+   ERTM;
+   obj_PcsOutput_Init();
+   // Reset the watchdog counter
+   SysCtl_serviceWatchdog();
+   SysCtl_setWatchdogPrescaler(SYSCTL_WD_PRESCALE_64);
+   // Enable the watchdog
+   SysCtl_enableWatchdog();
+}
+
+int16_t U16_DataChange(uint16_t datMsb,uint16_t datLsb)
+{
+    return (datMsb<<8)|datLsb;
+}
+
+void bsp_clb_pwmEnCtrl(int16_t enable)
+{
+    if(enable == 1)
+    {
+        CLB_setGPREG(myCLB5_BASE, 0x04);//bit2  is soft in bit 1:�򿪣�0:�ر�
+        CLB_setGPREG(myCLB6_BASE, 0x04);//bit2  is soft in bit 1:�򿪣�0:�ر�
+        CLB_setGPREG(myCLB7_BASE, 0x04);//bit2  is soft in bit 1:�򿪣�0:�ر�
+        CLB_setGPREG(myCLB8_BASE, 0x04);//bit2  is soft in bit 1:�򿪣�0:�ر�
+    }
+    else
+    {
+        CLB_setGPREG(myCLB5_BASE, 0x00);//bit2
+        CLB_setGPREG(myCLB6_BASE, 0x00);//bit2
+        CLB_setGPREG(myCLB7_BASE, 0x00);//bit2
+        CLB_setGPREG(myCLB8_BASE, 0x00);//bit2
+    }
+}
+
+void Read_UID(void)
+{
+    uint32_t unique_id;
+
+    unique_id = *(uint32_t*)(UID_BASE);
+    Cpu1Ipc_cpu2cm.uniqueID_M = (uint16_t)((unique_id>>16)&0xffff);
+    Cpu1Ipc_cpu2cm.uniqueID_L = (uint16_t)( unique_id&0xffff);
+}
+
+
+
+//void  GRAPH_calc(GRAPH *g, float32_t v)
+//{
+////    g->i %= 200;
+//    g->buf[g->i++] = v;
+//    if(g->i >= 200)
+//        g->i = 0;
+//}
+
+

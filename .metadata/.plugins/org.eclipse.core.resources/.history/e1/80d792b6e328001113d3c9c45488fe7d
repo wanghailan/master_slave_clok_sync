@@ -1,0 +1,29 @@
+/*
+ * Eth_mii.h
+ *
+ *  Created on: 2025Äê6ÔÂ26ÈÕ
+ *      Author: guowei
+ */
+
+#ifndef SRC_ETH_MII_H_
+#define SRC_ETH_MII_H_
+
+#include "driverlib_cm/ethernet.h"
+
+#define ETHERNET_NO_OF_RX_PACKETS      8U
+#define ETHERNET_MAX_PACKET_LENGTH     1538U
+#define NUM_PACKET_DESC_RX_APPLICATION 8U
+#define PBUF_POOL_SIZE                 8U
+
+void Lwip_ParamInit(void);
+void Ethernet_init(const unsigned char *mac);
+void lwIPHostTimerHandler(void);
+
+extern uint32_t genericISRCustomcount;
+extern uint32_t genericISRCustomRBUcount;
+extern uint32_t genericISRCustomROVcount;
+extern uint32_t genericISRCustomRIcount;
+
+extern interrupt void Ethernet_genericISRCustom(void);
+
+#endif /* SRC_ETH_MII_H_ */

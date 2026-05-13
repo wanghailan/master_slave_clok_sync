@@ -1,0 +1,18 @@
+#include "driverlib_cm.h"
+#include "string.h"
+#include "cm.h"
+
+typedef struct
+{
+    PortIdentity portIdentity;
+    Octet port_uuid_field[PTP_UUID_LENGTH];
+    Timestamp syncTimestamp;
+    Timestamp delayReqRecvTimestamp;
+    uint16_t syncSeqId;
+    uint16_t portNumber;
+    Boolean syncTimestampAvailable;
+    Boolean sendingDelayResp;
+    MsgHeader delayReqHeader;
+} PTPMasterState;
+
+

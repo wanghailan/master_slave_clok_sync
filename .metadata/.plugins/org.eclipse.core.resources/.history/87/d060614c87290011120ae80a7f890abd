@@ -1,0 +1,34 @@
+/*
+ * ethernet_dispatch.h
+ *
+ *  Created on: 2026年3月27日
+ *      Author: whl
+ */
+
+#ifndef DRIVER_ETHERNET_DISPATCH_H_
+#define DRIVER_ETHERNET_DISPATCH_H_
+
+#include "eth_common.h"
+
+
+extern PTPMasterState gPtpMasterState;
+extern uint8_t gMsgBuf[];
+
+
+// 以太网接收回调分发器：同时处理LwIP和PTP
+Ethernet_Pkt_Desc* Ethernet_Rx_Dispatch(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
+
+// 以太网发送释放回调分发器：同时释放LwIP缓冲区+捕获PTP时间戳
+void Ethernet_Tx_Free_Dispatch(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
+
+extern void sendMessage(Octet * msg,
+                         uint32_t messageType,
+                         PTPMasterState * ptpMasterState,
+                         Ethernet_Pkt_Desc * pktDesc);
+
+
+#endif /* DRIVER_ETHERNET_DISPATCH_H_ */

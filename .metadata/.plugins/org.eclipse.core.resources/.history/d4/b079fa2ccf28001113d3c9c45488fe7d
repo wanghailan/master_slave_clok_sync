@@ -1,0 +1,15 @@
+################################################################################
+# Automatically-generated file. Do not edit!
+################################################################################
+
+SHELL = cmd.exe
+
+# Each subdirectory must supply rules for building sources it contributes
+src/%.obj: ../src/%.c $(GEN_OPTS) | $(GEN_FILES) $(GEN_MISC_FILES)
+	@echo 'Building file: "$<"'
+	@echo 'Invoking: Arm Compiler'
+	"C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/bin/armcl" -mv7M4 --code_state=16 --float_support=none -me -O2 --opt_for_speed=2 --include_path="D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/lib" --include_path="D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/device/" --include_path="D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/W5500/" --include_path="D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/Driver/" --include_path="D:/workspace/CCS/PCS150KW_c28x_cm_V4.0/src" --include_path="C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/lwip/lwip-2.1.2/src/apps/http" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/lwip" --include_path="D:/workspace/CCS/PCS150KW_c28x_cm_V4.0" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/driverlib_cm" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/lwip/examples/enet_lwip_udp/cm" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/lwip/lwip-2.1.2" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/lwip/lwip-2.1.2/src/include" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/lwip/lwip-2.1.2/src/apps" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/libraries/communications/Ethernet/third_party/lwip/lwip-2.1.2/ports/C2000/include" --define=_FLASH --define=ccs -g --c99 --diag_warning=225 --gen_func_subsections=on --abi=eabi --ual --preproc_with_compile --preproc_dependency="src/$(basename $(<F)).d_raw" --obj_directory="src" $(GEN_OPTS__FLAG) "$<"
+	@echo 'Finished building: "$<"'
+	@echo ' '
+
+

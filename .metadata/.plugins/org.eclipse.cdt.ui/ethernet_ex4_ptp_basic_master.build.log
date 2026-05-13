@@ -1,0 +1,8 @@
+
+**** Build of configuration CM_FLASH for project ethernet_ex4_ptp_basic_master ****
+
+"C:\\ti\\ccs1280\\ccs\\utils\\bin\\gmake" -k -j 16 all -O 
+ 
+gmake[1]: 'ethernet_ex4_ptp_basic_master.out' is up to date.
+
+**** Build Finished ****

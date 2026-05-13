@@ -1,0 +1,45 @@
+/*
+ * ethernet_dispatch.c
+ *
+ *  Created on: 2026Äê3ÔÂ27ÈÕ
+ *      Author: whl
+ */
+
+#include "ethernet_dispatch.h"
+
+PTPMasterState gPtpMasterState = {0};
+uint8_t gMsgBuf[PACKET_LENGTH] = {0};
+
+
+Ethernet_Pkt_Desc* ptp_rx_handler(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
+
+void ptp_tx_handler(Ethernet_Pkt_Desc *pPacket);
+
+
+// Function prototypes used in this case
+void msgUnpackHeader(Octet * buf, MsgHeader * header);
+
+void msgPackSync(Octet * buf, PTPMasterState *ptpMasterState);
+
+void msgPackFollowUp(Octet * buf, PTPMasterState *ptpMasterState);
+
+void msgPackHeader(Octet * buf, PTPMasterState *ptpMasterState);
+
+void msgPackDelayResp(Octet * buf, PTPMasterState *ptpMasterState);
+
+
+//*****************************************************************************
+//
+//  This is a hook function and called by the driver when it receives a
+//  packet. Application is expected to replenish the buffer after consuming it.
+//  Has to return a ETHERNET_Pkt_Desc Structure.
+//  Rewrite this API for custom use case.
+//
+//*****************************************************************************
+
+
+
+
+

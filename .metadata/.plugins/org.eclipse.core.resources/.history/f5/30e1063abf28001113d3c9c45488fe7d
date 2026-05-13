@@ -1,0 +1,92 @@
+#ifndef ETHERNET_DISPATCH_H
+#define ETHERNET_DISPATCH_H
+#include "driverlib_cm.h"
+#include "string.h"
+#include "cm.h"
+#include "driverlib_cm/ethernet.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define PTP_REF_CLOCK_FREQ   25000000   // 25MHz for MII 100Mbps
+#define PTP_REF_CLOCK_PERIOD 1000000000 / PTP_REF_CLOCK_FREQ
+
+static Ethernet_Handle emac_handle;
+#define PACKET_LENGTH 200
+
+#define ETHERNET_NO_OF_RX_PACKETS   8U
+#define ETHERNET_MAX_PACKET_LENGTH  PACKET_LENGTH
+#define NUM_PACKET_DESC_RX_APPLICATION 8U
+
+#define PTP_HEADER_OFFSET   14U
+
+Ethernet_Pkt_Desc  pktDescriptorRXCustom[NUM_PACKET_DESC_RX_APPLICATION];
+extern uint32_t Ethernet_numGetPacketBufferCallback;
+extern Ethernet_Device Ethernet_device_struct;
+
+Ethernet_Pkt_Desc gPktDesc;
+
+uint8_t Ethernet_rxBuffer[ETHERNET_NO_OF_RX_PACKETS *
+                          ETHERNET_MAX_PACKET_LENGTH];
+
+
+
+
+// brief Implementation specific of Integer64 type
+typedef struct {
+    unsigned int lsb;
+    int msb;
+} Integer64;
+
+typedef struct {
+    unsigned int lsb;
+    unsigned short msb;
+} UInteger48;
+
+typedef struct  {
+    UInteger48 secondsField;
+    UInteger32 nanosecondsField;
+} Timestamp;
+
+// brief Time structure to handle Linux time information
+typedef struct {
+    Integer32 seconds;
+    Integer32 nanoseconds;
+} TimeInternal;
+
+
+
+typedef struct
+{
+    PortIdentity portIdentity;
+    Octet port_uuid_field[PTP_UUID_LENGTH];
+    Timestamp syncTimestamp;
+    Timestamp delayReqRecvTimestamp;
+    uint16_t syncSeqId;
+    uint16_t portNumber;
+    Boolean syncTimestampAvailable;
+    Boolean sendingDelayResp;
+    MsgHeader delayReqHeader;
+} PTPMasterState;
+
+
+extern PTPMasterState gPtpMasterState;
+extern uint8_t gMsgBuf[PACKET_LENGTH];
+
+
+// 以太网接收回调分发器：同时处理LwIP和PTP
+Ethernet_Pkt_Desc* Ethernet_Rx_Dispatch(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
+
+// 以太网发送释放回调分发器：同时释放LwIP缓冲区+捕获PTP时间戳
+void Ethernet_Tx_Free_Dispatch(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
+
+
+#ifdef __cplusplus
+}
+#endif
+#endif // ETHERNET_DISPATCH_H

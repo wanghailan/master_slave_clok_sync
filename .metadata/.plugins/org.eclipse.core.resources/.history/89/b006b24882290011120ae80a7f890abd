@@ -1,0 +1,24 @@
+/*
+ * ethernet_dispatch.c
+ *
+ *  Created on: 2026年3月27日
+ *      Author: whl
+ */
+
+#include "ethernet_dispatch.h"
+
+PTPMasterState gPtpMasterState = {0};
+uint8_t gMsgBuf[PACKET_LENGTH] = {0};
+
+
+// 以太网接收回调分发器：同时处理LwIP和PTP
+Ethernet_Pkt_Desc* Ethernet_Rx_Dispatch(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
+
+// 以太网发送释放回调分发器：同时释放LwIP缓冲区+捕获PTP时间戳
+void Ethernet_Tx_Free_Dispatch(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
+
+

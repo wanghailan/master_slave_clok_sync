@@ -1,0 +1,46 @@
+//#############################################################################
+// TITLE:  Ethernet PTP Basic Master Example
+//! <h1> Ethernet PTP Basic Master </h1>
+//!
+//! This example configures the device in IEEE PTPv2 Master mode and then
+//! periodically sends Sync packets to the slave. On receiving the DelayReq
+//! packets from the slave, the master also sends out the DelayResp packets.
+//!
+//! \b External \b Connections \n
+//! This example programs the Ethernet module in PTP Basic Master mode.
+//! The example project \e Ethernet \e PTP \e Basic \e Slave is intended to
+//! be used along with this project to see the whole PTP Protocol state in
+//! action. The second device is configured as \e Slave and both devices in
+//! conjunction exchange Sync, DelayReq and DelayResp packets.
+//!
+//! Refer to the C28x CPU1 code of ethernet_config_c28x project for configuring
+//! the PTP clock that drives the system time counter on the Ethernet module.
+//!
+//! \b Watch \b Variables \n
+//!  - gPtpMasterState
+//!
+
+#include "ethernet_dispatch.h"
+
+// This frequency is actually set in the c28x side code. If it is changed
+// there, then the following value also needs to be updated since the
+// timestamping module is initialized with the following values.
+// Default value is 100 MHz.
+
+//#define PTP_REF_CLOCK_FREQ   25000000   // 25MHz for MII 100Mbps
+//#define PTP_REF_CLOCK_PERIOD 1000000000 / PTP_REF_CLOCK_FREQ
+//
+//static Ethernet_Handle emac_handle;
+//#define PACKET_LENGTH 200
+//
+//#define ETHERNET_NO_OF_RX_PACKETS   8U
+//#define ETHERNET_MAX_PACKET_LENGTH  PACKET_LENGTH
+//#define NUM_PACKET_DESC_RX_APPLICATION 8U
+//
+//#define PTP_HEADER_OFFSET   14U
+
+
+void ptp_master_init();
+
+void ptp_master_run();
+

@@ -1,0 +1,66 @@
+
+#include <string.h>
+
+#include "driverlib_cm.h"
+#include "cm.h"
+#include "utils/lwiplib.h"
+
+#include "lwipopts.h"
+#include "Eth_mii.h"
+#include "ipc.h"
+#include "bsp.h"
+#include "gpio.h"
+#include "ptp_master_sync.h"
+
+
+uint32_t systickPeriodValue = 125000; //15000000;
+
+extern void sys_check_timeouts(void);
+
+
+#define DEVICE_FLASH_WAITSTATES 2
+
+// GPIO number for LD1
+#define DEVICE_GPIO_PIN_LED3                    33U
+
+
+//*****************************************************************************
+//
+// The interrupt handler for the SysTick interrupt.
+//
+//*****************************************************************************
+void
+SysTickIntHandler(void)
+{
+    // Call the lwIP timer handler.
+ //   lwIPTimer(systickPeriodValue);
+	   lwIPTimer(1);
+}
+
+//void Drv_Led_toggle(void)
+//{
+//    GPIO_togglePin(DEVICE_GPIO_PIN_LED3);
+//}
+
+
+int main(void)
+{
+    // Initializing the CM. Loading the required functions to SRAM.
+    CM_init();
+
+    Lwip_ParamInit();
+
+    ptp_master_init();
+
+    while (1)
+    {
+
+        if(m_st_TimerFlag.u16_b500ms == 1)
+            Drv_Led_toggle();
+
+        // ptp
+        ptp_master_run();
+    }
+}
+
+

@@ -1,0 +1,12 @@
+LaunchTargetManager/org.eclipse.launchbar.core.launchTargetType.local,Local/arch=x86_64
+LaunchTargetManager/org.eclipse.launchbar.core.launchTargetType.local,Local/name=Local
+LaunchTargetManager/org.eclipse.launchbar.core.launchTargetType.local,Local/os=win32
+activeLaunchTarget=null\:---
+configDescList=org.eclipse.launchbar.core.descriptorType.default\:ethernet_ex4_ptp_basic_slave,org.eclipse.launchbar.core.descriptorType.default\:PCS150KW_Ctrl_V1_cpu1,org.eclipse.launchbar.core.descriptorType.default\:PCS150KW_Ctrl_c28x_cpu1_V1,org.eclipse.launchbar.core.descriptorType.default\:PCS150KW_c28x_cpu1_V4.0,org.eclipse.launchbar.core.descriptorType.default\:TMS320F28388D.ccxml
+eclipse.preferences.version=1
+org.eclipse.launchbar.core.descriptorType.default\:PCS150KW_Ctrl_V1_cpu1/activeLaunchMode=run
+org.eclipse.launchbar.core.descriptorType.default\:PCS150KW_Ctrl_V1_cpu1/activeLaunchTarget=org.eclipse.launchbar.core.launchTargetType.local\:Local
+org.eclipse.launchbar.core.descriptorType.default\:PCS150KW_c28x_cm_V4.0/activeLaunchMode=debug
+org.eclipse.launchbar.core.descriptorType.default\:PCS150KW_c28x_cpu1_V4.0/activeLaunchMode=run
+org.eclipse.launchbar.core.descriptorType.default\:TMS320F28388D.ccxml/activeLaunchMode=debug
+org.eclipse.launchbar.core.descriptorType.default\:TMS320F28388D.ccxml/activeLaunchTarget=org.eclipse.launchbar.core.launchTargetType.local\:Local

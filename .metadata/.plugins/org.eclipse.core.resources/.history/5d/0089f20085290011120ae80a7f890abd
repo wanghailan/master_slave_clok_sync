@@ -1,0 +1,89 @@
+/*
+ * ethernet_dispatch.c
+ *
+ *  Created on: 2026Äê3ÔÂ27ÈÕ
+ *      Author: whl
+ */
+
+#include "ethernet_dispatch.h"
+
+PTPMasterState gPtpMasterState = {0};
+uint8_t gMsgBuf[PACKET_LENGTH] = {0};
+
+
+Ethernet_Pkt_Desc* ptpd_receivePacketCallback_handler(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
+
+Ethernet_Pkt_Desc* ptpd_getPacketCallback_handler(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
+
+
+void ptpd_releaseTxPacketBuffer_handler(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket);
+
+
+// Function prototypes used in this case
+void msgUnpackHeader(Octet * buf, MsgHeader * header);
+
+void msgPackSync(Octet * buf, PTPMasterState *ptpMasterState);
+
+void msgPackFollowUp(Octet * buf, PTPMasterState *ptpMasterState);
+
+void msgPackHeader(Octet * buf, PTPMasterState *ptpMasterState);
+
+void msgPackDelayResp(Octet * buf, PTPMasterState *ptpMasterState);
+
+
+//*****************************************************************************
+//
+//  This is a hook function and called by the driver when it receives a
+//  packet. Application is expected to replenish the buffer after consuming it.
+//  Has to return a ETHERNET_Pkt_Desc Structure.
+//  Rewrite this API for custom use case.
+//
+//*****************************************************************************
+Ethernet_Pkt_Desc* ptpd_rx_handler(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket)
+{
+    // Need to unpack the header to check which packet is received.
+    // We expect a Delay Request packet from the slave. Ignore others.
+    msgUnpackHeader((Octet*)(pPacket->dataBuffer + PTP_HEADER_OFFSET),
+                    &gPtpMasterState.delayReqHeader);
+
+    switch(gPtpMasterState.delayReqHeader.messageType)
+    {
+    case DELAY_REQ:
+        // Simply get the timestamp and send the delay response packet asap.
+        gPtpMasterState.delayReqRecvTimestamp.nanosecondsField =
+                pPacket->timeStampLow;
+        gPtpMasterState.delayReqRecvTimestamp.secondsField.lsb =
+                pPacket->timeStampHigh;
+        gPtpMasterState.delayReqRecvTimestamp.secondsField.msb = 0;
+
+        // Save this state that we are sending Delay Resp packet so that it
+        // doesn't affect other packets which are being sent.
+        gPtpMasterState.sendingDelayResp = TRUE;
+
+        // Send the corresponding Delay Response packet.
+        sendMessage((Octet *)gMsgBuf, DELAY_RESP, &gPtpMasterState, &gPktDesc);
+        break;
+    default:
+
+        // Error condition, the code should never reach here
+        break;
+    }
+
+    // Book-keeping to maintain number of callbacks received.
+#ifdef ETHERNET_DEBUG
+    Ethernet_numRxCallbackCustom++;
+#endif
+    return Ethernet_getPacketBufferCustom_ptpd();
+}
+
+
+
+

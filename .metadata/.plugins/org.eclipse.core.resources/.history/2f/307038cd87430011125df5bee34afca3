@@ -1,0 +1,302 @@
+/*
+ * pwm_master_sync.c
+ *
+ * 功能：
+ *    Master的PPS是参考信号
+ *    通过eCAP1捕获CM核经PTP对齐后的PPS上升沿,
+ *    计算ISR延迟并修正EPWM1相位；EPWM1的SYNCO供其余EPWM模块级联
+ *
+ *  Created on: 2026年4月9日
+ *      Author: whl
+ */
+
+#include "pwm_master_sync.h"
+#include "bsp.h"
+
+#define PPS_ECAP_BASE               ECAP1_BASE
+#define PPS_ECAP_INT                INT_ECAP1
+
+// 内部路由(AUXSIG2 -> INPUTXBAR7)
+#define PPS_INPUTXBAR_CHANNEL       XBAR_INPUT7
+
+// INPUTXBAR7 -> ECAP1
+#define PPS_ECAP_INPUT_SEL          ECAP_INPUT_INPUTXBAR7
+
+// ePWM1 为同步基准模块
+#define EPWM1_BASE                  EPWM1_BASE
+
+// 时钟频率
+#define EPWM_TBCLK_HZ               200000000UL
+#define ECAP_TSCTR_HZ               200000000UL
+
+// 控制参数
+#define PPS_PHASE_OFFSET_NS         0L                // 统一相位偏移量(ns)
+#define PWM_MAX_STEP_NS             100L
+#define PWM_LOCK_THRESHOLD_NS       50L
+#define PPS_ISR_MAX_LATENCY_NS      5000UL
+
+// XBAR INPUT7内部源选择AUXSIG2(CM PPS)
+#define XBAR_INPUT7_SRC_AUX_SIG2    0x12U
+
+
+static volatile uint32_t g_masterPpsCapCount = 0U;      // 当前相位误差(ns)
+static volatile int32_t  g_masterPwmPhaseErrTicks = 0;  // 当前相位误差(TBCLK tick)
+static volatile int32_t  g_masterPwmPhaseErrNs = 0;     // PPS捕获计数
+static volatile uint32_t g_masterPwmLockCount = 0U;     // 连续锁定计数
+static volatile uint32_t g_masterPwmSkipCount = 0U;     // 超时跳过计数
+static volatile bool     g_masterPwmLocked = false;     // 锁定标志
+
+static void Master_InitEPwmSync(void);
+static void Master_InitPpsEcap(void);
+static void Master_ServicePpsCapture(bool allowSync);
+
+static int32_t ns_to_tbclk_ticks(int32_t ns);
+static uint32_t ns_to_ecap_ticks(uint32_t ns);
+static uint32_t ecap_ticks_to_tbclk(uint32_t ecapTicks);
+static uint32_t wrap_u32(int32_t value, uint32_t modulo);
+static int32_t signed_phase_error(uint32_t actual, uint32_t target, uint32_t modulo);
+static int32_t clamp_i32(int32_t value, int32_t minValue, int32_t maxValue);
+
+//
+// 初始化函数
+//
+void PWM_MasterSync_Init(void)
+{
+    // 1. 配置PWM同步功能
+    Master_InitEPwmSync();
+
+    // 2. 配置PPS eCAP
+    Master_InitPpsEcap();
+}
+
+//
+// Master EPWM1 同步配置
+//
+static void Master_InitEPwmSync(void)
+{
+    EALLOW;
+
+    SysCtl_disablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
+
+    EPWM_setSyncInPulseSource(EPWM1_BASE, EPWM_SYNC_IN_PULSE_SRC_DISABLE);
+    EPWM_setPhaseShift(EPWM1_BASE, 0U);
+
+    // EPWM1 CTR=0
+    EPWM_enableSyncOutPulseSource(EPWM1_BASE, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
+
+    EDIS;
+}
+
+static void Master_InitPpsEcap(void)
+{
+    EALLOW;
+
+    // 内部路由配置(AUXSIG2 -> INPUTXBAR7)
+    // CM核产生的内部PPS信号已经使能
+    XBAR_setInputPin(INPUTXBAR_BASE, PPS_INPUTXBAR_CHANNEL, XBAR_INPUT7_SRC_AUX_SIG2);
+
+    // 选择eCAP输入源
+    ECAP_selectECAPInput(PPS_ECAP_BASE, PPS_ECAP_INPUT_SEL);
+
+    // 注册eCAP中断服务函数
+    Interrupt_register(PPS_ECAP_INT, &PPS_Master_ECAP_ISR);
+
+    // 初始化eCAP (先关中断、停计数器，避免配置过程中误触发)
+    ECAP_disableInterrupt(PPS_ECAP_BASE, 0xFFFFU);
+    ECAP_stopCounter(PPS_ECAP_BASE);
+
+    // 设置为capture模式, 用eCAP捕获PPS上升沿时间戳
+    ECAP_enableCaptureMode(PPS_ECAP_BASE);
+
+    // 连续捕获模式, PPS每秒一个上升沿，每次EVENT1都会把当前TSCTR锁存到CAP1
+    ECAP_setCaptureMode(PPS_ECAP_BASE, ECAP_CONTINUOUS_CAPTURE_MODE, ECAP_EVENT_1);
+
+    // EVENT1捕获上升沿
+    ECAP_setEventPolarity(PPS_ECAP_BASE, ECAP_EVENT_1, ECAP_EVNT_RISING_EDGE);
+
+    // 捕获后不自动清零TSCTR, 在ISR中用nowTs-capTs 计算PPS到ISR执行之间的延迟
+    ECAP_disableCounterResetOnEvent(PPS_ECAP_BASE, ECAP_EVENT_1);
+
+    // 允许CAP1锁存时间戳
+    ECAP_enableTimeStampCapture(PPS_ECAP_BASE);
+
+    // 清除eCAP旧事件标志
+    ECAP_clearInterrupt(PPS_ECAP_BASE,
+                        ECAP_ISR_SOURCE_CAPTURE_EVENT_1 |
+                        ECAP_ISR_SOURCE_COUNTER_OVERFLOW);
+
+    // 清除eCAP全局INT标志
+    ECAP_clearGlobalInterrupt(PPS_ECAP_BASE);
+
+    // 打开CAP1中断
+    ECAP_enableInterrupt(PPS_ECAP_BASE, ECAP_ISR_SOURCE_CAPTURE_EVENT_1);
+
+    // 启动eCAP计数器
+    ECAP_startCounter(PPS_ECAP_BASE);
+
+    // 重新arm eCAP
+    ECAP_reArm(PPS_ECAP_BASE);
+
+    // 使能CPU/PIE层eCAP中断
+    Interrupt_enable(PPS_ECAP_INT);
+
+    EDIS;
+}
+
+// 处理PPS捕获事件
+// 1.读取CAP1，即PPS上升沿发生时的eCAP时间戳；
+// 2.读取当前eCAP TSCTR；
+// 3.计算PPS到ISR执行之间的延迟dt
+// 4.根据dt和PWM目标相位修正ePWM, 写EPWM TBPHS
+//
+__interrupt void PPS_Master_ECAP_ISR(void)
+{
+    Master_ServicePpsCapture(true);
+
+    // 清除eCAP EVENT1捕获标志
+    ECAP_clearInterrupt(PPS_ECAP_BASE,
+                        ECAP_ISR_SOURCE_CAPTURE_EVENT_1);
+
+    // 清除eCAP全局中断标志
+    ECAP_clearGlobalInterrupt(PPS_ECAP_BASE);
+    // 清除PIE ACK
+    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP4);
+}
+
+static void Master_ServicePpsCapture(bool allowSync)
+{
+    uint32_t capTs;
+    uint32_t nowTs;
+    uint32_t dtEcap;
+    uint32_t dtTbclk;
+    uint32_t tbprd;
+    uint32_t modulo;
+    uint32_t targetAtPps;
+    uint32_t targetNow;
+    uint32_t actualNow;
+    int32_t err;
+    int32_t step;
+    uint32_t newPhase;
+
+    g_masterPpsCapCount++;
+    capTs = ECAP_getEventTimeStamp(PPS_ECAP_BASE, ECAP_EVENT_1);
+    nowTs = ECAP_getTimeBaseCounter(PPS_ECAP_BASE);
+    dtEcap = nowTs - capTs;
+    dtTbclk = ecap_ticks_to_tbclk(dtEcap);
+
+    if(allowSync == false)
+    {
+        g_masterPwmLocked = false;
+        g_masterPwmLockCount = 0U;
+        return;
+    }
+
+    if(dtEcap > ns_to_ecap_ticks(PPS_ISR_MAX_LATENCY_NS))
+    {
+        g_masterPwmSkipCount++;
+        return;
+    }
+
+    tbprd = EPWM_getTimeBasePeriod(EPWM1_BASE);
+    modulo = tbprd + 1U;          // UP-count: 0,...,TBPRD
+
+    targetAtPps = wrap_u32(ns_to_tbclk_ticks(PPS_PHASE_OFFSET_NS), modulo);
+    targetNow = (targetAtPps + (dtTbclk % modulo)) % modulo;
+    actualNow = (uint32_t)EPWM_getTimeBaseCounterValue(EPWM1_BASE);
+
+    err = signed_phase_error(actualNow, targetNow, modulo);
+    g_masterPwmPhaseErrTicks = err;
+    g_masterPwmPhaseErrNs = (int32_t)(((int64_t)err * 1000000000LL) / (int64_t)EPWM_TBCLK_HZ);
+
+    // 并机前未锁定，先拉到目标相位。若已锁定，小步进校正，避免PWM相位突变.
+    if ((g_masterPwmLocked == false) ||
+       ((err > ns_to_tbclk_ticks(PWM_LOCK_THRESHOLD_NS)) ||
+        (err < -ns_to_tbclk_ticks(PWM_LOCK_THRESHOLD_NS))))
+    {
+        if (g_masterPwmLocked == false)
+        {
+            newPhase = targetNow;
+        }
+        else
+        {
+            step = clamp_i32(err, -ns_to_tbclk_ticks(PWM_MAX_STEP_NS),
+                             ns_to_tbclk_ticks(PWM_MAX_STEP_NS));
+            newPhase = wrap_u32((int32_t)actualNow - step, modulo);
+        }
+
+        // 使用ePWM同步机制装载TBPHS
+        EPWM_setPhaseShift(EPWM1_BASE, (uint16_t)newPhase);
+        EPWM_forceSyncPulse(EPWM1_BASE);
+        g_masterPwmLockCount = 0U;
+    }
+    else
+    {
+        if (g_masterPwmLockCount < 0xFFFFFFFFU)
+        {
+            g_masterPwmLockCount++;
+        }
+        if (g_masterPwmLockCount >= 3U)
+        {
+            g_masterPwmLocked = true;
+        }
+    }
+}
+
+static int32_t ns_to_tbclk_ticks(int32_t ns)
+{
+    int64_t ticks = ((int64_t)ns * (int64_t)EPWM_TBCLK_HZ) / 1000000000LL;
+    return (int32_t)ticks;
+}
+
+static uint32_t ns_to_ecap_ticks(uint32_t ns)
+{
+    return (uint32_t)(((uint64_t)ns * (uint64_t)ECAP_TSCTR_HZ) / 1000000000ULL);
+}
+
+static uint32_t ecap_ticks_to_tbclk(uint32_t ecapTicks)
+{
+    return (uint32_t)(((uint64_t)ecapTicks * (uint64_t)EPWM_TBCLK_HZ) /
+                      (uint64_t)ECAP_TSCTR_HZ);
+}
+
+static uint32_t wrap_u32(int32_t value, uint32_t modulo)
+{
+    int32_t m = (int32_t)modulo;
+    int32_t r = value % m;
+    if(r < 0)
+    {
+        r += m;
+    }
+    return (uint32_t)r;
+}
+
+static int32_t signed_phase_error(uint32_t actual, uint32_t target, uint32_t modulo)
+{
+    int32_t err = (int32_t)actual - (int32_t)target;
+    int32_t half = (int32_t)(modulo / 2U);
+
+    if (err > half)
+    {
+        err -= (int32_t)modulo;
+    }
+    else if (err < -half)
+    {
+        err += (int32_t)modulo;
+    }
+
+    return err;
+}
+
+static int32_t clamp_i32(int32_t value, int32_t minValue, int32_t maxValue)
+{
+    if (value > maxValue)
+    {
+        return maxValue;
+    }
+    if (value < minValue)
+    {
+        return minValue;
+    }
+    return value;
+}
+

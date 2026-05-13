@@ -1,0 +1,42 @@
+/*
+ * pwm_master_sync.c
+ *
+ * ���ܣ�
+ *    Master��PPS�ǲο��ź�
+ *    ����PWMͬ��������ܣ�����ͬ���ӻ�PWMģ��
+ *
+ *  Created on: 2026��4��9��
+ *      Author: whl
+ */
+
+#include "pwm_master_sync.h"
+#include "bsp.h"
+
+static void Master_InitSystemClock(void);
+
+static void Master_InitEpwm1(void);
+
+
+/*============================ 初始化函数 ============================*/
+void PWM_MasterSync_Init(void)
+{
+    EALLOW;
+
+//    // ����PWM1��CTR=0ʱ���ͬ���ź�,����ͬ���ӻ�PWMģ��(PWM2)
+//    EPWM_setSyncOutPulseMode(EPWM1_BASE, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
+//    EPWM_enableSyncOutPulseSource(EPWM1_BASE, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
+//    // ����ϵͳͬ�����
+//    SysCtl_setSyncOutputConfig(SYSCTL_SYNC_OUT_SRC_EPWM1SYNCOUT);
+
+    // 1.�����ø���ePWMģ��ǰ���Ƚ�ֹ����ePWMģ���ʱ��ʱ�ӣ���ֹ��ʼ�������в������������
+    SysCtl_disablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
+
+    // 2.����ͬ��ԴEPWM1��ʹ����Ϊͬ�������.��������ͬ�����룬ʹ����CTR=0ʱ���SYNC0
+    EPWM_setSyncInPulseSource(EPWM1_BASE, EPWM_SYNC_IN_PULSE_SRC_DISABLE);
+
+    // 3.����EPWM1�ڼ���������ʱ����ͬ���������
+    EPWM_enableSyncOutPulseSource(EPWM1_BASE, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
+
+    EDIS;
+}
+

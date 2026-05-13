@@ -1,0 +1,12 @@
+MODULES_MRU_PATH=D\:\\workspace\\CCS\\PCS150KW_c28x_cm_V4.0\\Flash_Slave\\PCS150KW_c28x_cm_V4.0.out\#THREAD_IDS\#Texas Instruments XDS100v3 USB Debug Probe_0/Cortex_M4_0
+MODULES_MRU_PATH.1=D\:\\workspace\\CCS\\PCS150KW_c28x_cpu1_V4.0\\CPU1_FLASH\\PCS150KW_c28x_cpu1_V4.0.out\#THREAD_IDS\#Texas Instruments XDS100v3 USB Debug Probe_0/C28xx_CPU1
+MODULES_MRU_PATH.2=D\:\\workspace\\CCS\\PCS150KW_c28x_cm_V4.0\\Flash_Master\\PCS150KW_c28x_cm_V4.0.out\#THREAD_IDS\#Texas Instruments XDS100v3 USB Debug Probe_0/Cortex_M4_0
+MODULES_MRU_PATH.3=D\:\\workspace\\CCS\\PCS150KW_c28x_cm_V4.0_dev\\Flash_Slave\\PCS150KW_c28x_cm_V4.0.out\#THREAD_IDS\#Texas Instruments XDS100v3 USB Debug Probe_0/Cortex_M4_0
+MODULES_MRU_PATH.4=D\:\\workspace\\CCS\\PCS150KW_c28x_cpu1_V4.0_dev\\CPU1_FLASH_SLAVE\\PCS150KW_c28x_cpu1_V4.0.out\#THREAD_IDS\#Texas Instruments XDS100v3 USB Debug Probe_0/C28xx_CPU1
+MODULES_MRU_PATH.5=D\:\\workspace\\CCS\\ethernet_ex4_ptp_basic_master\\CM_FLASH\\ethernet_ex4_ptp_basic_master.out\#THREAD_IDS\#Texas Instruments XDS100v3 USB Debug Probe_0/Cortex_M4_0\#THREAD_IDS\#Texas Instruments XDS100v3 USB Debug Probe_0/C28xx_CPU1
+MODULES_MRU_PATH.6=D\:\\workspace\\CCS\\PCS150KW_c28x_cpu1_V4.0\\CPU1_FLASH_SLAVE\\PCS150KW_c28x_cpu1_V4.0.out\#THREAD_IDS\#Texas Instruments XDS100v3 USB Debug Probe_0/C28xx_CPU1
+MODULES_MRU_PATH.7=D\:\\workspace\\CCS\\PCS150KW_c28x_cpu1_V4.0\\CPU1_FLASH_MASTER\\PCS150KW_c28x_cpu1_V4.0.out\#THREAD_IDS\#Texas Instruments XDS100v3 USB Debug Probe_0/C28xx_CPU1
+MODULES_MRU_PATH.8=D\:\\workspace\\CCS\\ethernet_ex4_ptp_basic_slave\\CM_FLASH\\ethernet_ex4_ptp_basic_slave.out\#THREAD_IDS\#Texas Instruments XDS100v3 USB Debug Probe_0/Cortex_M4_0
+MODULES_MRU_PATH.9=D\:\\workspace\\CCS\\PCS150KW_c28x_cm_V4.0\\Flash\\PCS150KW_c28x_cm_V4.0.out\#THREAD_IDS\#Texas Instruments XDS100v3 USB Debug Probe_0/Cortex_M4_0\#THREAD_IDS\#Texas Instruments XDS100v3 USB Debug Probe_0/C28xx_CPU1\#THREAD_IDS\#Texas Instruments XDS100v3 USB Debug Probe/Cortex_M4_0
+eclipse.preferences.version=1
+useAnnotationsPrefPage=true

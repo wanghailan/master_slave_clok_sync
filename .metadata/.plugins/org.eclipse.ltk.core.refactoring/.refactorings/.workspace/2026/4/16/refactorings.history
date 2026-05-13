@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Delete resource &apos;cm_common_config_c28x&apos;" deleteContents="true" description="Delete resource &apos;cm_common_config_c28x&apos;" element1="/cm_common_config_c28x" flags="7" id="org.eclipse.ltk.core.refactoring.delete.resources" resources="1" stamp="1776053005531"/>
+</session>

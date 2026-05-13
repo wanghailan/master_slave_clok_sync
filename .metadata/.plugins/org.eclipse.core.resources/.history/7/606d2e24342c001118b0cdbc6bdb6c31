@@ -1,0 +1,298 @@
+/*
+ * ptp_basic_master.c
+ *
+ *  Created on: 2026.03.26
+ *      Author: whl
+ */
+#include "ptp_master_sync.h"
+#include "bsp.h"
+#include "Eth_mii.h"
+
+static uint32_t Ethernet_numRxCallbackCustom = 0;
+static uint32_t releaseTxCount = 0;
+
+static uint8_t Ethernet_rxBuffer[ETHERNET_NO_OF_RX_PACKETS *
+                          ETHERNET_MAX_PACKET_LENGTH];
+
+static void InitConstants(PTPMasterState *ptpMasterState);
+
+static Ethernet_Pkt_Desc* Ethernet_getPacketBufferCustom(void)
+{
+    uint32_t shortIndex = (Ethernet_numGetPacketBufferCallback + 3)
+                % NUM_PACKET_DESC_RX_APPLICATION;
+
+    Ethernet_numGetPacketBufferCallback++;
+
+    pktDescriptorRXCustom[shortIndex].bufferLength =
+                                  ETHERNET_MAX_PACKET_LENGTH;
+
+    pktDescriptorRXCustom[shortIndex].dataBuffer =
+                                      &Ethernet_device_struct.rxBuffer [
+               (ETHERNET_MAX_PACKET_LENGTH*Ethernet_device_struct.rxBuffIndex)];
+
+    Ethernet_device_struct.rxBuffIndex += 1U;
+    Ethernet_device_struct.rxBuffIndex  =
+            (Ethernet_device_struct.rxBuffIndex%ETHERNET_NO_OF_RX_PACKETS);
+
+    pktDescriptorRXCustom[shortIndex].dataOffset = 0U;
+
+    return (&(pktDescriptorRXCustom[shortIndex]));
+}
+
+static Ethernet_Pkt_Desc* Ethernet_receivePacketCallbackCustom(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket)
+{
+    msgUnpackHeader((Octet*)(pPacket->dataBuffer + PTP_HEADER_OFFSET),
+                    &gPtpMasterState.delayReqHeader);
+
+    switch(gPtpMasterState.delayReqHeader.messageType)
+    {
+    case DELAY_REQ:
+        gPtpMasterState.delayReqRecvTimestamp.nanosecondsField =
+                pPacket->timeStampLow;
+        gPtpMasterState.delayReqRecvTimestamp.secondsField.lsb =
+                pPacket->timeStampHigh;
+        gPtpMasterState.delayReqRecvTimestamp.secondsField.msb = 0;
+
+        gPtpMasterState.sendingDelayResp = TRUE;
+
+        sendMessage((Octet *)gMsgBuf, DELAY_RESP, &gPtpMasterState, &gPktDesc);
+        break;
+    default:
+        break;
+    }
+
+#ifdef ETHERNET_DEBUG
+    Ethernet_numRxCallbackCustom++;
+#endif
+    return Ethernet_getPacketBufferCustom();
+}
+
+static void Ethernet_releaseTxPacketBufferCustom(
+        Ethernet_Handle handleApplication,
+        Ethernet_Pkt_Desc *pPacket)
+{
+    if(gPtpMasterState.sendingDelayResp == TRUE)
+    {
+        gPtpMasterState.sendingDelayResp = FALSE;
+    }
+    else if(gPtpMasterState.syncTimestampAvailable == FALSE)
+    {
+        gPtpMasterState.syncTimestamp.nanosecondsField = pPacket->timeStampLow;
+        gPtpMasterState.syncTimestamp.secondsField.lsb = pPacket->timeStampHigh;
+        gPtpMasterState.syncTimestamp.secondsField.msb = 0;
+
+        gPtpMasterState.syncTimestampAvailable = TRUE;
+    }
+
+#if ETHERNET_DEBUG
+    Ethernet_releaseTxCount++;
+#endif
+}
+
+
+
+
+void Ethernet_ptp_init()
+{
+    Ethernet_InitInterfaceConfig initInterfaceConfig;
+    uint32_t macLower;
+    uint32_t macHigher;
+
+    initInterfaceConfig.ssbase = EMAC_SS_BASE;
+    initInterfaceConfig.enet_base = EMAC_BASE;
+    initInterfaceConfig.phyMode = ETHERNET_SS_PHY_INTF_SEL_MII;
+    initInterfaceConfig.clockSel = ETHERNET_SS_CLK_SRC_EXTERNAL;
+
+    initInterfaceConfig.ptrPlatformInterruptDisable = &Platform_disableInterrupt;
+    initInterfaceConfig.ptrPlatformInterruptEnable  = &Platform_enableInterrupt;
+    initInterfaceConfig.ptrPlatformPeripheralEnable = &Platform_enablePeripheral;
+    initInterfaceConfig.ptrPlatformPeripheralReset  = &Platform_resetPeripheral;
+
+    initInterfaceConfig.peripheralNum = SYSCTL_PERIPH_CLK_ENET;
+
+    initInterfaceConfig.interruptNum[0] = INT_EMAC;
+    initInterfaceConfig.interruptNum[1] = INT_EMAC_TX0;
+    initInterfaceConfig.interruptNum[2] = INT_EMAC_TX1;
+    initInterfaceConfig.interruptNum[3] = INT_EMAC_RX0;
+    initInterfaceConfig.interruptNum[4] = INT_EMAC_RX1;
+
+    pInitCfg = Ethernet_initInterface(initInterfaceConfig);
+
+    Ethernet_getInitConfig(pInitCfg);
+
+//    pInitCfg->pfcbFreePacket = &Ethernet_Tx_Release_Dispatch;
+//    pInitCfg->pfcbRxPacket = &Ethernet_Rx_Dispatch;
+//    pInitCfg->pfcbGetPacket = &Ethernet_getPacketBufferCustom;
+
+    pInitCfg->pfcbFreePacket = &Ethernet_releaseTxPacketBufferCustom;
+    pInitCfg->pfcbRxPacket = &Ethernet_receivePacketCallbackCustom;
+    pInitCfg->pfcbGetPacket = &Ethernet_getPacketBufferCustom;
+
+    pInitCfg->rxBuffer = Ethernet_rxBuffer;
+
+    Ethernet_getHandle((Ethernet_Handle)1, pInitCfg , &emac_handle);
+
+    (void)Interrupt_enableInProcessor();
+
+    Interrupt_registerHandler(INT_EMAC_TX0, Ethernet_transmitISR);
+    Interrupt_registerHandler(INT_EMAC_RX0, Ethernet_receiveISR);
+
+    Interrupt_enable(INT_EMAC_TX0);
+    Interrupt_enable(INT_EMAC_RX0);
+}
+
+
+// ptpd init test
+void ptp_master_init()
+{
+    uint32_t i;
+    uint32_t varPtpConfig = 0;
+    float subSecondInc;
+
+    // 强制设置以太网MAC为100Mbps模式
+    Ethernet_setMACConfiguration(EMAC_BASE, ETHERNET_MAC_CONFIGURATION_100MBIT);
+
+    // PTP相关配置
+    varPtpConfig = (0 << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
+                            ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
+                            ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
+                            ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
+                            ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
+                            ETHERNET_MAC_TIMESTAMP_CONTROL_TSIPENA;
+
+    subSecondInc = PTP_REF_CLOCK_PERIOD;
+
+    Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
+    Ethernet_enableSysTimePTP(EMAC_BASE);
+
+    // Start the system with a random value.
+    Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCA, 0x25a5a5a5);
+
+    Ethernet_setMACAddr(EMAC_BASE,
+                        0,
+                        0x00000506U,
+                        0x01030304U,
+                        ETHERNET_CHANNEL_0);
+
+    // We need to program this standard multicast address so that this device
+    // identifies PTP over Ethernet packets correctly. "01:1B:19:00:00:00"
+    Ethernet_setMACAddr(EMAC_BASE,
+                        1,
+                        0x00000000,
+                        0x00191B01,
+                        ETHERNET_CHANNEL_0);
+
+    // 配置速度和双工模式
+    Ethernet_setMACConfiguration(EMAC_BASE, ((uint32_t)1 << 14));
+    Ethernet_setMACConfiguration(EMAC_BASE, ((uint32_t)1 << 13));
+
+    // 重新使能TX/RX
+    Ethernet_setMACConfiguration(EMAC_BASE, 0x2);  // 使能TX
+    Ethernet_setMACConfiguration(EMAC_BASE, 0x1);  // 使能RX
+
+    Ethernet_selectTargetInterruptOrPulsePPS(
+                            EMAC_BASE,
+                            ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                            ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_INTERRUPT);
+
+    // We need to set a standard defined Multicast address : 01:1B:19:00:00:00
+    // as the Destination address in the ethernet frame and that is how the
+    // receiver will recognize it as a valid PTP over Ethernet packet.
+    //
+    i=0; *((uint32_t *)gMsgBuf + i) = 0x00191B01;
+    i++; *((uint32_t *)gMsgBuf + i)  = 0xF7880000;
+
+    InitConstants(&gPtpMasterState);
+}
+
+void ptp_master_run()
+{
+    uint32_t timeSec;
+    uint32_t timeNanosec;
+    uint32_t lastSendSecond = 0; // 用于记录上一次发送的时间秒数
+    const uint32_t TIMEOUT_MAX = 2000000;
+    uint32_t timeout = 0;
+
+    // Use the system time counter to send the sync + followUp messages
+    // every one second.
+    Ethernet_getSysTimePTP(EMAC_BASE, &timeSec, &timeNanosec);
+    Ethernet_setTargetTimePPS(EMAC_BASE, ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+                              timeSec + 1, timeNanosec);
+
+    // Waiting till the target time that we set above is reached.
+    // We're using the PPSOUT instance 0 as the timer.
+    while((((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_STATUS)) &
+         (ETHERNET_MAC_TIMESTAMP_STATUS_TSTARGT0)) == 0) &&
+         (timeout < TIMEOUT_MAX))
+    {
+        timeout++;
+    }
+
+    if(timeout >= TIMEOUT_MAX)
+    {
+        CmIpc_cm2cpu.IpcCpu2Cm_Fault = 1;
+        return;
+    }
+
+    // Save the state. We want to capture the timestamp of the next SYNC
+    // packet that is being sent.
+    gPtpMasterState.syncTimestampAvailable = FALSE;
+
+    // Send out the SYNC packet.
+    sendMessage((Octet *)gMsgBuf, SYNC, &gPtpMasterState, &gPktDesc);
+
+    timeout = 0;
+
+    //  Wait till the latest sync timestamp is captured. As soon as the
+    //  timestamp for the SYNC packet going out is captured, this flag
+    //  will be set to TRUE by the application.
+    while((gPtpMasterState.syncTimestampAvailable == FALSE) && (timeout < TIMEOUT_MAX))
+    {
+        timeout++;
+    }
+
+    if(timeout >= TIMEOUT_MAX)
+    {
+        CmIpc_cm2cpu.IpcCpu2Cm_Fault = 2;
+        return;
+    }
+
+    // Since the timestamp for the last SYNC packet has been captured,
+    // send out the associated FOLLOW-UP packet.
+    sendMessage((Octet *)gMsgBuf, FOLLOW_UP, &gPtpMasterState, &gPktDesc);
+}
+
+
+void InitConstants(PTPMasterState *ptpMasterState)
+{
+    uint32_t mac_low,mac_high, i, j;
+    uint8_t *pucTemp;
+
+    Ethernet_getMACAddr(EMAC_BASE, 0, &mac_high, &mac_low);
+
+    pucTemp = (uint8_t *)&mac_low;
+    ptpMasterState->port_uuid_field[0] = pucTemp[0];
+    ptpMasterState->port_uuid_field[1] = pucTemp[1];
+    ptpMasterState->port_uuid_field[2] = pucTemp[2];
+    ptpMasterState->port_uuid_field[3] = pucTemp[3];
+
+    pucTemp = (uint8_t *)&mac_high;
+    ptpMasterState->port_uuid_field[4] = pucTemp[0];
+    ptpMasterState->port_uuid_field[5] = pucTemp[1];
+
+    // Init global constants.
+    for (i = 0, j = 0; i < CLOCK_IDENTITY_LENGTH; i++)
+    {
+       if (i == 3) ptpMasterState->portIdentity.clockIdentity[i] = 0xFF;
+       else if (i == 4) ptpMasterState->portIdentity.clockIdentity[i] = 0xFE;
+       else
+       {
+           ptpMasterState->portIdentity.clockIdentity[i] =
+                   ptpMasterState->port_uuid_field[j];
+           j++;
+       }
+    }
+}
+

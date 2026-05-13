@@ -1,0 +1,18 @@
+/*
+ * ethernet_dispatch.h
+ *
+ *  Created on: 2026Äê3ÔÂ27ÈÕ
+ *      Author: whl
+ */
+
+#ifndef DRIVER_ETHERNET_DISPATCH_H_
+#define DRIVER_ETHERNET_DISPATCH_H_
+
+#include "eth_common.h"
+
+extern PTPMasterState gPtpMasterState;
+extern uint8_t gMsgBuf[];
+
+
+
+#endif /* DRIVER_ETHERNET_DISPATCH_H_ */

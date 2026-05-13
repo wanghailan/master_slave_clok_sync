@@ -1,0 +1,8 @@
+################################################################################
+# Automatically-generated file. Do not edit!
+################################################################################
+
+USER_OBJS :=
+
+LIBS := -l"D:/workspace/CCS/ethernet_ex4_ptp_basic_master/Driver/device/driverlib_cm.lib" -llibc.a
+

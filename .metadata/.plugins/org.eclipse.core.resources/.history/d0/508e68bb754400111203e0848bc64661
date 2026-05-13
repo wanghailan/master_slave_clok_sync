@@ -1,0 +1,76 @@
+//#############################################################################
+//
+// FILE:   main.c
+//
+
+// Included Files
+//
+#include <Driver/device/device.h>
+#include <Driver/device/driverlib.h>
+#include "bsp.h"
+#include "board.h"
+#include "math.h"
+
+
+#define PWM_SYNC_ROLE_NONE    0
+#define PWM_SYNC_ROLE_MASTER  1
+#define PWM_SYNC_ROLE_SLAVE   2
+
+#ifndef PWM_SYNC_ROLE
+#define PWM_SYNC_ROLE PWM_SYNC_ROLE_NONE
+#endif
+
+//static void* gAllowPpsSync = NULL;
+
+void main(void)
+{
+    bsp_init();
+
+//#if PTP_MODE_MASTER
+//    PWM_MasterSync_Init(); // Master PWM��ʼ��
+//#else
+//    PWM_SlaveSync_Init();  // Slave PWM��ʼ��
+//#endif
+
+    for(;;)
+    {
+        if(Cpu1Ipc_cm2cpu.Reset_En == 0)
+            SysCtl_serviceWatchdog();//���Ź�ι��
+        Drv_Timer_ClockMaintain();
+        cpu2claParam_Upgrade();
+        App_AllFault_Deal();
+        if(Cpu1Ipc_cm2cpu.SoftStart_En)
+        {
+            if(Cpu1Ipc_cm2cpu.WorkMode == GridDisConnectMode)
+                Pcs_InvCtrl_SoftStar();
+            else
+            {
+                if(Cpu1Ipc_cm2cpu.OnGridMode == 2)//��ֱ����ѹģʽ
+                    Pcs_DcConstVolCtrl_SoftStar();
+                else if(Cpu1Ipc_cm2cpu.OnGridMode == 1)//�㽻������
+                    Pcs_AcConstCurrCtrl_SoftStar();
+                else if(Cpu1Ipc_cm2cpu.OnGridMode == 3)//��ֱ������
+                    Pcs_DcConstCurrCtrl_SoftStar();
+                else if(Cpu1Ipc_cm2cpu.OnGridMode == 0)//�㹦��
+                    Pcs_PQConstCtrl_SoftStar();
+            }
+        }
+        obj_PcsOutput_TempCalc();
+        objControl_StateCtrl();
+        objControl_FanControl();
+        objControl_DOControl();
+        objControl_LedControl();
+        SciC_Poll();
+        SciD_Poll();
+
+//        // ���CM���Ƿ��Ѿ����PTPͬ��
+//#if PTP_MODE_MASTER
+//        PWM_MasterSync_run(gAllowPpsSync);
+//#else
+//        PWM_SlaveSync_run(gAllowPpsSync);
+//#endif
+    }
+}
+
+// End of File
+

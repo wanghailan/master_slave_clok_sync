@@ -1,0 +1,24 @@
+/*
+ * ethernet_dispatch.c
+ *
+ *  Created on: 2026Äê3ÔÂ27ÈÕ
+ *      Author: whl
+ */
+
+#include "ethernet_dispatch.h"
+
+PTPMasterState gPtpMasterState = {0};
+uint8_t gMsgBuf[PACKET_LENGTH] = {0};
+
+
+// Function prototypes used in this example
+void msgUnpackHeader(Octet * buf, MsgHeader * header);
+
+void msgPackSync(Octet * buf, PTPMasterState *ptpMasterState);
+
+void msgPackFollowUp(Octet * buf, PTPMasterState *ptpMasterState);
+
+void msgPackHeader(Octet * buf, PTPMasterState *ptpMasterState);
+
+void msgPackDelayResp(Octet * buf, PTPMasterState *ptpMasterState);
+
