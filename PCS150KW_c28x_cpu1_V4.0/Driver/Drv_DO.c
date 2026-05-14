@@ -39,12 +39,12 @@
 #define GPIO_PIN_PWMEN2            153U  //PWMEN2
 #define GPIO_CFG_PWMEN2            GPIO_153_GPIO153
 
-#define DO_17_REG                  6    //EXIO2_P05     ¹¤×÷Ö¸Ê¾µÆ
-#define DO_18_REG                  5    //EXIO2_P04     ¹ÊÕÏÖ¸Ê¾µÆ
+#define DO_17_REG                  6    //EXIO2_P05     å·¥ä½œæŒ‡ç¤ºç¯
+#define DO_18_REG                  5    //EXIO2_P04     æ•…éšœæŒ‡ç¤ºç¯
 
-#define DO_09_REG                  1    //EXIO1_P00     À©Õ¹Êä³ö1
-#define DO_10_REG                  2    //EXIO1_P01     À©Õ¹Êä³ö2
-#define DO_11_REG                  3    //EXIO1_P02     À©Õ¹Êä³ö3
+#define DO_09_REG                  1    //EXIO1_P00     æ‰©å±•è¾“å‡º1
+#define DO_10_REG                  2    //EXIO1_P01     æ‰©å±•è¾“å‡º2
+#define DO_11_REG                  3    //EXIO1_P02     æ‰©å±•è¾“å‡º3
 
 
 void Drv_DO_Init(void)

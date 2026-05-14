@@ -1,7 +1,7 @@
 /*
  * obj_Control.h
  *
- *  Created on: 2025Äê02ÔÂ14ÈÕ
+ *  Created on: 2025å¹´02æœˆ14æ—¥
  *      Author: guowei680
  */
 
@@ -13,18 +13,18 @@
 
 typedef enum{
     PowerOn_Mode = 0,
-    PcsOff_Mode,    //Í£»ú
-    PreStart_Mode,  //Ô¤Æô¶¯
-    DcSoft_Mode,    //Ö±Á÷ÈíÆğ
-    DcStart_Mode,   //Ö±Á÷Ö÷¼ÌµçÆ÷Æô¶¯
-    AcSoft_Mode,    //½»Á÷ÈíÆğ
-    AcStart_Mode,   //½»Á÷Ö÷¼ÌµçÆ÷Æô¶¯
-    PcsOn_Mode      //Æô¶¯
+    PcsOff_Mode,    //åœæœº
+    PreStart_Mode,  //é¢„å¯åŠ¨
+    DcSoft_Mode,    //ç›´æµè½¯èµ·
+    DcStart_Mode,   //ç›´æµä¸»ç»§ç”µå™¨å¯åŠ¨
+    AcSoft_Mode,    //äº¤æµè½¯èµ·
+    AcStart_Mode,   //äº¤æµä¸»ç»§ç”µå™¨å¯åŠ¨
+    PcsOn_Mode      //å¯åŠ¨
 }PCS_CTRL_STATE;
 
 typedef enum{
-    GridDisConnectMode = 0, //ÀëÍø
-    GridConnectMode    //²¢Íø
+    GridDisConnectMode = 0, //ç¦»ç½‘
+    GridConnectMode    //å¹¶ç½‘
 }PCS_WORK_MODE;
 
 extern RAMPGEN PCS_rgen;

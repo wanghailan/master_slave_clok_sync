@@ -1,7 +1,7 @@
 /*
  * Drv_DIN.h
  *
- *  Created on: 2024Äê9ÔÂ11ÈÕ
+ *  Created on: 2024å¹´9æœˆ11æ—¥
  *      Author: guowei680
  */
 
@@ -10,12 +10,12 @@
 
 enum
 {
-    Din_EStop = 1, //¼±Í£ÊäÈë
-    Din_ReMCtrl,   //Ô¶³Ì¿ØÖÆ
-    Din_IdcCmp,    //Ö±Á÷¹ıÁ÷Ó²¼ş±È½Ï
-    Din_in1,       //À©Õ¹ÊäÈë1
-    Din_in2,       //À©Õ¹ÊäÈë2
-    Din_in3,       //À©Õ¹ÊäÈë3
+    Din_EStop = 1, //æ€¥åœè¾“å…¥
+    Din_ReMCtrl,   //è¿œç¨‹æ§åˆ¶
+    Din_IdcCmp,    //ç›´æµè¿‡æµç¡¬ä»¶æ¯”è¾ƒ
+    Din_in1,       //æ‰©å±•è¾“å…¥1
+    Din_in2,       //æ‰©å±•è¾“å…¥2
+    Din_in3,       //æ‰©å±•è¾“å…¥3
     Din_Addr1,
     Din_Addr2,
     Din_Addr3,

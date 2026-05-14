@@ -1,7 +1,7 @@
 /*
  * initial_CLA.c
  *
- *  Created on: 2024Äê9ÔÂ16ÈÕ
+ *  Created on: 2024å¹´9æœˆ16æ—¥
  *      Author: guowei680
  */
 
@@ -164,7 +164,7 @@ void initial_CLA(void)
 {
     configClaMemory();
     initCpu2Cla1();
-    CLA_setTriggerSource(CLA_TASK_1,CLA_TRIGGER_ADCA1);//ClaTask1´¥·¢Ô´ÉèÖÃÎªADCA1
+    CLA_setTriggerSource(CLA_TASK_1,CLA_TRIGGER_ADCA1);//ClaTask1è§¦å‘æºè®¾ç½®ä¸ºADCA1
     CLA_setTriggerSource(CLA_TASK_2,CLA_TRIGGER_SOFTWARE);
     CLA_setTriggerSource(CLA_TASK_3,CLA_TRIGGER_SOFTWARE);
     CLA_setTriggerSource(CLA_TASK_4,CLA_TRIGGER_SOFTWARE);
@@ -172,7 +172,7 @@ void initial_CLA(void)
     CLA_setTriggerSource(CLA_TASK_6,CLA_TRIGGER_SOFTWARE);
     CLA_setTriggerSource(CLA_TASK_7,CLA_TRIGGER_SOFTWARE);
     CLA_setTriggerSource(CLA_TASK_8,CLA_TRIGGER_SOFTWARE);
-    CLA_forceTasks(CLA1_BASE, CLA_TASKFLAG_8);//Èí¼ş´¥·¢Ò»´ÎClaTask8,Ö´ĞĞCLAÊı¾İ³õÊ¼»¯
+    CLA_forceTasks(CLA1_BASE, CLA_TASKFLAG_8);//è½¯ä»¶è§¦å‘ä¸€æ¬¡ClaTask8,æ‰§è¡ŒCLAæ•°æ®åˆå§‹åŒ–
 }
 
 //

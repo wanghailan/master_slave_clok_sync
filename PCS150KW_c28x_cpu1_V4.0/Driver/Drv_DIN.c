@@ -12,22 +12,22 @@
 //
 // GPIO
 
-//¼±Í£ÊäÈëµÍµçÆ½ÓĞĞ§ DIN1ÊäÈë
+//æ€¥åœè¾“å…¥ä½ç”µå¹³æœ‰æ•ˆ DIN1è¾“å…¥
 #define GPIO_PIN_DI01            145U  // GPIO number for
 #define GPIO_CFG_DI01            GPIO_145_GPIO145  // "pinConfig" for
-//Ô¶³ÌÊäÈë
+//è¿œç¨‹è¾“å…¥
 #define GPIO_PIN_DI02            146U
 #define GPIO_CFG_DI02            GPIO_146_GPIO146
 //
 #define GPIO_PIN_DI03            147U
 #define GPIO_CFG_DI03            GPIO_147_GPIO147
-//Ä£ÄâÆ¬Ñ¡2
+//æ¨¡æ‹Ÿç‰‡é€‰2
 #define GPIO_PIN_DI04            74U
 #define GPIO_CFG_DI04            GPIO_74_GPIO74
-//Ö±Á÷¹ıÁ÷Ó²¼ş±È½Ï
+//ç›´æµè¿‡æµç¡¬ä»¶æ¯”è¾ƒ
 #define GPIO_PIN_DI05            76U
 #define GPIO_CFG_DI05            GPIO_76_GPIO76
-//Ä£ÄâÆ¬Ñ¡1
+//æ¨¡æ‹Ÿç‰‡é€‰1
 #define GPIO_PIN_DI06            68U
 #define GPIO_CFG_DI06            GPIO_68_GPIO68
 //
@@ -37,13 +37,13 @@
 #define GPIO_PIN_DI08            69U
 #define GPIO_CFG_DI08            GPIO_69_GPIO69
 
-#define DIN_01_REG               8    //EXIO1_P17     À©Õ¹ÊäÈë1
-#define DIN_02_REG               7    //EXIO1_P16     À©Õ¹ÊäÈë2
-#define DIN_03_REG               6    //EXIO1_P15     À©Õ¹ÊäÈë3
-#define DI_ADDR1_REG             1    //EXIO2_10     ²¦ÂëµØÖ·Î»1
-#define DI_ADDR2_REG             3    //EXIO2_12     ²¦ÂëµØÖ·Î»2
-#define DI_ADDR3_REG             2    //EXIO2_11     ²¦ÂëµØÖ·Î»3
-#define DI_ADDR4_REG             4    //EXIO2_13     ²¦ÂëµØÖ·Î»4
+#define DIN_01_REG               8    //EXIO1_P17     æ‰©å±•è¾“å…¥1
+#define DIN_02_REG               7    //EXIO1_P16     æ‰©å±•è¾“å…¥2
+#define DIN_03_REG               6    //EXIO1_P15     æ‰©å±•è¾“å…¥3
+#define DI_ADDR1_REG             1    //EXIO2_10     æ‹¨ç åœ°å€ä½1
+#define DI_ADDR2_REG             3    //EXIO2_12     æ‹¨ç åœ°å€ä½2
+#define DI_ADDR3_REG             2    //EXIO2_11     æ‹¨ç åœ°å€ä½3
+#define DI_ADDR4_REG             4    //EXIO2_13     æ‹¨ç åœ°å€ä½4
 
 
 void Drv_DinPin_Init(void)
@@ -83,7 +83,7 @@ void Drv_DinPin_Init(void)
 }
 
 
-//ÊäÈë×´Ì¬
+//è¾“å…¥çŠ¶æ€
 int16_t Drv_DinStatusGet(int16_t RelayIndex)
 {
     uint32_t PinStatus;

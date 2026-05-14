@@ -2,12 +2,18 @@
  * pwm_slave_sync.c
  *
  * Slave-side PPS to PWM phase sync.
+ *
+ * This module mirrors the master PPS servo on the slave board. eCAP1
+ * timestamps the slave PPS rising edge, compares it with EPWM1 time-base
+ * phase, and optionally reloads EPWM1 phase with a software sync pulse. The
+ * slave applies corrections only when CM reports that PTP is synced.
  */
 
 #include "pwm_slave_sync.h"
 #include "bsp.h"
 
-#define PPS_INPUTXBAR_CHANNEL       XBAR_INPUT7
+#define PPS_ECAP_INPUTXBAR_CHANNEL  XBAR_INPUT7
+#define PPS_SYNC_INPUTXBAR_CHANNEL  XBAR_INPUT5
 #define PPS_ECAP_INPUT_SEL          ECAP_INPUT_INPUTXBAR7
 #define PPS_ECAP_BASE               ECAP1_BASE
 #define PPS_ECAP_INT                INT_ECAP1
@@ -15,13 +21,16 @@
 
 #define SYNC_EPWM_BASE              EPWM1_BASE
 
+/* Match these values to the CPU1 clock tree used by EPWM and eCAP. */
 #define EPWM_TBCLK_HZ               100000000UL
 #define ECAP_TSCTR_HZ               200000000UL
 
+/* Default servo limits; runtime debug variables below can override them. */
 #define PWM_MAX_STEP_NS             100L
 #define PWM_LOCK_THRESHOLD_NS       1000L
 #define PPS_ISR_MAX_LATENCY_NS      5000UL
-#define PPS_PHASE_OFFSET_NS         0L
+#define PPS_PHASE_OFFSET_NS         -1000L
+#define PWM_SYNC_NOMINAL_TBPRD      ((uint32_t)EPWM_TBPRD)
 
 #define PPS_ECAP_ALL_INT_FLAGS      (ECAP_ISR_SOURCE_CAPTURE_EVENT_1 | \
                                      ECAP_ISR_SOURCE_CAPTURE_EVENT_2 | \
@@ -35,6 +44,11 @@
 
 extern IPC_DATA_CM2CPU Cpu1Ipc_cm2cpu;
 
+/*
+ * PPS servo diagnostics and tuning knobs exposed for CCS watch-window tuning.
+ * Use g_slavePwmPhaseOffsetNs to compensate fixed PPS/PWM channel delay after
+ * the master and slave are already frequency locked.
+ */
 volatile uint32_t g_slavePpsCapCount = 0U;
 volatile int32_t  g_slavePwmPhaseErrTicks = 0;
 volatile int32_t  g_slavePwmPhaseErrNs = 0;
@@ -42,6 +56,18 @@ volatile uint32_t g_slavePwmLockCount = 0U;
 volatile uint32_t g_slavePwmSkipCount = 0U;
 volatile bool     g_slavePwmLocked = false;
 volatile uint16_t g_slavePwmApplySync = 1U;
+volatile int32_t  g_slavePwmPhaseOffsetNs = PPS_PHASE_OFFSET_NS;
+volatile int32_t  g_slavePwmLockThresholdNs = 50L;
+volatile int32_t  g_slavePwmMaxStepNs = PWM_MAX_STEP_NS;
+volatile uint16_t g_slavePwmHardwareSyncEnable = 1U;
+volatile uint16_t g_slavePwmPiEnable = 1U;
+volatile int32_t  g_slavePwmPiOffsetNs = 0L;
+volatile int32_t  g_slavePwmPiIntegralNs = 0L;
+volatile int32_t  g_slavePwmPiMaxOffsetNs = 2000L;
+volatile uint16_t g_slavePwmPiKpDiv = 4U;
+volatile uint16_t g_slavePwmPiKiDiv = 16U;
+volatile uint32_t g_slavePwmPtpUnsyncedCount = 0U;
+volatile uint32_t g_slavePwmApplyCount = 0U;
 
 static void Slave_InitEPwmSync(void);
 static void Slave_InitPpsEcap(void);
@@ -51,10 +77,12 @@ static int32_t  ns_to_tbclk_ticks(int32_t ns);
 static uint32_t ns_to_ecap_ticks(uint32_t ns);
 static uint32_t ecap_ticks_to_tbclk(uint32_t ecapTicks);
 static uint32_t get_epwm_up_down_phase(uint32_t base, uint32_t tbprd);
-static void     set_epwm_up_down_phase(uint32_t base, uint32_t phase, uint32_t tbprd);
+static void     set_epwm_up_down_phase(uint32_t base, uint32_t phase, uint32_t tbprd, bool forceNow);
 static uint32_t wrap_u32(int32_t value, uint32_t modulo);
 static int32_t  signed_phase_error(uint32_t actual, uint32_t target, uint32_t modulo);
 static int32_t  clamp_i32(int32_t value, int32_t minValue, int32_t maxValue);
+static void     update_phase_pi(int32_t phaseErrNs);
+
 
 void PWM_SlaveSync_Init(void)
 {
@@ -65,20 +93,36 @@ void PWM_SlaveSync_Init(void)
 static void Slave_InitEPwmSync(void)
 {
     EALLOW;
+
     SysCtl_disablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
-    EPWM_setSyncInPulseSource(SYNC_EPWM_BASE, EPWM_SYNC_IN_PULSE_SRC_DISABLE);
+
+    XBAR_setInputPin(INPUTXBAR_BASE, PPS_SYNC_INPUTXBAR_CHANNEL, PPS_GPIO);
+
+    EPWM_setSyncInPulseSource(SYNC_EPWM_BASE,
+                              EPWM_SYNC_IN_PULSE_SRC_INPUTXBAR_OUT5);
+
     EPWM_setPhaseShift(SYNC_EPWM_BASE, 0U);
-    EPWM_disablePhaseShiftLoad(SYNC_EPWM_BASE);
+
+    EPWM_enablePhaseShiftLoad(SYNC_EPWM_BASE);
+
     EPWM_setCountModeAfterSync(SYNC_EPWM_BASE, EPWM_COUNT_MODE_UP_AFTER_SYNC);
+
     EPWM_enableSyncOutPulseSource(SYNC_EPWM_BASE, EPWM_SYNC_OUT_PULSE_ON_CNTR_ZERO);
+
     SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
+
     EDIS;
 }
 
 static void Slave_InitPpsEcap(void)
 {
     EALLOW;
-    XBAR_setInputPin(INPUTXBAR_BASE, PPS_INPUTXBAR_CHANNEL, PPS_GPIO);
+
+    /*
+     * Route the slave PPS into eCAP1 through INPUTXBAR7. CAP1 stores the edge
+     * timestamp, while the ISR reads current TSCTR for latency compensation.
+     */
+    XBAR_setInputPin(INPUTXBAR_BASE, PPS_ECAP_INPUTXBAR_CHANNEL, PPS_GPIO);
     ECAP_selectECAPInput(PPS_ECAP_BASE, PPS_ECAP_INPUT_SEL);
 
     Interrupt_register(PPS_ECAP_INT, &PPS_Slave_ECAP_ISR);
@@ -100,11 +144,13 @@ static void Slave_InitPpsEcap(void)
     ECAP_startCounter(PPS_ECAP_BASE);
     ECAP_reArm(PPS_ECAP_BASE);
     Interrupt_enable(PPS_ECAP_INT);
+
     EDIS;
 }
 
 __interrupt void PPS_Slave_ECAP_ISR(void)
 {
+    /* Capture health is visible through the LED toggle after PPS processing. */
     Slave_ServicePpsCapture(g_slavePwmApplySync != 0U);
 
 #ifdef ETHERNET_DEBUG
@@ -112,7 +158,9 @@ __interrupt void PPS_Slave_ECAP_ISR(void)
 #endif
 
     ECAP_clearInterrupt(PPS_ECAP_BASE, ECAP_ISR_SOURCE_CAPTURE_EVENT_1);
+
     ECAP_clearGlobalInterrupt(PPS_ECAP_BASE);
+
     Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP4);
 }
 
@@ -126,14 +174,22 @@ static void Slave_ServicePpsCapture(bool allowSync)
     uint32_t modulo;
     uint32_t targetAtPps;
     uint32_t targetNow;
+    uint32_t targetAtApply;
+    uint32_t applyTs;
+    uint32_t applyDtTbclk;
     uint32_t actualNow;
     int32_t  err;
-    int32_t  step;
+    int32_t  lockThresholdNs;
     int32_t  lockThresholdTicks;
     uint32_t newPhase;
+    int32_t  targetOffsetNs;
 
     g_slavePpsCapCount++;
 
+    /*
+     * CAP1 is the PPS edge timestamp. TSCTR is sampled inside the ISR so the
+     * target EPWM phase can be advanced by the ISR latency before comparing.
+     */
     capTs = ECAP_getEventTimeStamp(PPS_ECAP_BASE, ECAP_EVENT_1);
     nowTs = ECAP_getTimeBaseCounter(PPS_ECAP_BASE);
     dtEcap = nowTs - capTs;
@@ -141,6 +197,8 @@ static void Slave_ServicePpsCapture(bool allowSync)
 
     if (Cpu1Ipc_cm2cpu.PtpSynced == 0)
     {
+        /* Do not steer PWM from an unsynchronized PTP PPS source. */
+        g_slavePwmPtpUnsyncedCount++;
         g_slavePwmLocked = false;
         g_slavePwmLockCount = 0U;
         return;
@@ -152,7 +210,10 @@ static void Slave_ServicePpsCapture(bool allowSync)
         return;
     }
 
-    tbprd = EPWM_getTimeBasePeriod(SYNC_EPWM_BASE);
+    // Set PWM period count
+    EPWM_setTimeBasePeriod(SYNC_EPWM_BASE, PWM_SYNC_NOMINAL_TBPRD);
+    tbprd = PWM_SYNC_NOMINAL_TBPRD;
+
     if (tbprd == 0U)
     {
         g_slavePwmSkipCount++;
@@ -160,7 +221,13 @@ static void Slave_ServicePpsCapture(bool allowSync)
     }
 
     modulo = 2U * tbprd;
-    targetAtPps = wrap_u32(ns_to_tbclk_ticks(PPS_PHASE_OFFSET_NS), modulo);
+
+    /*
+     * Up-down PWM phase is represented as a 0..(2*TBPRD-1) ramp so the same
+     * signed phase-error math works on both up-count and down-count halves.
+     */
+    targetOffsetNs = g_slavePwmPhaseOffsetNs + g_slavePwmPiOffsetNs;
+    targetAtPps = wrap_u32(ns_to_tbclk_ticks(targetOffsetNs), modulo);
     targetNow = (targetAtPps + (dtTbclk % modulo)) % modulo;
     actualNow = get_epwm_up_down_phase(SYNC_EPWM_BASE, tbprd);
     err = signed_phase_error(actualNow, targetNow, modulo);
@@ -168,7 +235,15 @@ static void Slave_ServicePpsCapture(bool allowSync)
     g_slavePwmPhaseErrTicks = err;
     g_slavePwmPhaseErrNs = (int32_t)(((int64_t)err * 1000000000LL) / (int64_t)EPWM_TBCLK_HZ);
 
-    lockThresholdTicks = ns_to_tbclk_ticks(PWM_LOCK_THRESHOLD_NS);
+    // 误差在100NS,PI调节相位差
+    update_phase_pi(g_slavePwmPhaseErrNs);
+
+    lockThresholdNs = g_slavePwmLockThresholdNs;
+    if (lockThresholdNs < 10L)
+    {
+        lockThresholdNs = 10L;
+    }
+    lockThresholdTicks = ns_to_tbclk_ticks(lockThresholdNs);
     if (allowSync == false)
     {
         g_slavePwmLocked = false;
@@ -176,21 +251,47 @@ static void Slave_ServicePpsCapture(bool allowSync)
         return;
     }
 
-    if ((err > lockThresholdTicks) || (err < -lockThresholdTicks))
+    targetOffsetNs = g_slavePwmPhaseOffsetNs + g_slavePwmPiOffsetNs;
+    targetAtPps = wrap_u32(ns_to_tbclk_ticks(targetOffsetNs), modulo);
+
+    if (g_slavePwmHardwareSyncEnable != 0U)
     {
-        if (g_slavePwmLocked == false)
+        set_epwm_up_down_phase(SYNC_EPWM_BASE, targetAtPps, tbprd, false);
+        g_slavePwmApplyCount++;
+
+        if ((err > lockThresholdTicks) || (err < -lockThresholdTicks))
         {
-            newPhase = targetNow;
+            g_slavePwmLocked = false;
+            g_slavePwmLockCount = 0U;
         }
         else
         {
-            step = clamp_i32(err,
-                             -ns_to_tbclk_ticks(PWM_MAX_STEP_NS),
-                              ns_to_tbclk_ticks(PWM_MAX_STEP_NS));
-            newPhase = wrap_u32((int32_t)actualNow - step, modulo);
+            if (g_slavePwmLockCount < 0xFFFFFFFFU)
+            {
+                g_slavePwmLockCount++;
+            }
+            if (g_slavePwmLockCount >= 3U)
+            {
+                g_slavePwmLocked = true;
+            }
         }
+        return;
+    }
 
-        set_epwm_up_down_phase(SYNC_EPWM_BASE, newPhase, tbprd);
+    if ((err > lockThresholdTicks) || (err < -lockThresholdTicks))
+    {
+        /*
+         * Re-read eCAP immediately before SWFSYNC. The earlier targetNow only
+         * compensates PPS-to-ISR latency; this read also covers the C code time
+         * spent deciding whether a correction is needed.
+         */
+        applyTs = ECAP_getTimeBaseCounter(PPS_ECAP_BASE);
+        applyDtTbclk = ecap_ticks_to_tbclk(applyTs - capTs);
+        targetAtApply = (targetAtPps + (applyDtTbclk % modulo)) % modulo;
+        newPhase = targetAtApply;
+
+        set_epwm_up_down_phase(SYNC_EPWM_BASE, newPhase, tbprd, true);
+        g_slavePwmApplyCount++;
         g_slavePwmLocked = false;
         g_slavePwmLockCount = 0U;
     }
@@ -226,6 +327,7 @@ static uint32_t ecap_ticks_to_tbclk(uint32_t ecapTicks)
 
 static uint32_t get_epwm_up_down_phase(uint32_t base, uint32_t tbprd)
 {
+    /* Convert TBCTR plus direction into the monotonic phase ramp used above. */
     uint32_t ctr = (uint32_t)EPWM_getTimeBaseCounterValue(base);
     uint32_t modulo = 2U * tbprd;
     uint32_t phase;
@@ -242,8 +344,12 @@ static uint32_t get_epwm_up_down_phase(uint32_t base, uint32_t tbprd)
     return phase % modulo;
 }
 
-static void set_epwm_up_down_phase(uint32_t base, uint32_t phase, uint32_t tbprd)
+static void set_epwm_up_down_phase(uint32_t base, uint32_t phase, uint32_t tbprd, bool forceNow)
 {
+    /*
+     * Convert monotonic phase back to TBPHS plus post-sync count direction,
+     * then force a sync pulse so the new phase loads immediately.
+     */
     uint32_t modulo = 2U * tbprd;
     uint32_t wrappedPhase = phase % modulo;
     uint32_t tbphs;
@@ -261,7 +367,10 @@ static void set_epwm_up_down_phase(uint32_t base, uint32_t phase, uint32_t tbprd
 
     EPWM_setPhaseShift(base, (uint16_t)tbphs);
     EPWM_enablePhaseShiftLoad(base);
-    EPWM_forceSyncPulse(base);
+    if (forceNow)
+    {
+        EPWM_forceSyncPulse(base);
+    }
 }
 
 static uint32_t wrap_u32(int32_t value, uint32_t modulo)
@@ -307,4 +416,47 @@ static int32_t clamp_i32(int32_t value, int32_t minValue, int32_t maxValue)
     }
 
     return value;
+}
+
+// PI调节相位差
+static void update_phase_pi(int32_t phaseErrNs)
+{
+    int32_t maxOffsetNs = g_slavePwmPiMaxOffsetNs;
+    int32_t kpDiv = (int32_t)g_slavePwmPiKpDiv;
+    int32_t kiDiv = (int32_t)g_slavePwmPiKiDiv;
+    int32_t pTerm;
+
+    if (g_slavePwmPiEnable == 0U)
+    {
+        g_slavePwmPiOffsetNs = 0L;
+        g_slavePwmPiIntegralNs = 0L;
+        return;
+    }
+
+    if (maxOffsetNs < 0L)
+    {
+        maxOffsetNs = -maxOffsetNs;
+    }
+    if (maxOffsetNs < 100L)  // 100NS
+    {
+        maxOffsetNs = 100L;
+    }
+    if (kpDiv < 1L)
+    {
+        kpDiv = 1L;
+    }
+    if (kiDiv < 1L)
+    {
+        kiDiv = 1L;
+    }
+
+    pTerm = phaseErrNs / kpDiv;
+
+    g_slavePwmPiIntegralNs = clamp_i32(g_slavePwmPiIntegralNs + (phaseErrNs / kiDiv),
+                                       -maxOffsetNs,
+                                       maxOffsetNs);
+
+    g_slavePwmPiOffsetNs = clamp_i32(pTerm + g_slavePwmPiIntegralNs,
+                                     -maxOffsetNs,
+                                     maxOffsetNs);
 }

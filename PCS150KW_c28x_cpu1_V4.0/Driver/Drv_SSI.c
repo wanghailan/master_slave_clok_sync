@@ -11,7 +11,7 @@
 #include "Drv_Timer.h"
 
 //
-// SSI ≈‰÷√
+// SSI ÈÖçÁΩÆ
 //
 #define GPIO_CFG_SSIA_TX       GPIO_54_SSIA_TX   // "pinConfig" for MOSI
 #define GPIO_CFG_SSIA_RX       GPIO_55_SSIA_RX   // "pinConfig" for MISO

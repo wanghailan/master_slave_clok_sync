@@ -103,7 +103,7 @@ __interrupt void IPC_ISR0()
 
     IPC_ackFlagRtoL(IPC_CPU1_L_CM_R, IPC_FLAG0);
     // Acknowledge the PIE interrupt.
-    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP11); //CMTOCPUx IPC interrupt ÔÚGROUP11ÖÐ
+    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP11); //CMTOCPUx IPC interrupt åœ¨GROUP11ä¸­
 }
 
 

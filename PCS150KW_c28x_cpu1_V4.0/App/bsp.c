@@ -21,6 +21,12 @@ IPC_DATA_CM2CPU         Cpu1Ipc_cm2cpu;
 
 void cpu2claParam_Upgrade(void)
 {
+    // Sync master/slave bring-up owns the PWM output path
+#if PWM_SYNC_STANDALONE_OUTPUT
+    Cpu1Ipc_cpu2cm.PcsCtrlState = PcsOn_Mode;
+    Cpu1Ipc_cm2cpu.Pwm_StartEn = 1;
+#endif
+
     //��ض�����Ҫ����CM��ȥ
     if(Cpu1Ipc_cm2cpu.Pwm_StartEn==1)
     {
@@ -33,6 +39,7 @@ void cpu2claParam_Upgrade(void)
     {
         tCpu2Cla.PwmStartEnable  =  0;
     }
+
 
     if(Cpu1Ipc_cm2cpu.ClearFault == 1)
         App_AllFault_Reset();

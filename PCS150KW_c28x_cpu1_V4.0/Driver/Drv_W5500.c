@@ -10,7 +10,7 @@
 #include <Driver/device/driverlib.h>
 #include "bsp.h"
 
-// W5500控制接口，由CM通过IO模拟SPI实现
+// W5500鎺у埗鎺ュ彛锛岀敱CM閫氳繃IO妯℃嫙SPI瀹炵幇
 #define GPIO_PIN_W5500_MISO                 85U                // GPIO number for W5500_MISO
 #define GPIO_CFG_W5500_MISO                 GPIO_85_GPIO85     // "pinConfig" for W5500_MISO
 
@@ -32,7 +32,7 @@
 
 void Drv_W5500Pin_Init(void)
 {
-    //W5500扩展IO设置
+    //W5500鎵╁睍IO璁剧疆
     GPIO_setPinConfig(GPIO_CFG_W5500_MISO);
     GPIO_setPadConfig(GPIO_PIN_W5500_MISO, GPIO_PIN_TYPE_STD);
     GPIO_setDirectionMode(GPIO_PIN_W5500_MISO, GPIO_DIR_MODE_IN);

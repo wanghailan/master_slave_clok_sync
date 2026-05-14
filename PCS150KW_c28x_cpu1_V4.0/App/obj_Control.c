@@ -11,10 +11,9 @@
 #include "bsp.h"
 #include "fastrts.h"
 #include "fpu32/C28x_FPU_FastRTS.h"
-#include "pwm_master_sync.h"
 
 
-//�ڲ��źŷ�����
+//锟节诧拷锟脚号凤拷锟斤拷锟斤拷
 RAMPGEN         PCS_rgen;
 ABC_DQ0_POS     PCS_InteRef_dq0_pos;
 ClarkT          Pcs_GridRef_alphaBeta;
@@ -22,9 +21,9 @@ ParkT           Pcs_GridRef_dq0_pos,Pcs_GridRef_dq0_neg;
 
 float32_t  PhaseErr;
 
-//�����ڲ������ź�����
+//锟斤拷锟斤拷锟节诧拷锟斤拷锟斤拷锟脚猴拷锟斤拷锟斤拷
 SPLL_3PH_SRF PCS_spll_3ph_rgen;
-//������ѹ�ź�����
+//锟斤拷锟斤拷锟斤拷压锟脚猴拷锟斤拷锟斤拷
 SPLL_3PH_DDSRF PCS_spll_3ph_grid;
 
 static float32_t PcsGen_sine;
@@ -41,7 +40,7 @@ static int16_t i16_IntCnt = 0;
 
 void  PCS_Spll_Init(void)
 {
-//�������ڲ��źŷ��������ɵ����������ź�
+//锟斤拷锟斤拷锟斤拷锟节诧拷锟脚号凤拷锟斤拷锟斤拷锟斤拷锟缴碉拷锟斤拷锟斤拷锟斤拷锟斤拷锟脚猴拷
     SPLL_3PH_SRF_init(PCS_AC_FREQ_HZ,
                           (float32_t)(1.0 / PCS_ISR1_FREQUENCY_HZ),
                           &PCS_spll_3ph_rgen);
@@ -49,7 +48,7 @@ void  PCS_Spll_Init(void)
     PCS_spll_3ph_rgen.lpf_coeff.b0 = 333.807f;
     PCS_spll_3ph_rgen.lpf_coeff.b1 = -333.674f;
 
-//������������������?
+//锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷?
     SPLL_3PH_DDSRF_init(PCS_AC_FREQ_HZ,
                                 (float32_t)(1.0 / PCS_ISR1_FREQUENCY_HZ),
                                 (float32_t)(0.0029366f),(float32_t)(-0.9941268f),
@@ -62,7 +61,7 @@ void  PCS_Spll_Init(void)
 void objControl_globalVarInit(void)
 {
     // RAMPGEN initialization
-    //��������ʱ�����ڲ�50HZ�ź�
+    //锟斤拷锟斤拷锟斤拷锟斤拷时锟斤拷锟斤拷锟节诧拷50HZ锟脚猴拷
     RAMPGEN_reset(&PCS_rgen);
     RAMPGEN_config(&PCS_rgen,PCS_ISR1_FREQUENCY_HZ,PCS_AC_FREQ_HZ);
 
@@ -189,6 +188,7 @@ inline void Pcs_runISR1(void)
     tCpu2Cla.Pcs_Gridsine      = PcsGrid_sine;
     tCpu2Cla.Pcs_Gridcosine    = PcsGrid_cosine;
 
+    // 控制状态机状态和pwm使能
     if((Cpu1Ipc_cpu2cm.PcsCtrlState == PcsOn_Mode)&&(tCpu2Cla.PwmStartEnable==1))
     {
         if(Cnt_PwmEnDelay < 200)
@@ -203,13 +203,8 @@ inline void Pcs_runISR1(void)
     else
     {
         Cnt_PwmEnDelay = 0;
-        if(g_pwmScopeDebugEnable == 0U)
-        {
-            Drv_PwmOffset();
-        }
+        Drv_PwmOffset();
     }
-
-    PWM_SyncScopeDebug_Service();
 }
 
 
@@ -234,25 +229,25 @@ void objControl_FanControl(void)
     if(Cpu1Ipc_cpu2cm.Temp_igbtMax < Cpu1Ipc_cpu2cm.Temp_igbtN)
         Cpu1Ipc_cpu2cm.Temp_igbtMax = Cpu1Ipc_cpu2cm.Temp_igbtN;
 
-    //������¶ȳ���?5�ȣ��������?
-    if(Cpu1Ipc_cm2cpu.debugMode == 0)//����ģʽ�ֶ����Ƽ̵���
+    //锟斤拷锟斤拷锟斤拷露瘸锟斤拷锟?5锟饺ｏ拷锟斤拷锟斤拷锟斤拷锟?
+    if(Cpu1Ipc_cm2cpu.debugMode == 0)//锟斤拷锟斤拷模式锟街讹拷锟斤拷锟狡继碉拷锟斤拷
     {
         if(Cpu1Ipc_cpu2cm.Relay_FanCtrl == 0)
         {
-            if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 300) //�¶ȵ���30��
+            if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 300) //锟铰度碉拷锟斤拷30锟斤拷
                 Cpu1Ipc_cpu2cm.Relay_FanCtrl = 0;
             else
                 Cpu1Ipc_cpu2cm.Relay_FanCtrl = 1;
         }
         else
         {
-            if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 250) //�¶ȵ���25��
+            if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 250) //锟铰度碉拷锟斤拷25锟斤拷
                 Cpu1Ipc_cpu2cm.Relay_FanCtrl = 0;
         }
     }
-    //���ת����IGBT����¶ȿ���?
-    if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 250) //�¶ȵ���25��
-        Cpu1Ipc_cpu2cm.FanCtrl_duty = 200; //ת��20%
+    //锟斤拷锟阶拷锟斤拷锟絀GBT锟斤拷锟斤拷露瓤锟斤拷锟?
+    if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 250) //锟铰度碉拷锟斤拷25锟斤拷
+        Cpu1Ipc_cpu2cm.FanCtrl_duty = 200; //转锟斤拷20%
     else  if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 500)
     {
         Cpu1Ipc_cpu2cm.FanCtrl_duty = 200+(Cpu1Ipc_cpu2cm.Temp_AmbOutlet-250)*3; //
@@ -261,7 +256,7 @@ void objControl_FanControl(void)
         Cpu1Ipc_cpu2cm.FanCtrl_duty = 990;
     FanPwm_SpeedCtrl(Cpu1Ipc_cpu2cm.FanCtrl_duty);
 }
-//PCS״̬��
+//PCS状态锟斤拷
 static int16_t CtrlDelayCnt = 0;
 static int16_t CtrlDelayCnt1 = 0;
 
@@ -269,7 +264,7 @@ void objControl_StateCtrl(void)
 {
    if((m_st_TimerFlag.u16_b1ms == 1)&&(Cpu1Ipc_cm2cpu.debugMode == 0))
    {
-      if((Cpu1Ipc_cpu2cm.PcsOnAllowed == 0)||(Cpu1Ipc_cm2cpu.StartEn == 0))//���й����й��� ��ת������ģʽ
+      if((Cpu1Ipc_cpu2cm.PcsOnAllowed == 0)||(Cpu1Ipc_cm2cpu.StartEn == 0))//锟斤拷锟叫癸拷锟斤拷锟叫癸拷锟斤拷 锟斤拷转锟斤拷锟斤拷锟斤拷模式
       {
          CtrlDelayCnt = 0;
          CtrlDelayCnt1 = 0;
@@ -280,15 +275,15 @@ void objControl_StateCtrl(void)
       }
        switch(Cpu1Ipc_cpu2cm.PcsCtrlState)
        {
-           case PowerOn_Mode://�ϵ�
+           case PowerOn_Mode://锟较碉拷
                Cpu1Ipc_cpu2cm.Relay_DCSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_DCMaster = 0;
                Cpu1Ipc_cpu2cm.Relay_ACMaster = 0;
-               if(Cpu1Ipc_cm2cpu.SelfCheckOK == 0)//�ϵ��Լ��޹���
+               if(Cpu1Ipc_cm2cpu.SelfCheckOK == 0)//锟较碉拷锟皆硷拷锟睫癸拷锟斤拷
                {
                    CtrlDelayCnt++;
-                   if(CtrlDelayCnt > 2000)//�ϵ���ʱ2S
+                   if(CtrlDelayCnt > 2000)//锟较碉拷锟斤拷时2S
                    {
                        Cpu1Ipc_cpu2cm.PcsCtrlState = PcsOff_Mode;
                        CtrlDelayCnt = 0;
@@ -300,13 +295,13 @@ void objControl_StateCtrl(void)
                    Cpu1Ipc_cpu2cm.PcsCtrlState = PowerOn_Mode;
                }
                break;
-           case PcsOff_Mode://�ػ�ģʽ
+           case PcsOff_Mode://锟截伙拷模式
                Cpu1Ipc_cpu2cm.Relay_DCSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_DCMaster = 0;
                Cpu1Ipc_cpu2cm.Relay_ACMaster = 0;
                CtrlDelayCnt = 0;
-               if(Cpu1Ipc_cm2cpu.StartEn == 1)//�յ���������
+               if(Cpu1Ipc_cm2cpu.StartEn == 1)//锟秸碉拷锟斤拷锟斤拷锟斤拷锟斤拷
                {
                    Cpu1Ipc_cpu2cm.PcsCtrlState = PreStart_Mode;
                }
@@ -315,38 +310,38 @@ void objControl_StateCtrl(void)
                    Cpu1Ipc_cpu2cm.PcsCtrlState = PcsOff_Mode;
                }
                break;
-           case PreStart_Mode://Ԥ����ģʽ
+           case PreStart_Mode://预锟斤拷锟斤拷模式
                Cpu1Ipc_cpu2cm.Relay_DCSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_DCMaster = 0;
                Cpu1Ipc_cpu2cm.Relay_ACMaster = 0;
                CtrlDelayCnt1 = 0;
                CtrlDelayCnt++;
-               if(CtrlDelayCnt > 2)//��ʱ
+               if(CtrlDelayCnt > 2)//锟斤拷时
                {
                    CtrlDelayCnt = 0;
-                   if((Cpu1Ipc_cm2cpu.WorkMode == GridConnectMode)&&(tCpu2Cla.OnGridMode==2))//ֱ��Դģʽ,�ӽ���������
-                   {//�ӽ���������
+                   if((Cpu1Ipc_cm2cpu.WorkMode == GridConnectMode)&&(tCpu2Cla.OnGridMode==2))//直锟斤拷源模式,锟接斤拷锟斤拷锟斤拷锟斤拷锟斤拷
+                   {//锟接斤拷锟斤拷锟斤拷锟斤拷锟斤拷
                       Cpu1Ipc_cpu2cm.PcsCtrlState = AcSoft_Mode;
                    }
                    else
-                   {//��ֱ��������
+                   {//锟斤拷直锟斤拷锟斤拷锟斤拷锟斤拷
                        Cpu1Ipc_cpu2cm.PcsCtrlState = DcSoft_Mode;
                    }
                }
                break;
-           case DcSoft_Mode://ֱ������
+           case DcSoft_Mode://直锟斤拷锟斤拷锟斤拷
                Cpu1Ipc_cpu2cm.Relay_DCSoft   = 1;
 //               Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_DCMaster = 0;
 //               Cpu1Ipc_cpu2cm.Relay_ACMaster = 1;
                {
                    CtrlDelayCnt++;
-                   if(fabsf(Pcs_Output_Meter.PCS_DC_BusVol - (Pcs_Output_Meter.PCS_DC_PBusVol+Pcs_Output_Meter.PCS_DC_NBusVol)) < 7.0f)//ѹ��С��3V��ʱ2s��DC���̵���
+                   if(fabsf(Pcs_Output_Meter.PCS_DC_BusVol - (Pcs_Output_Meter.PCS_DC_PBusVol+Pcs_Output_Meter.PCS_DC_NBusVol)) < 7.0f)//压锟斤拷小锟斤拷3V锟斤拷时2s锟斤拷DC锟斤拷锟教碉拷锟斤拷
                    {
                        CtrlDelayCnt = 0;
                        CtrlDelayCnt1++;
-                       if(CtrlDelayCnt1 > 1500)//��ʱ1S
+                       if(CtrlDelayCnt1 > 1500)//锟斤拷时1S
                        {
                            CtrlDelayCnt1 = 0;
                            Cpu1Ipc_cpu2cm.PcsCtrlState = DcStart_Mode;
@@ -355,26 +350,26 @@ void objControl_StateCtrl(void)
                    else
                    {
                        CtrlDelayCnt1 = 0;
-                       if(CtrlDelayCnt > 25000)//��ʱ25S
+                       if(CtrlDelayCnt > 25000)//锟斤拷时25S
                        {
                           CtrlDelayCnt = 0;
                           Cpu1Ipc_cpu2cm.PcsCtrlState = PcsOff_Mode;
-                          Cpu1Ipc_cpu2cm.FaultStatus.PCS_Fault2.tbits.bBUSSoftRelyTOutFault = 1;//ֱ��ĸ������ʱ
+                          Cpu1Ipc_cpu2cm.FaultStatus.PCS_Fault2.tbits.bBUSSoftRelyTOutFault = 1;//直锟斤拷母锟斤拷锟斤拷锟斤拷时
                           Cpu1Ipc_cm2cpu.StartEn  = 0;
                        }
                    }
                }
                break;
-           case DcStart_Mode://ֱ�����̵�������
+           case DcStart_Mode://直锟斤拷锟斤拷锟教碉拷锟斤拷锟斤拷锟斤拷
                Cpu1Ipc_cpu2cm.Relay_DCSoft   = 1;
 //               Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_DCMaster = 1;
 //               Cpu1Ipc_cpu2cm.Relay_ACMaster = 0;
               CtrlDelayCnt++;
-              if(CtrlDelayCnt > 1000)//��ʱ1S
+              if(CtrlDelayCnt > 1000)//锟斤拷时1S
               {
                  CtrlDelayCnt = 0;
-                 if((Cpu1Ipc_cm2cpu.WorkMode == GridConnectMode)&&(tCpu2Cla.OnGridMode==2))//ֱ��Դģʽ
+                 if((Cpu1Ipc_cm2cpu.WorkMode == GridConnectMode)&&(tCpu2Cla.OnGridMode==2))//直锟斤拷源模式
                  {
                      Cpu1Ipc_cpu2cm.PcsCtrlState = PcsOn_Mode;
                  }
@@ -384,29 +379,29 @@ void objControl_StateCtrl(void)
                  }
               }
                break;
-           case AcSoft_Mode://��������
+           case AcSoft_Mode://锟斤拷锟斤拷锟斤拷锟斤拷
 //               Cpu1Ipc_cpu2cm.Relay_DCSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_ACSoft   = 1;
 //               Cpu1Ipc_cpu2cm.Relay_DCMaster = 0;
                Cpu1Ipc_cpu2cm.Relay_ACMaster = 0;
                CtrlDelayCnt++;
                CtrlDelayCnt1 = 0;
-               if(CtrlDelayCnt > 3000)//��ʱ3S
+               if(CtrlDelayCnt > 3000)//锟斤拷时3S
                {
                   CtrlDelayCnt = 0;
                   Cpu1Ipc_cpu2cm.PcsCtrlState = AcStart_Mode;
                }
                break;
-           case AcStart_Mode://�������̵�������
+           case AcStart_Mode://锟斤拷锟斤拷锟斤拷锟教碉拷锟斤拷锟斤拷锟斤拷
 //               Cpu1Ipc_cpu2cm.Relay_DCSoft   = 0;
 //               Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
 //               Cpu1Ipc_cpu2cm.Relay_DCMaster = 0;
                Cpu1Ipc_cpu2cm.Relay_ACMaster = 1;
               CtrlDelayCnt++;
-              if(CtrlDelayCnt > 1000)//����ʱ
+              if(CtrlDelayCnt > 1000)//锟斤拷锟斤拷时
               {
                 CtrlDelayCnt = 0;
-                if((Cpu1Ipc_cm2cpu.WorkMode == GridConnectMode)&&(tCpu2Cla.OnGridMode==2))//ֱ��Դģʽ
+                if((Cpu1Ipc_cm2cpu.WorkMode == GridConnectMode)&&(tCpu2Cla.OnGridMode==2))//直锟斤拷源模式
                 {
                     Cpu1Ipc_cpu2cm.PcsCtrlState = DcSoft_Mode;
                 }
@@ -416,7 +411,7 @@ void objControl_StateCtrl(void)
                 }
               }
               break;
-           case PcsOn_Mode://����ģʽ
+           case PcsOn_Mode://锟斤拷锟斤拷模式
                Cpu1Ipc_cpu2cm.Relay_DCSoft   = 1;
                Cpu1Ipc_cpu2cm.Relay_ACSoft   = 0;
                Cpu1Ipc_cpu2cm.Relay_DCMaster = 1;
@@ -445,13 +440,13 @@ void objControl_LedControl(void)
 
     if(m_st_TimerFlag.u16_b50ms == 1)
      {
-         if(Cpu1Ipc_cm2cpu.debugMode == 0)//0:����ģʽ��1:����ģʽ
+         if(Cpu1Ipc_cm2cpu.debugMode == 0)//0:锟斤拷锟斤拷模式锟斤拷1:锟斤拷锟斤拷模式
          {
              if(Cpu1Ipc_cpu2cm.PcsCtrlState == PcsOn_Mode)
                  Cpu1Ipc_cpu2cm.Relay_WorkLed = 1;
              else
                  Cpu1Ipc_cpu2cm.Relay_WorkLed = 0;
-             if(Cpu1Ipc_cpu2cm.PcsOnAllowed == 0) //�й���ʱ
+             if(Cpu1Ipc_cpu2cm.PcsOnAllowed == 0) //锟叫癸拷锟斤拷时
                  Cpu1Ipc_cpu2cm.Relay_FaultLed = 1;
              else
                  Cpu1Ipc_cpu2cm.Relay_FaultLed = 0;
@@ -460,7 +455,7 @@ void objControl_LedControl(void)
 }
 
 
-//���AC��ѹ���𶯿���
+//锟斤拷锟紸C锟斤拷压锟斤拷锟金动匡拷锟斤拷
 int16_t  Pcs_InvCtrl_SoftStar(void)
 {
     static int16_t m_i16_VrefRunM = 0;
@@ -504,7 +499,7 @@ int16_t  Pcs_InvCtrl_SoftStar(void)
     return 0;
 }
 
-//ֱ����ѹģʽ����
+//直锟斤拷锟斤拷压模式锟斤拷锟斤拷
 int16_t  Pcs_DcConstVolCtrl_SoftStar(void)
 {
     static int16_t m_i16_DcVref = 0;
@@ -547,7 +542,7 @@ int16_t  Pcs_DcConstVolCtrl_SoftStar(void)
     return 0;
 }
 
-//������������
+//锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
 int16_t  Pcs_AcConstCurrCtrl_SoftStar(void)
 {
     static int16_t m_i16_AcCurrRef = 0;
@@ -590,7 +585,7 @@ int16_t  Pcs_AcConstCurrCtrl_SoftStar(void)
     return 0;
 }
 
-//ֱ����������
+//直锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
 int16_t  Pcs_DcConstCurrCtrl_SoftStar(void)
 {
     static int16_t m_i16_DcCurrRef = 0;
@@ -633,7 +628,7 @@ int16_t  Pcs_DcConstCurrCtrl_SoftStar(void)
     return 0;
 }
 
-//�㹦������
+//锟姐功锟斤拷锟斤拷锟斤拷
 int16_t  Pcs_PQConstCtrl_SoftStar(void)
 {
     static int16_t m_i16_PwrCtrlRef = 0;

@@ -1,25 +1,25 @@
 /*
  * Drv_Timer.h
  *
- *  Created on: 2024��9��11��
+ *  Created on: 2024年9月11日
  *      Author: guowei680
  */
 
 #ifndef DRIVER_DRV_TIMER_H_
 #define DRIVER_DRV_TIMER_H_
 
-//#pragma pack(1) //�����ڴ����Ϊ��1�ֽڶ���
+//#pragma pack(1) //设置内存对齐为：1字节对齐
 typedef struct StructTimerFlag
 {
-    uint16_t  u16_b100us                  :1;                 //0.11msʱ�䵽
-    uint16_t  u16_b1ms                    :1;                 //1msʱ�䵽
-    uint16_t  u16_b5ms                    :1;                 //5msʱ�䵽
-    uint16_t  u16_b10ms                   :1;                 //10msʱ�䵽
+    uint16_t  u16_b100us                  :1;                 //0.11ms时间到
+    uint16_t  u16_b1ms                    :1;                 //1ms时间到
+    uint16_t  u16_b5ms                    :1;                 //5ms时间到
+    uint16_t  u16_b10ms                   :1;                 //10ms时间到
 
-    uint16_t  u16_b50ms                   :1;                 //50msʱ�䵽
-    uint16_t  u16_b100ms                  :1;                 //100msʱ�䵽
-    uint16_t  u16_b500ms                  :1;                 //500msʱ�䵽
-    uint16_t  u16_b1s                     :1;                 //1sʱ�䵽
+    uint16_t  u16_b50ms                   :1;                 //50ms时间到
+    uint16_t  u16_b100ms                  :1;                 //100ms时间到
+    uint16_t  u16_b500ms                  :1;                 //500ms时间到
+    uint16_t  u16_b1s                     :1;                 //1s时间到
     uint16_t  bResvd                      :8;
 }Struct_TimerFlag;
 //#pragma pack()

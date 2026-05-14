@@ -10,10 +10,10 @@
 #include <Driver/device/driverlib.h>
 #include "bsp.h"
 
-#define FcycleTime          3125    //31.25us ÖÐ¶Ï32KHZ
+#define FcycleTime          3125    //31.25us ä¸­æ–­32KHZ
 
 #define Fint                0x100000000                     //10000  int frequency is 10K,the times of enter int in 1s
-#define K100msCnst          (10000000/FcycleTime)                            //0.1*20000 = 2000 20khzÖÐ¶ÏÆµÂÊ 50usÖÐ¶ÏÒ»´Î
+#define K100msCnst          (10000000/FcycleTime)                            //0.1*20000 = 2000 20khzä¸­æ–­é¢‘çŽ‡ 50usä¸­æ–­ä¸€æ¬¡
 #define K50msCnst           (5000000/FcycleTime)                             //0.04*20000 = 800
 #define K10msCnst           (1000000/FcycleTime)                             //0.01*10000 = 200
 #define K5msCnst            (500000/FcycleTime)                              //0.005*10000 = 100
@@ -36,28 +36,28 @@ Struct_TimerFlag m_st_TimerFlag;
 
 void Drv_ClockCntInit(void)
 {
-    cpu1_u32_TimerCnt      = 0;    //ÖÐ¶ÏÖÐ¼ÆÊýÆ÷£¬Ã¿´ÎÖÐ¶Ï+1
+    cpu1_u32_TimerCnt      = 0;    //ä¸­æ–­ä¸­è®¡æ•°å™¨ï¼Œæ¯æ¬¡ä¸­æ–­+1
 
-//    m_u32_Clk100usCnt   = 0;    //0.1ms¶¨Ê±
-    m_u32_Clk1msCnt     = 0;    //1ms¶¨Ê±ÓÃ
-    m_u32_Clk5msCnt     = 0;    //5ms¶¨Ê±ÓÃ
-    m_u32_Clk10msCnt    = 0;    //10ms¶¨Ê±ÓÃ
-    m_u32_Clk50msCnt    = 0;    //50ms¶¨Ê±ÓÃ
-    m_u32_Clk100msCnt   = 0;    //100ms¶¨Ê±ÓÃ
-    m_u32_Clk500msCnt   = 0;    //500ms¶¨Ê±ÓÃ
-    m_u32_Clk1sCnt      = 0;    //1s¶¨Ê±ÓÃ
+//    m_u32_Clk100usCnt   = 0;    //0.1mså®šæ—¶
+    m_u32_Clk1msCnt     = 0;    //1mså®šæ—¶ç”¨
+    m_u32_Clk5msCnt     = 0;    //5mså®šæ—¶ç”¨
+    m_u32_Clk10msCnt    = 0;    //10mså®šæ—¶ç”¨
+    m_u32_Clk50msCnt    = 0;    //50mså®šæ—¶ç”¨
+    m_u32_Clk100msCnt   = 0;    //100mså®šæ—¶ç”¨
+    m_u32_Clk500msCnt   = 0;    //500mså®šæ—¶ç”¨
+    m_u32_Clk1sCnt      = 0;    //1så®šæ—¶ç”¨
 
-    m_st_TimerFlag.u16_b100us     = 0;    //Çë0.1ms¶¨Ê±±êÖ¾
-    m_st_TimerFlag.u16_b1ms     = 0;    //Çë1ms¶¨Ê±±êÖ¾
-    m_st_TimerFlag.u16_b5ms     = 0;    //Çå5ms¶¨Ê±±êÖ¾
-    m_st_TimerFlag.u16_b10ms    = 0;    //Çå10ms¶¨Ê±±êÖ¾
-    m_st_TimerFlag.u16_b50ms    = 0;    //Çå40ms¶¨Ê±±êÖ¾
-    m_st_TimerFlag.u16_b100ms   = 0;    //Çå100ms¶¨Ê±±êÖ¾
-    m_st_TimerFlag.u16_b500ms   = 0;    //Çå500ms¶¨Ê±±êÖ¾
+    m_st_TimerFlag.u16_b100us     = 0;    //è¯·0.1mså®šæ—¶æ ‡å¿—
+    m_st_TimerFlag.u16_b1ms     = 0;    //è¯·1mså®šæ—¶æ ‡å¿—
+    m_st_TimerFlag.u16_b5ms     = 0;    //æ¸…5mså®šæ—¶æ ‡å¿—
+    m_st_TimerFlag.u16_b10ms    = 0;    //æ¸…10mså®šæ—¶æ ‡å¿—
+    m_st_TimerFlag.u16_b50ms    = 0;    //æ¸…40mså®šæ—¶æ ‡å¿—
+    m_st_TimerFlag.u16_b100ms   = 0;    //æ¸…100mså®šæ—¶æ ‡å¿—
+    m_st_TimerFlag.u16_b500ms   = 0;    //æ¸…500mså®šæ—¶æ ‡å¿—
     m_st_TimerFlag.u16_b1s      = 0;
 }
 
-//ÖÐ¶ÏÊ±ÖÓÎ¬»¤,ÔÚTimerÖÐ¶ÏÖÐÖ´ÐÐ,100usÔËÐÐÒ»´Î
+//ä¸­æ–­æ—¶é’Ÿç»´æŠ¤,åœ¨Timerä¸­æ–­ä¸­æ‰§è¡Œ,100usè¿è¡Œä¸€æ¬¡
 inline void Drv_Timer_IntMaintain(void)
 {
     SCIB_RxTimeOut++;
@@ -78,69 +78,69 @@ inline void Drv_Timer_IntMaintain(void)
 }
 
 
-//Ê±ÖÓÎ¬»¤
+//æ—¶é’Ÿç»´æŠ¤
 void  Drv_Timer_ClockMaintain(void)
 {
     /*******************************0.1ms*********************************/
-//        if(m_u32_Clk100usCnt > cpu1_u32_TimerCnt) //Ô¤·Àcpu1_u32_TimerCntµ½×î´ó·´×ª
+//        if(m_u32_Clk100usCnt > cpu1_u32_TimerCnt) //é¢„é˜²cpu1_u32_TimerCntåˆ°æœ€å¤§åè½¬
 //            m_u32_Clk100usCnt = cpu1_u32_TimerCnt;
 //        if ((cpu1_u32_TimerCnt - m_u32_Clk100usCnt) >= K100usCnst )
 //        {
 //            m_u32_Clk100usCnt = cpu1_u32_TimerCnt;
-//            m_st_TimerFlag.u16_b100us = 1;                           //ÖÃ0.1ms¶¨Ê±±êÖ¾
+//            m_st_TimerFlag.u16_b100us = 1;                           //ç½®0.1mså®šæ—¶æ ‡å¿—
 //        }
 //        else
-//           m_st_TimerFlag.u16_b100us = 0;                           //Çå0.1ms¶¨Ê±±êÖ¾
+//           m_st_TimerFlag.u16_b100us = 0;                           //æ¸…0.1mså®šæ—¶æ ‡å¿—
 /*******************************1ms*********************************/
-    if(m_u32_Clk1msCnt > cpu1_u32_TimerCnt) //Ô¤·Àcpu1_u32_TimerCntµ½×î´ó·´×ª
+    if(m_u32_Clk1msCnt > cpu1_u32_TimerCnt) //é¢„é˜²cpu1_u32_TimerCntåˆ°æœ€å¤§åè½¬
        m_u32_Clk1msCnt = cpu1_u32_TimerCnt;
     if ((cpu1_u32_TimerCnt - m_u32_Clk1msCnt) >= K1msCnst )
     {
        m_u32_Clk1msCnt = cpu1_u32_TimerCnt;
-       m_st_TimerFlag.u16_b1ms = 1;                           //ÖÃ1ms¶¨Ê±±êÖ¾
+       m_st_TimerFlag.u16_b1ms = 1;                           //ç½®1mså®šæ—¶æ ‡å¿—
     }
     else
-       m_st_TimerFlag.u16_b1ms = 0;                           //Çå1ms¶¨Ê±±êÖ¾
+       m_st_TimerFlag.u16_b1ms = 0;                           //æ¸…1mså®šæ—¶æ ‡å¿—
 /*******************************5ms*********************************/
-    if(m_u32_Clk5msCnt > cpu1_u32_TimerCnt) //Ô¤·Àcpu1_u32_TimerCntµ½×î´ó·´×ª
+    if(m_u32_Clk5msCnt > cpu1_u32_TimerCnt) //é¢„é˜²cpu1_u32_TimerCntåˆ°æœ€å¤§åè½¬
             m_u32_Clk5msCnt = cpu1_u32_TimerCnt;
     if ((cpu1_u32_TimerCnt - m_u32_Clk5msCnt) >= K5msCnst )
     {
         m_u32_Clk5msCnt = cpu1_u32_TimerCnt;
-        m_st_TimerFlag.u16_b5ms = 1;                           //ÖÃ5ms¶¨Ê±±êÖ¾
+        m_st_TimerFlag.u16_b5ms = 1;                           //ç½®5mså®šæ—¶æ ‡å¿—
     }
     else
-        m_st_TimerFlag.u16_b5ms = 0;                           //Çå5ms¶¨Ê±±êÖ¾
+        m_st_TimerFlag.u16_b5ms = 0;                           //æ¸…5mså®šæ—¶æ ‡å¿—
 /*******************************10ms*********************************/
-    if(m_u32_Clk10msCnt > cpu1_u32_TimerCnt) //Ô¤·Àcpu1_u32_TimerCntµ½×î´ó·´×ª
+    if(m_u32_Clk10msCnt > cpu1_u32_TimerCnt) //é¢„é˜²cpu1_u32_TimerCntåˆ°æœ€å¤§åè½¬
        m_u32_Clk10msCnt = cpu1_u32_TimerCnt;
     if ((cpu1_u32_TimerCnt - m_u32_Clk10msCnt) >= K10msCnst )
     {
        m_u32_Clk10msCnt = cpu1_u32_TimerCnt;
-       m_st_TimerFlag.u16_b10ms = 1;                           //ÖÃ10ms¶¨Ê±±êÖ¾
+       m_st_TimerFlag.u16_b10ms = 1;                           //ç½®10mså®šæ—¶æ ‡å¿—
     }
     else
-       m_st_TimerFlag.u16_b10ms = 0;                           //Çå10ms¶¨Ê±±êÖ¾
+       m_st_TimerFlag.u16_b10ms = 0;                           //æ¸…10mså®šæ—¶æ ‡å¿—
 /*******************************50ms*********************************/
-    if(m_u32_Clk50msCnt > cpu1_u32_TimerCnt) //Ô¤·Àcpu1_u32_TimerCntµ½×î´ó·´×ª
+    if(m_u32_Clk50msCnt > cpu1_u32_TimerCnt) //é¢„é˜²cpu1_u32_TimerCntåˆ°æœ€å¤§åè½¬
             m_u32_Clk50msCnt = cpu1_u32_TimerCnt;
     if ((cpu1_u32_TimerCnt - m_u32_Clk50msCnt) >= K50msCnst )
     {
         m_u32_Clk50msCnt = cpu1_u32_TimerCnt;
-        m_st_TimerFlag.u16_b50ms = 1;                           //ÖÃ50ms¶¨Ê±±êÖ¾
+        m_st_TimerFlag.u16_b50ms = 1;                           //ç½®50mså®šæ—¶æ ‡å¿—
     }
     else
-        m_st_TimerFlag.u16_b50ms = 0;                           //Çå50ms¶¨Ê±±êÖ¾
+        m_st_TimerFlag.u16_b50ms = 0;                           //æ¸…50mså®šæ—¶æ ‡å¿—
 /*******************************100ms*********************************/
-    if(m_u32_Clk100msCnt > cpu1_u32_TimerCnt) //Ô¤·Àcpu1_u32_TimerCntµ½×î´ó·´×ª
+    if(m_u32_Clk100msCnt > cpu1_u32_TimerCnt) //é¢„é˜²cpu1_u32_TimerCntåˆ°æœ€å¤§åè½¬
         m_u32_Clk100msCnt = cpu1_u32_TimerCnt;
     if ((cpu1_u32_TimerCnt - m_u32_Clk100msCnt) >= K100msCnst )
     {
         m_u32_Clk100msCnt = cpu1_u32_TimerCnt;
-        m_st_TimerFlag.u16_b100ms = 1;                          //ÖÃ100ms¶¨Ê±±êÖ¾
+        m_st_TimerFlag.u16_b100ms = 1;                          //ç½®100mså®šæ—¶æ ‡å¿—
     }
     else
-        m_st_TimerFlag.u16_b100ms = 0;                          //Çå100ms¶¨Ê±±êÖ¾
+        m_st_TimerFlag.u16_b100ms = 0;                          //æ¸…100mså®šæ—¶æ ‡å¿—
 
     if(m_st_TimerFlag.u16_b100ms==1)
     {
@@ -150,19 +150,19 @@ void  Drv_Timer_ClockMaintain(void)
 
     if(m_u32_Clk500msCnt>=5)
     {
-        m_st_TimerFlag.u16_b500ms= 1;                          //ÖÃ0.5ÃëÖÓ¶¨Ê±±êÖ¾
+        m_st_TimerFlag.u16_b500ms= 1;                          //ç½®0.5ç§’é’Ÿå®šæ—¶æ ‡å¿—
         m_u32_Clk500msCnt=0;
     }
     else
-        m_st_TimerFlag.u16_b500ms= 0;                          //Çå0.5ÃëÖÓ¶¨Ê±±êÖ¾
+        m_st_TimerFlag.u16_b500ms= 0;                          //æ¸…0.5ç§’é’Ÿå®šæ—¶æ ‡å¿—
 
     if(m_u32_Clk1sCnt>=10)
     {
-        m_st_TimerFlag.u16_b1s= 1;                          //ÖÃ1ÃëÖÓ¶¨Ê±±êÖ¾
+        m_st_TimerFlag.u16_b1s= 1;                          //ç½®1ç§’é’Ÿå®šæ—¶æ ‡å¿—
         m_u32_Clk1sCnt=0;
     }
     else
-        m_st_TimerFlag.u16_b1s= 0;                          //Çå1ÃëÖÓ¶¨Ê±±êÖ¾
+        m_st_TimerFlag.u16_b1s= 0;                          //æ¸…1ç§’é’Ÿå®šæ—¶æ ‡å¿—
 }
 
 void    Drv_Timer_usDelay(int32_t Count)
