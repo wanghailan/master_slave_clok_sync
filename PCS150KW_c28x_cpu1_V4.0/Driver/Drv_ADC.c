@@ -15,13 +15,13 @@
 #define GPIO_PIN_ASel2        16U  // GPIO number for SEL2
 
 #define  ADC_TriggerSet      ADC_TRIGGER_EPWM1_SOCA
-#define  ADC_AcqpsSet        (74U)   //63+1 SYSCLK cycles(5ns) 320ns×îÐ¡
+#define  ADC_AcqpsSet        (74U)   //63+1 SYSCLK cycles(5ns) 320nsæœ€å°
 
 static int16_t  adSel_index = 0;
 static int16_t  adSel_Cnt = 0;
-uint16_t ad_ntc1[4];//IGBT NTCÊý¾Ý 0:Æ½ºâ¹Ü£¬1:AÏà¹Ü£¬2:BÏà¹Ü£¬3:CÏà¹Ü
-uint16_t ad_ntc2[4];//À©Õ¹NTC
-uint16_t ad_vol[4];//°åÉÏµçÑ¹
+uint16_t ad_ntc1[4];//IGBT NTCæ•°æ® 0:å¹³è¡¡ç®¡ï¼Œ1:Aç›¸ç®¡ï¼Œ2:Bç›¸ç®¡ï¼Œ3:Cç›¸ç®¡
+uint16_t ad_ntc2[4];//æ‰©å±•NTC
+uint16_t ad_vol[4];//æ¿ä¸Šç”µåŽ‹
 
 //void Drv_ASYSCTL_init(void);
 void Drv_ADCInterrupt_init(void);
@@ -98,7 +98,7 @@ void Drv_ADCInterrupt_init(void)
 }
 
 //
-//¸´ÓÃAD
+//å¤ç”¨AD
 void Drv_AD_Switch_Read(void)
 {
     adSel_Cnt++;
@@ -128,8 +128,8 @@ void Drv_AD_Switch_Read(void)
 
     if((adSel_Cnt > 58)&&(adSel_Cnt < 66))
     {
-        ad_ntc1[adSel_index] = PCS_NTC1_READ_AD;//IGBT      NTC²ÉÑù
-        ad_ntc2[adSel_index] = PCS_NTC2_READ_AD;//À©Õ¹        NTC²ÉÑù
+        ad_ntc1[adSel_index] = PCS_NTC1_READ_AD;//IGBT      NTCé‡‡æ ·
+        ad_ntc2[adSel_index] = PCS_NTC2_READ_AD;//æ‰©å±•        NTCé‡‡æ ·
         ad_vol[adSel_index]  = PCS_lVOL_READ_AD;
     }
 
@@ -148,6 +148,7 @@ void Drv_AD_Switch_Read(void)
 __interrupt void Drv_adcA1ISR(void)
 {
     Pcs_runISR1();
+
 //    EPWM_CBCTripZoneInt_Counter();
     Drv_AD_Switch_Read();
     Drv_Timer_IntMaintain();
@@ -204,13 +205,13 @@ void Drv_ADCA_init(void)
     //
     //Select the channels to convert and end of conversion flag
 /* *
- *  ADCA_SOC0  ------------ Ö±Á÷Ä¸ÏßµçÑ¹²ÉÑù(ADC_A4)
- *  ADCA_SOC1  ------------ Ö±Á÷µçÑ¹¸º²ÉÑù(ADC_A5)
- *  ADCA_SOC2  ------------ NÏßµçÁ÷²ÉÑù(ADC_A2)
- *  ADCA_SOC3  ------------ IGBTÎÂ¶ÈËÄÑ¡Ò»²ÉÑù(ADC_A1)
- *  ADCA_SOC4  ------------ ±¸ÓÃËÄÑ¡Ò»Ä£Äâ²ÉÑù(ADC_A0)
+ *  ADCA_SOC0  ------------ ç›´æµæ¯çº¿ç”µåŽ‹é‡‡æ ·(ADC_A4)
+ *  ADCA_SOC1  ------------ ç›´æµç”µåŽ‹è´Ÿé‡‡æ ·(ADC_A5)
+ *  ADCA_SOC2  ------------ Nçº¿ç”µæµé‡‡æ ·(ADC_A2)
+ *  ADCA_SOC3  ------------ IGBTæ¸©åº¦å››é€‰ä¸€é‡‡æ ·(ADC_A1)
+ *  ADCA_SOC4  ------------ å¤‡ç”¨å››é€‰ä¸€æ¨¡æ‹Ÿé‡‡æ ·(ADC_A0)
  *  */
-    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER0, ADC_TriggerSet, ADC_CH_ADCIN4, ADC_AcqpsSet);//²ÉÑù±£³Ö´° cycles
+    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER0, ADC_TriggerSet, ADC_CH_ADCIN4, ADC_AcqpsSet);//é‡‡æ ·ä¿æŒçª— cycles
     ADC_setInterruptSOCTrigger(ADCA_BASE, ADC_SOC_NUMBER0, ADC_INT_SOC_TRIGGER_NONE);
     ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER1, ADC_TriggerSet, ADC_CH_ADCIN5, ADC_AcqpsSet);
     ADC_setInterruptSOCTrigger(ADCA_BASE, ADC_SOC_NUMBER1, ADC_INT_SOC_TRIGGER_NONE);
@@ -220,7 +221,7 @@ void Drv_ADCA_init(void)
     ADC_setInterruptSOCTrigger(ADCA_BASE, ADC_SOC_NUMBER3, ADC_INT_SOC_TRIGGER_NONE);
     ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER4, ADC_TriggerSet, ADC_CH_ADCIN3, ADC_AcqpsSet);
     ADC_setInterruptSOCTrigger(ADCA_BASE, ADC_SOC_NUMBER4, ADC_INT_SOC_TRIGGER_NONE);
-    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER5, ADC_TriggerSet, ADC_CH_ADCIN4, ADC_AcqpsSet);//²ÉÑù±£³Ö´° cycles
+    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER5, ADC_TriggerSet, ADC_CH_ADCIN4, ADC_AcqpsSet);//é‡‡æ ·ä¿æŒçª— cycles
     ADC_setInterruptSOCTrigger(ADCA_BASE, ADC_SOC_NUMBER5, ADC_INT_SOC_TRIGGER_NONE);
 
     //
@@ -261,11 +262,11 @@ void Drv_ADCB_init(void)
     // Start of Conversion 0 Configuration
     //Select the channels to convert and end of conversion flag
 /* *
- *  ADCB_SOC0  ------------ CÏàÍø²àµçÑ¹(ADC_B3)
- *  ADCB_SOC1  ------------ CÏàÄæ±äµçÑ¹(ADC_B1)
- *  ADCB_SOC2  ------------ Íø²àCÏàµçÁ÷(ADC_B2)
- *  ADCB_SOC3  ------------ Äæ±äCÏàµçÁ÷(ADC_B5)
- *  ADCB_SOC4  ------------ °åÉÏµçÑ¹²ÉÑù(ADC_B4)
+ *  ADCB_SOC0  ------------ Cç›¸ç½‘ä¾§ç”µåŽ‹(ADC_B3)
+ *  ADCB_SOC1  ------------ Cç›¸é€†å˜ç”µåŽ‹(ADC_B1)
+ *  ADCB_SOC2  ------------ ç½‘ä¾§Cç›¸ç”µæµ(ADC_B2)
+ *  ADCB_SOC3  ------------ é€†å˜Cç›¸ç”µæµ(ADC_B5)
+ *  ADCB_SOC4  ------------ æ¿ä¸Šç”µåŽ‹é‡‡æ ·(ADC_B4)
  *  */
     ADC_setupSOC(ADCB_BASE, ADC_SOC_NUMBER0, ADC_TriggerSet, ADC_CH_ADCIN3, ADC_AcqpsSet);
     ADC_setInterruptSOCTrigger(ADCB_BASE, ADC_SOC_NUMBER0, ADC_INT_SOC_TRIGGER_NONE);
@@ -309,11 +310,11 @@ void Drv_ADCC_init(void)
     // Configures a start-of-conversion (SOC) in the ADC and its interrupt SOC trigger.
     //Select the channels to convert and end of conversion flag
 /* *
- *  ADCC_SOC0  ------------ BÏàÍø²àµçÑ¹(ADC_C3)
- *  ADCC_SOC1  ------------ BÏàÄæ±äµçÑ¹(ADC_15)
- *  ADCC_SOC2  ------------ Íø²àBÏàµçÁ÷(ADC_C2)
- *  ADCC_SOC3  ------------ Äæ±äBÏàµçÁ÷(ADC_C5)
- *  ADCC_SOC4  ------------ Ö±Á÷µçÁ÷(ADC_C4)
+ *  ADCC_SOC0  ------------ Bç›¸ç½‘ä¾§ç”µåŽ‹(ADC_C3)
+ *  ADCC_SOC1  ------------ Bç›¸é€†å˜ç”µåŽ‹(ADC_15)
+ *  ADCC_SOC2  ------------ ç½‘ä¾§Bç›¸ç”µæµ(ADC_C2)
+ *  ADCC_SOC3  ------------ é€†å˜Bç›¸ç”µæµ(ADC_C5)
+ *  ADCC_SOC4  ------------ ç›´æµç”µæµ(ADC_C4)
  *  */
     ADC_setupSOC(ADCC_BASE, ADC_SOC_NUMBER0, ADC_TriggerSet, ADC_CH_ADCIN3, ADC_AcqpsSet);
     ADC_setInterruptSOCTrigger(ADCC_BASE, ADC_SOC_NUMBER0, ADC_INT_SOC_TRIGGER_NONE);
@@ -357,11 +358,11 @@ void Drv_ADCD_init(void)
     // Configures a start-of-conversion (SOC) in the ADC and its interrupt SOC trigger.
     //Select the channels to convert and end of conversion flag
 /* *
- *  ADCD_SOC0  ------------ AÏàÍø²àµçÑ¹(ADC_D3)
- *  ADCD_SOC1  ------------ AÏàÄæ±äµçÑ¹(ADC_D1)
- *  ADCD_SOC2  ------------ AÏàÍø²àµçÁ÷(ADC_D2)
- *  ADCD_SOC3  ------------ AÏàÄæ±äµçÁ÷(ADC_D5)
- *  ADCD_SOC4  ------------ Ö±Á÷µçÑ¹Õý(ADC_D0)
+ *  ADCD_SOC0  ------------ Aç›¸ç½‘ä¾§ç”µåŽ‹(ADC_D3)
+ *  ADCD_SOC1  ------------ Aç›¸é€†å˜ç”µåŽ‹(ADC_D1)
+ *  ADCD_SOC2  ------------ Aç›¸ç½‘ä¾§ç”µæµ(ADC_D2)
+ *  ADCD_SOC3  ------------ Aç›¸é€†å˜ç”µæµ(ADC_D5)
+ *  ADCD_SOC4  ------------ ç›´æµç”µåŽ‹æ­£(ADC_D0)
  *  */
     ADC_setupSOC(ADCD_BASE, ADC_SOC_NUMBER0, ADC_TriggerSet, ADC_CH_ADCIN3, ADC_AcqpsSet);
     ADC_setInterruptSOCTrigger(ADCD_BASE, ADC_SOC_NUMBER0, ADC_INT_SOC_TRIGGER_NONE);

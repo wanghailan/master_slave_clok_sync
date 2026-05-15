@@ -1,7 +1,7 @@
 /*
  * OBJ_SETTING.h
  *
- *  Created on: 2025Äê02ÔÂ14ÈÕ
+ *  Created on: 2025å¹´02æœˆ14æ—¥
  *      Author: guowei680
  */
 
@@ -9,31 +9,31 @@
 #define OBJ_SETTING_H_
 
 
-#define PCS_VGRID_A_READ_AD    ADC_readResult(ADCDRESULT_BASE, ADC_SOC_NUMBER0)   //AÏàÍø²àÏàµçÑ¹
-#define PCS_VGRID_B_READ_AD    ADC_readResult(ADCCRESULT_BASE, ADC_SOC_NUMBER0)   //BÏàÍø²àÏàµçÑ¹
-#define PCS_VGRID_C_READ_AD    ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER0)   //CÏàÍø²àÏàµçÑ¹
+#define PCS_VGRID_A_READ_AD    ADC_readResult(ADCDRESULT_BASE, ADC_SOC_NUMBER0)   //Aç›¸ç½‘ä¾§ç›¸ç”µå‹
+#define PCS_VGRID_B_READ_AD    ADC_readResult(ADCCRESULT_BASE, ADC_SOC_NUMBER0)   //Bç›¸ç½‘ä¾§ç›¸ç”µå‹
+#define PCS_VGRID_C_READ_AD    ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER0)   //Cç›¸ç½‘ä¾§ç›¸ç”µå‹
 
-#define PCS_VINV_A_READ_AD     ADC_readResult(ADCDRESULT_BASE, ADC_SOC_NUMBER1)   //AÏàÄæ±äÏàµçÑ¹
-#define PCS_VINV_B_READ_AD     ADC_readResult(ADCCRESULT_BASE, ADC_SOC_NUMBER1)   //BÏàÄæ±äÏàµçÑ¹
-#define PCS_VINV_C_READ_AD     ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER1)   //CÏàÄæ±äÏàµçÑ¹
+#define PCS_VINV_A_READ_AD     ADC_readResult(ADCDRESULT_BASE, ADC_SOC_NUMBER1)   //Aç›¸é€†å˜ç›¸ç”µå‹
+#define PCS_VINV_B_READ_AD     ADC_readResult(ADCCRESULT_BASE, ADC_SOC_NUMBER1)   //Bç›¸é€†å˜ç›¸ç”µå‹
+#define PCS_VINV_C_READ_AD     ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER1)   //Cç›¸é€†å˜ç›¸ç”µå‹
 
-#define PCS_IGRID_A_READ_AD    ADC_readResult(ADCDRESULT_BASE, ADC_SOC_NUMBER2)   //AÏàÍø²àµçÁ÷
-#define PCS_IGRID_B_READ_AD    ADC_readResult(ADCCRESULT_BASE, ADC_SOC_NUMBER2)   //BÏàÍø²àµçÁ÷
-#define PCS_IGRID_C_READ_AD    ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER2)   //CÏàÍø²àµçÁ÷
+#define PCS_IGRID_A_READ_AD    ADC_readResult(ADCDRESULT_BASE, ADC_SOC_NUMBER2)   //Aç›¸ç½‘ä¾§ç”µæµ
+#define PCS_IGRID_B_READ_AD    ADC_readResult(ADCCRESULT_BASE, ADC_SOC_NUMBER2)   //Bç›¸ç½‘ä¾§ç”µæµ
+#define PCS_IGRID_C_READ_AD    ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER2)   //Cç›¸ç½‘ä¾§ç”µæµ
 
-#define PCS_IINV_A_READ_AD     ADC_readResult(ADCDRESULT_BASE, ADC_SOC_NUMBER3)   //AÏàÄæ±äµçÁ÷
-#define PCS_IINV_B_READ_AD     ADC_readResult(ADCCRESULT_BASE, ADC_SOC_NUMBER3)   //BÏàÄæ±äµçÁ÷
-#define PCS_IINV_C_READ_AD     ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER3)   //CÏàÄæ±äµçÁ÷
+#define PCS_IINV_A_READ_AD     ADC_readResult(ADCDRESULT_BASE, ADC_SOC_NUMBER3)   //Aç›¸é€†å˜ç”µæµ
+#define PCS_IINV_B_READ_AD     ADC_readResult(ADCCRESULT_BASE, ADC_SOC_NUMBER3)   //Bç›¸é€†å˜ç”µæµ
+#define PCS_IINV_C_READ_AD     ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER3)   //Cç›¸é€†å˜ç”µæµ
 
-#define PCS_VDCP_READ_AD       ADC_readResult(ADCDRESULT_BASE, ADC_SOC_NUMBER4)   //Ö±Á÷µçÑ¹Õı²ÉÑù
-#define PCS_VDCN_READ_AD       ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER1)   //Ö±Á÷µçÑ¹¸º²ÉÑù
-#define PCS_IDC_READ_AD        ADC_readResult(ADCCRESULT_BASE, ADC_SOC_NUMBER4)   //Ö±Á÷µçÁ÷
-#define PCS_VDC_READ_AD        ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER0)   //Ö±Á÷¶Ë¿ÚµçÑ¹
-#define PCS_IMN_READ_AD        ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER2)   //NÏßµçÁ÷
+#define PCS_VDCP_READ_AD       ADC_readResult(ADCDRESULT_BASE, ADC_SOC_NUMBER4)   //ç›´æµç”µå‹æ­£é‡‡æ ·
+#define PCS_VDCN_READ_AD       ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER1)   //ç›´æµç”µå‹è´Ÿé‡‡æ ·
+#define PCS_IDC_READ_AD        ADC_readResult(ADCCRESULT_BASE, ADC_SOC_NUMBER4)   //ç›´æµç”µæµ
+#define PCS_VDC_READ_AD        ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER0)   //ç›´æµç«¯å£ç”µå‹
+#define PCS_IMN_READ_AD        ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER2)   //Nçº¿ç”µæµ
 
-#define PCS_NTC1_READ_AD       ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER3)   //IGBT NTCÎÂ¶È²ÉÑù
-#define PCS_NTC2_READ_AD       ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER4)   //»úÏäNTCÎÂ¶È²ÉÑù
-#define PCS_lVOL_READ_AD       ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER4)   //°åÉÏµçÑ¹
+#define PCS_NTC1_READ_AD       ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER3)   //IGBT NTCæ¸©åº¦é‡‡æ ·
+#define PCS_NTC2_READ_AD       ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER4)   //æœºç®±NTCæ¸©åº¦é‡‡æ ·
+#define PCS_lVOL_READ_AD       ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER4)   //æ¿ä¸Šç”µå‹
 
 
 #define PCS_CPU_SYS_CLOCK_FREQ_HZ      ((float32_t)200*1000000)
@@ -55,16 +55,16 @@
 //
 #define PCS_ADC_PU_SCALE_FACTOR        ((float32_t)0.0000152587890625f)
 
-//ADC´øÆ«ÖÃ²Î¿¼µçÑ¹
-#define PCS_ADC_PNREF_VOL               ((float32_t)1.5f) //ADC²Î¿¼µçÑ¹-1.5V~+1.5V
-//ADC²»´øÆ«ÖÃ²Î¿¼µçÑ¹
-#define PCS_ADC_P0REF_VOL               ((float32_t)3.0f) //ADC²Î¿¼µçÑ¹0~3V
-//Æ«ÖÃ
-#define PCS_OFFSET_PU                   ((float32_t)0.5f) //Á¿³Ì0~3V£¬Æ«ÖÃ1.5V
+//ADCå¸¦åç½®å‚è€ƒç”µå‹
+#define PCS_ADC_PNREF_VOL               ((float32_t)1.5f) //ADCå‚è€ƒç”µå‹-1.5V~+1.5V
+//ADCä¸å¸¦åç½®å‚è€ƒç”µå‹
+#define PCS_ADC_P0REF_VOL               ((float32_t)3.0f) //ADCå‚è€ƒç”µå‹0~3V
+//åç½®
+#define PCS_OFFSET_PU                   ((float32_t)0.5f) //é‡ç¨‹0~3Vï¼Œåç½®1.5V
 //SPWM MAX RATIO
-#define PCS_PWM_MAX_RATIO               ((float32_t)0.998f) //Á¿³Ì-1~1
+#define PCS_PWM_MAX_RATIO               ((float32_t)0.998f) //é‡ç¨‹-1~1
 //SPWM MIN RATIO
-#define PCS_PWM_MIN_RATIO               ((float32_t)-0.998f) //Á¿³Ì-1~1
+#define PCS_PWM_MIN_RATIO               ((float32_t)-0.998f) //é‡ç¨‹-1~1
 
 
 
@@ -80,16 +80,16 @@
 #define PCS_UNIVERSAL_GRID_MIN_FREQ     45
 #define PCS_ISR2_FREQUENCY_HZ           ((float32_t)8000)
 
-#define PCS_IGRID_MAX_SENSE_AMPS        ((float32_t)205.875f*PCS_ADC_PNREF_VOL)      //Êä³öµçÁ÷²ÉÑù±ÈÀı 300A~0.97561V
-#define PCS_IINV_MAX_SENSE_AMPS         ((float32_t)205.875f*PCS_ADC_PNREF_VOL)      //Äæ±äµçÁ÷²ÉÑù±ÈÀı 300A~0.97561V
-#define PCS_IBUSN_MAX_SENSE_AMPS        ((float32_t)137.25f*PCS_ADC_P0REF_VOL)      //NÏßµçÁ÷²ÉÑù±ÈÀı 300A~0.97561V
+#define PCS_IGRID_MAX_SENSE_AMPS        ((float32_t)205.875f*PCS_ADC_PNREF_VOL)      //è¾“å‡ºç”µæµé‡‡æ ·æ¯”ä¾‹ 300A~0.97561V
+#define PCS_IINV_MAX_SENSE_AMPS         ((float32_t)205.875f*PCS_ADC_PNREF_VOL)      //é€†å˜ç”µæµé‡‡æ ·æ¯”ä¾‹ 300A~0.97561V
+#define PCS_IBUSN_MAX_SENSE_AMPS        ((float32_t)137.25f*PCS_ADC_P0REF_VOL)      //Nçº¿ç”µæµé‡‡æ ·æ¯”ä¾‹ 300A~0.97561V
 
-#define PCS_VGRID_MAX_SENSE_VOLTS       ((float32_t)491.563f*PCS_ADC_PNREF_VOL)   //½»Á÷µçÍøµçÑ¹²ÉÑù±ÈÀı 200*10+62/8.06
-#define PCS_VINV_MAX_SENSE_VOLTS        ((float32_t)491.563f*PCS_ADC_PNREF_VOL)   //½»Á÷Äæ±äµçÑ¹²ÉÑù±ÈÀı 200*10+62/8.06
+#define PCS_VGRID_MAX_SENSE_VOLTS       ((float32_t)491.563f*PCS_ADC_PNREF_VOL)   //äº¤æµç”µç½‘ç”µå‹é‡‡æ ·æ¯”ä¾‹ 200*10+62/8.06
+#define PCS_VINV_MAX_SENSE_VOLTS        ((float32_t)491.563f*PCS_ADC_PNREF_VOL)   //äº¤æµé€†å˜ç”µå‹é‡‡æ ·æ¯”ä¾‹ 200*10+62/8.06
 
-#define PCS_VBATT_MAX_SENSE_VOLTS       ((float32_t)828.11245f*PCS_ADC_P0REF_VOL)  //Ö±Á÷µçÑ¹²ÉÑù±ÈÀı
-#define PCS_VDC_MAX_SENSE_VOLTS         ((float32_t)207.43f*PCS_ADC_P0REF_VOL)      //Ö±Á÷Õı¸ºµçÑ¹²ÉÑù±ÈÀı
-#define PCS_IDC_MAX_SENSE_VOLTS         ((float32_t)205.875f*PCS_ADC_P0REF_VOL)      //Ö±Á÷µçÁ÷²ÉÑù±ÈÀı 300A~0.97561V PCS_ADC_PNREF_VOL
+#define PCS_VBATT_MAX_SENSE_VOLTS       ((float32_t)828.11245f*PCS_ADC_P0REF_VOL)  //ç›´æµç”µå‹é‡‡æ ·æ¯”ä¾‹
+#define PCS_VDC_MAX_SENSE_VOLTS         ((float32_t)207.43f*PCS_ADC_P0REF_VOL)      //ç›´æµæ­£è´Ÿç”µå‹é‡‡æ ·æ¯”ä¾‹
+#define PCS_IDC_MAX_SENSE_VOLTS         ((float32_t)205.875f*PCS_ADC_P0REF_VOL)      //ç›´æµç”µæµé‡‡æ ·æ¯”ä¾‹ 300A~0.97561V PCS_ADC_PNREF_VOL
 
 #define     K50HzPointCntCnst       160            // fpwm/50 ISR=32KHz/4=8
 //#define     K60HzPointCntCnst       133            // fpwm/60 ISR=32KHz/4=8

@@ -1,7 +1,7 @@
 /*
  * obj_OutMeter.h
  *
- *  Created on: 2025Äê02ÔÂ14ÈÕ
+ *  Created on: 2025å¹´02æœˆ14æ—¥
  *      Author: guowei680
  */
 
@@ -13,57 +13,57 @@
 
 typedef struct _PCS_OUTPUT_DATA //
 {
-  float32_t   PCS_AC_VRms_PhaseA;        //AÏàµçÑ¹£¬0.1V
-  float32_t   PCS_AC_VRms_PhaseB;        //BÏàµçÑ¹£¬0.1V
-  float32_t   PCS_AC_VRms_PhaseC;        //CÏàµçÑ¹£¬0.1V
+  float32_t   PCS_AC_VRms_PhaseA;        //Aç›¸ç”µå‹ï¼Œ0.1V
+  float32_t   PCS_AC_VRms_PhaseB;        //Bç›¸ç”µå‹ï¼Œ0.1V
+  float32_t   PCS_AC_VRms_PhaseC;        //Cç›¸ç”µå‹ï¼Œ0.1V
 
-  float32_t   PCS_AC_VRms_LineAB;        //ABÏßµçÑ¹£¬0.1V
-  float32_t   PCS_AC_VRms_LineBC;        //BCÏßµçÑ¹£¬0.1V
-  float32_t   PCS_AC_VRms_LineCA;        //CAÏßµçÑ¹£¬0.1V
+  float32_t   PCS_AC_VRms_LineAB;        //ABçº¿ç”µå‹ï¼Œ0.1V
+  float32_t   PCS_AC_VRms_LineBC;        //BCçº¿ç”µå‹ï¼Œ0.1V
+  float32_t   PCS_AC_VRms_LineCA;        //CAçº¿ç”µå‹ï¼Œ0.1V
 
-  float32_t   PCS_AC_VLRms_PhaseA;       //AÏàµçÑ¹£¬0.1V
-  float32_t   PCS_AC_VLRms_PhaseB;       //BÏàµçÑ¹£¬0.1V
-  float32_t   PCS_AC_VLRms_PhaseC;       //CÏàµçÑ¹£¬0.1V
+  float32_t   PCS_AC_VLRms_PhaseA;       //Aç›¸ç”µå‹ï¼Œ0.1V
+  float32_t   PCS_AC_VLRms_PhaseB;       //Bç›¸ç”µå‹ï¼Œ0.1V
+  float32_t   PCS_AC_VLRms_PhaseC;       //Cç›¸ç”µå‹ï¼Œ0.1V
 
-  float32_t   PCS_AC_IRms_A;             //AÏàµçÁ÷£¬0.1A
-  float32_t   PCS_AC_IRms_B;             //BÏàµçÁ÷£¬0.1A
-  float32_t   PCS_AC_IRms_C;             //CÏàµçÁ÷£¬0.1A
+  float32_t   PCS_AC_IRms_A;             //Aç›¸ç”µæµï¼Œ0.1A
+  float32_t   PCS_AC_IRms_B;             //Bç›¸ç”µæµï¼Œ0.1A
+  float32_t   PCS_AC_IRms_C;             //Cç›¸ç”µæµï¼Œ0.1A
 
-  float32_t   PCS_AC_ILRms_A;             //A1ÏàµçÁ÷£¬0.1A
-  float32_t   PCS_AC_ILRms_B;             //B1ÏàµçÁ÷£¬0.1A
-  float32_t   PCS_AC_ILRms_C;             //C1ÏàµçÁ÷£¬0.1A
+  float32_t   PCS_AC_ILRms_A;             //A1ç›¸ç”µæµï¼Œ0.1A
+  float32_t   PCS_AC_ILRms_B;             //B1ç›¸ç”µæµï¼Œ0.1A
+  float32_t   PCS_AC_ILRms_C;             //C1ç›¸ç”µæµï¼Œ0.1A
 
-  float32_t   PCS_AC_PowerP_A;            //AÏàÓĞ¹¦¹¦ÂÊ£¬0.01KW
-  float32_t   PCS_AC_PowerP_B;            //AÏàÓĞ¹¦¹¦ÂÊ£¬0.01KW
-  float32_t   PCS_AC_PowerP_C;            //AÏàÓĞ¹¦¹¦ÂÊ£¬0.01KW
+  float32_t   PCS_AC_PowerP_A;            //Aç›¸æœ‰åŠŸåŠŸç‡ï¼Œ0.01KW
+  float32_t   PCS_AC_PowerP_B;            //Aç›¸æœ‰åŠŸåŠŸç‡ï¼Œ0.01KW
+  float32_t   PCS_AC_PowerP_C;            //Aç›¸æœ‰åŠŸåŠŸç‡ï¼Œ0.01KW
 
-  float32_t   PCS_AC_PowerQ_A;            //AÏàÎŞ¹¦¹¦ÂÊ£¬0.01KVar
-  float32_t   PCS_AC_PowerQ_B;            //BÏàÎŞ¹¦¹¦ÂÊ£¬0.01KVar
-  float32_t   PCS_AC_PowerQ_C;            //CÏàÎŞ¹¦¹¦ÂÊ£¬0.01KVar
+  float32_t   PCS_AC_PowerQ_A;            //Aç›¸æ— åŠŸåŠŸç‡ï¼Œ0.01KVar
+  float32_t   PCS_AC_PowerQ_B;            //Bç›¸æ— åŠŸåŠŸç‡ï¼Œ0.01KVar
+  float32_t   PCS_AC_PowerQ_C;            //Cç›¸æ— åŠŸåŠŸç‡ï¼Œ0.01KVar
 
-  float32_t   PCS_AC_PowerS_A;            //AÏàÊÓÔÚ¹¦ÂÊ£¬0.01KVA
-  float32_t   PCS_AC_PowerS_B;            //BÏàÊÓÔÚ¹¦ÂÊ£¬0.01KVA
-  float32_t   PCS_AC_PowerS_C;            //CÏàÊÓÔÚ¹¦ÂÊ£¬0.01KVA
+  float32_t   PCS_AC_PowerS_A;            //Aç›¸è§†åœ¨åŠŸç‡ï¼Œ0.01KVA
+  float32_t   PCS_AC_PowerS_B;            //Bç›¸è§†åœ¨åŠŸç‡ï¼Œ0.01KVA
+  float32_t   PCS_AC_PowerS_C;            //Cç›¸è§†åœ¨åŠŸç‡ï¼Œ0.01KVA
 
-  float32_t   PCS_AC_PowerP;              //ÈıÏà×ÜÓĞ¹¦¹¦ÂÊ£¬0.01KW
-  float32_t   PCS_AC_PowerQ;              //ÈıÏà×ÜÎŞ¹¦¹¦ÂÊ£¬0.01KVar
-  float32_t   PCS_AC_PowerS;              //ÈıÏà×ÜÊÓÔÚ¹¦ÂÊ£¬0.01KVA
+  float32_t   PCS_AC_PowerP;              //ä¸‰ç›¸æ€»æœ‰åŠŸåŠŸç‡ï¼Œ0.01KW
+  float32_t   PCS_AC_PowerQ;              //ä¸‰ç›¸æ€»æ— åŠŸåŠŸç‡ï¼Œ0.01KVar
+  float32_t   PCS_AC_PowerS;              //ä¸‰ç›¸æ€»è§†åœ¨åŠŸç‡ï¼Œ0.01KVA
 
-  float32_t   PCS_AC_Freq_A;              //AÏàÆµÂÊ£¬0.01HZ
-  float32_t   PCS_AC_Freq_B;              //BÏàÆµÂÊ£¬0.01HZ
-  float32_t   PCS_AC_Freq_C;              //CÏàÆµÂÊ£¬0.01HZ
+  float32_t   PCS_AC_Freq_A;              //Aç›¸é¢‘ç‡ï¼Œ0.01HZ
+  float32_t   PCS_AC_Freq_B;              //Bç›¸é¢‘ç‡ï¼Œ0.01HZ
+  float32_t   PCS_AC_Freq_C;              //Cç›¸é¢‘ç‡ï¼Œ0.01HZ
 
-  float32_t   PCS_AC_PF_A;                //AÏà¹¦ÂÊÒòÊı£¬ 0.01
-  float32_t   PCS_AC_PF_B;                //BÏà¹¦ÂÊÒòÊı£¬ 0.01
-  float32_t   PCS_AC_PF_C;                //CÏà¹¦ÂÊÒòÊı£¬ 0.01
+  float32_t   PCS_AC_PF_A;                //Aç›¸åŠŸç‡å› æ•°ï¼Œ 0.01
+  float32_t   PCS_AC_PF_B;                //Bç›¸åŠŸç‡å› æ•°ï¼Œ 0.01
+  float32_t   PCS_AC_PF_C;                //Cç›¸åŠŸç‡å› æ•°ï¼Œ 0.01
 
-  float32_t   PCS_DC_BusVol;              //Ä¸Ïß²àÖ±Á÷µçÑ¹
-  float32_t   PCS_DC_BusCurr;             //Ä¸Ïß²àÖ±Á÷µçÁ÷£¬0.01A
-  float32_t   PCS_DC_Power;               //Ä¸Ïß²àÖ±Á÷¹¦ÂÊ£¬0.01KW
+  float32_t   PCS_DC_BusVol;              //æ¯çº¿ä¾§ç›´æµç”µå‹
+  float32_t   PCS_DC_BusCurr;             //æ¯çº¿ä¾§ç›´æµç”µæµï¼Œ0.01A
+  float32_t   PCS_DC_Power;               //æ¯çº¿ä¾§ç›´æµåŠŸç‡ï¼Œ0.01KW
 
-  float32_t   PCS_DC_PBusVol;             //ÕıÄ¸ÏßµçÑ¹£¬0.1V
-  float32_t   PCS_DC_NBusVol;             //¸ºÄ¸ÏßµçÑ¹£¬0.1V
-  float32_t   PCS_DC_IBUS_N;              //NÏßµçÁ÷£¬0.1A
+  float32_t   PCS_DC_PBusVol;             //æ­£æ¯çº¿ç”µå‹ï¼Œ0.1V
+  float32_t   PCS_DC_NBusVol;             //è´Ÿæ¯çº¿ç”µå‹ï¼Œ0.1V
+  float32_t   PCS_DC_IBUS_N;              //Nçº¿ç”µæµï¼Œ0.1A
 }PCS_OUTPUT_DATA;
 
 extern PCS_OUTPUT_DATA     Pcs_Output_Meter;

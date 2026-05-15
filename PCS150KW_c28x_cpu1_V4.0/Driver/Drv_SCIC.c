@@ -59,37 +59,37 @@ void Drv_SCICPin_Init(void)
 void Drv_SCICInit(void)
 {
     Drv_SCIC_Init(38400,8,0);
-    SCIC_RxEn();//½ÓÊÕ
+    SCIC_RxEn();//æ¥æ”¶
     SCIC_RxCnt = 0;
     SCIC_RxTimeOut = 0;
 }
 
 
 /**********************************************************************************
-  º¯ÊıÃû³Æ£ºDrv_SCI_WriteByte()
-  ¹¦ÄÜÃèÊö£ºSCI·¢ËÍ
-  ĞŞ¸ÄÈÕÆÚ£º2018-11-14
+  å‡½æ•°åç§°ï¼šDrv_SCI_WriteByte()
+  åŠŸèƒ½æè¿°ï¼šSCIå‘é€
+  ä¿®æ”¹æ—¥æœŸï¼š2018-11-14
 ***********************************************************************************/
 void   Drv_SCIC_WriteByte(uint16_t dat)
 {
-//        while(SCI_getTxFIFOStatus(SCIBase) == SCI_FIFO_TX16);//fifoÂúÊ±µÈ´ı
+//        while(SCI_getTxFIFOStatus(SCIBase) == SCI_FIFO_TX16);//fifoæ»¡æ—¶ç­‰å¾…
         SCI_writeCharBlockingFIFO(SCIBase, dat);
-//        while(SCI_isSpaceAvailableNonFIFO(SCIBase) == false);//µÈ´ıSCITXBUF¿ÉÒÔ½ÓÊÕÏÂÒ»¸öÊı¾İ
+//        while(SCI_isSpaceAvailableNonFIFO(SCIBase) == false);//ç­‰å¾…SCITXBUFå¯ä»¥æ¥æ”¶ä¸‹ä¸€ä¸ªæ•°æ®
 }
 
 /**********************************************************************************
-  º¯ÊıÃû³Æ£ºDrv_SCI_WriteDataBuf()
-  ¹¦ÄÜÃèÊö£ºSCI·¢ËÍ
-  ĞŞ¸ÄÈÕÆÚ£º2024-08-31
+  å‡½æ•°åç§°ï¼šDrv_SCI_WriteDataBuf()
+  åŠŸèƒ½æè¿°ï¼šSCIå‘é€
+  ä¿®æ”¹æ—¥æœŸï¼š2024-08-31
 ***********************************************************************************/
 int16_t   Drv_SCIC_WriteDataBuf(int16_t dLen,uint16_t *dBuf)
 {
-    SCIC_TxEn();//·¢ËÍ
+    SCIC_TxEn();//å‘é€
     SCI_writeCharArray(SCIBase,dBuf,dLen);
-    while(SCI_getTxFIFOStatus(SCIBase) != SCI_FIFO_TX0);//µÈ´ıFIFO·¢ËÍÍê
-    while(SCI_isTransmitterBusy(SCIBase) == true);//µÈ´ı·¢ËÍÆ÷¿Õ±êÖ¾
+    while(SCI_getTxFIFOStatus(SCIBase) != SCI_FIFO_TX0);//ç­‰å¾…FIFOå‘é€å®Œ
+    while(SCI_isTransmitterBusy(SCIBase) == true);//ç­‰å¾…å‘é€å™¨ç©ºæ ‡å¿—
     DEVICE_DELAY_US(400);
-    SCIC_RxEn();//×ª½ÓÊÕ
+    SCIC_RxEn();//è½¬æ¥æ”¶
     return 0;
 }
 
@@ -183,24 +183,24 @@ __interrupt void SCICRxISR(void)
 
 int16_t SCICRx_Poll(void)
 {
-    /* ³¬¹ı3.5¸ö×Ö·ûÊ±¼äºó Í¨ÖªÖ÷³ÌĞò¿ªÊ¼½âÂë */
+    /* è¶…è¿‡3.5ä¸ªå­—ç¬¦æ—¶é—´å é€šçŸ¥ä¸»ç¨‹åºå¼€å§‹è§£ç  */
     if (SCIC_RxTimeOut < SciRxTimeOut)
     {
-        return -1;  // Ã»ÓĞ³¬Ê±£¬¼ÌĞø½ÓÊÕ¡£²»ÒªÇåÁã
+        return -1;  // æ²¡æœ‰è¶…æ—¶ï¼Œç»§ç»­æ¥æ”¶ã€‚ä¸è¦æ¸…é›¶
     }
 
-    SCIC_RxTimeOut = 0;     // Çå³¬Ê±±êÖ¾
+    SCIC_RxTimeOut = 0;     // æ¸…è¶…æ—¶æ ‡å¿—
 
-    if (SCIC_RxCnt < 4)     // ½ÓÊÕµ½µÄÊı¾İĞ¡ÓÚ4¸ö×Ö½Ú¾ÍÈÏÎª´íÎó£¬µØÖ·£¨8bit£©+Ö¸Áî£¨8bit£©+²Ù×÷¼Ä´æÆ÷£¨16bit£©
+    if (SCIC_RxCnt < 4)     // æ¥æ”¶åˆ°çš„æ•°æ®å°äº4ä¸ªå­—èŠ‚å°±è®¤ä¸ºé”™è¯¯ï¼Œåœ°å€ï¼ˆ8bitï¼‰+æŒ‡ä»¤ï¼ˆ8bitï¼‰+æ“ä½œå¯„å­˜å™¨ï¼ˆ16bitï¼‰
     {
-        SCIC_RxCnt = 0;     // ±ØĞëÇåÁã¼ÆÊıÆ÷£¬·½±ãÏÂ´ÎÖ¡Í¬²½
+        SCIC_RxCnt = 0;     // å¿…é¡»æ¸…é›¶è®¡æ•°å™¨ï¼Œæ–¹ä¾¿ä¸‹æ¬¡å¸§åŒæ­¥
         return -2;
     }
 
-    // Í¸´«Êı¾İµ½CM
+    // é€ä¼ æ•°æ®åˆ°CM
     ipc_TxData_Cpu1ToCM(ipcCmd_SciC,SCIC_RxCnt);
 
-    SCIC_RxCnt = 0;         // ±ØĞëÇåÁã¼ÆÊıÆ÷£¬·½±ãÏÂ´ÎÖ¡Í¬²½
+    SCIC_RxCnt = 0;         // å¿…é¡»æ¸…é›¶è®¡æ•°å™¨ï¼Œæ–¹ä¾¿ä¸‹æ¬¡å¸§åŒæ­¥
     return 0;
 }
 
@@ -208,7 +208,7 @@ int16_t SCICTx_Poll(void)
 {
     if(SCIC_TxFlag)
     {
-        if (SCIC_TxCnt >= 5)     // ½ÓÊÕµ½µÄÊı¾İĞ¡ÓÚ4¸ö×Ö½Ú¾ÍÈÏÎª´íÎó£¬µØÖ·£¨8bit£©+Ö¸Áî£¨8bit£©+²Ù×÷¼Ä´æÆ÷£¨16bit£©
+        if (SCIC_TxCnt >= 5)     // æ¥æ”¶åˆ°çš„æ•°æ®å°äº4ä¸ªå­—èŠ‚å°±è®¤ä¸ºé”™è¯¯ï¼Œåœ°å€ï¼ˆ8bitï¼‰+æŒ‡ä»¤ï¼ˆ8bitï¼‰+æ“ä½œå¯„å­˜å™¨ï¼ˆ16bitï¼‰
         {
             Drv_SCIC_WriteDataBuf(SCIC_TxCnt,SCIC_TxBuf);
         }

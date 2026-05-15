@@ -3,7 +3,36 @@
 
 "C:\\ti\\ccs1280\\ccs\\utils\\bin\\gmake" -k -j 16 all -O 
  
-gmake[1]: 'PCS150KW_c28x_cpu1_V4.0.out' is up to date.
-gmake[1]: Nothing to be done for 'secondary-outputs'.
+Building file: "../App/pwm_slave_sync.c"
+Invoking: C2000 Compiler
+"C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-c2000_22.6.1.LTS/bin/cl2000" -v28 -ml -mt --cla_support=cla1 --float_support=fpu32 --idiv_support=idiv0 --tmu_support=tmu0 --vcu_support=vcrc -O3 --opt_for_speed=4 --fp_mode=relaxed --include_path="D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/utilities/rampgen" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/device_support/f2838x/common/include" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/device_support/f2838x/headers/include" --include_path="D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/App" --include_path="D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0" --include_path="D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/Driver/device" --include_path="D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/Driver" --include_path="D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/CLAmath" --include_path="D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/CLA" --include_path="D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/DCL" --include_path="D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/FPUfastRTS" --include_path="D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/power_measurement" --include_path="D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/sfra" --include_path="D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/spll" --include_path="D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/transforms" --include_path="C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/driverlib" --include_path="C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-c2000_22.6.1.LTS/include" --advice:performance=all --define=PWM_SYNC_ROLE=PWM_SYNC_ROLE_SLAVE --define=_DUAL_HEADERS --define=_FLASH --define=DEBUG --define=CPU1 --diag_suppress=10063 --diag_warning=225 --diag_wrap=off --display_error_number --gen_func_subsections=on --abi=eabi --preproc_with_compile --preproc_dependency="App/pwm_slave_sync.d_raw" --include_path="D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/CPU1_FLASH_SLAVE/syscfg" --obj_directory="App" --cmd_file="syscfg/board.opt" --cmd_file="syscfg/c2000ware_libraries.opt"  "../App/pwm_slave_sync.c"
+Finished building: "../App/pwm_slave_sync.c"
+ 
+Building target: "PCS150KW_c28x_cpu1_V4.0.out"
+Invoking: C2000 Linker
+"C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-c2000_22.6.1.LTS/bin/cl2000" -v28 -ml -mt --cla_support=cla1 --float_support=fpu32 --idiv_support=idiv0 --tmu_support=tmu0 --vcu_support=vcrc -O3 --opt_for_speed=4 --fp_mode=relaxed --advice:performance=all --define=PWM_SYNC_ROLE=PWM_SYNC_ROLE_SLAVE --define=_DUAL_HEADERS --define=_FLASH --define=DEBUG --define=CPU1 --diag_suppress=10063 --diag_warning=225 --diag_wrap=off --display_error_number --gen_func_subsections=on --abi=eabi -z -m"PCS150KW_c28x_cpu1_V4.0.map" --heap_size=0x200 --stack_size=0x200 --warn_sections -i"D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/sfra" -i"D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/CLAmath" -i"D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/FPUfastRTS" -i"D:/workspace/CCS/PCS150KW_c28x_cpu1_V4.0/libraries/sfra" -i"C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-c2000_22.6.1.LTS/lib" -i"C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-c2000_22.6.1.LTS/include" --reread_libs --diag_wrap=off --display_error_number --xml_link_info="PCS150KW_c28x_cpu1_V4.0_linkInfo.xml" --entry_point=code_start --rom_model -o "PCS150KW_c28x_cpu1_V4.0.out" "./syscfg/board.obj" "./syscfg/clb_config.obj" "./syscfg/clb_sim.obj" "./syscfg/c2000ware_libraries.obj" "./main.obj" "./App/bsp.obj" "./App/obj_Control.obj" "./App/obj_OutMeter.obj" "./App/obj_Protect.obj" "./App/obj_ipc.obj" "./App/pwm_master_sync.obj" "./App/pwm_slave_sync.obj" "./CLA/claAlg.obj" "./CLA/initial_CLA.obj" "./Driver/Drv_ADC.obj" "./Driver/Drv_CAN.obj" "./Driver/Drv_DIN.obj" "./Driver/Drv_DO.obj" "./Driver/Drv_EtherNet.obj" "./Driver/Drv_I2CA.obj" "./Driver/Drv_LED.obj" "./Driver/Drv_PWM.obj" "./Driver/Drv_SCIB.obj" "./Driver/Drv_SCIC.obj" "./Driver/Drv_SCID.obj" "./Driver/Drv_SSI.obj" "./Driver/Drv_Timer.obj" "./Driver/Drv_UartA.obj" "./Driver/Drv_W5500.obj" "./Driver/Drv_tca9535_IO1.obj" "./Driver/Drv_tca9535_IO2.obj" "./Driver/device/device.obj" "./Driver/device/f2838x_codestartbranch.obj" "./Driver/device/driverlib/adc.obj" "./Driver/device/driverlib/asysctl.obj" "./Driver/device/driverlib/bgcrc.obj" "./Driver/device/driverlib/can.obj" "./Driver/device/driverlib/cla.obj" "./Driver/device/driverlib/clb.obj" "./Driver/device/driverlib/cmpss.obj" "./Driver/device/driverlib/cputimer.obj" "./Driver/device/driverlib/dac.obj" "./Driver/device/driverlib/dcc.obj" "./Driver/device/driverlib/dcsm.obj" "./Driver/device/driverlib/dma.obj" "./Driver/device/driverlib/ecap.obj" "./Driver/device/driverlib/emif.obj" "./Driver/device/driverlib/epwm.obj" "./Driver/device/driverlib/eqep.obj" "./Driver/device/driverlib/erad.obj" "./Driver/device/driverlib/escss.obj" "./Driver/device/driverlib/flash.obj" "./Driver/device/driverlib/fsi.obj" "./Driver/device/driverlib/gpio.obj" "./Driver/device/driverlib/hrcap.obj" "./Driver/device/driverlib/hrpwm.obj" "./Driver/device/driverlib/i2c.obj" "./Driver/device/driverlib/interrupt.obj" "./Driver/device/driverlib/ipc.obj" "./Driver/device/driverlib/mcan.obj" "./Driver/device/driverlib/mcbsp.obj" "./Driver/device/driverlib/memcfg.obj" "./Driver/device/driverlib/pmbus.obj" "./Driver/device/driverlib/sci.obj" "./Driver/device/driverlib/sdfm.obj" "./Driver/device/driverlib/spi.obj" "./Driver/device/driverlib/sysctl.obj" "./Driver/device/driverlib/usb.obj" "./Driver/device/driverlib/version.obj" "./Driver/device/driverlib/xbar.obj" "./libraries/DCL/DCL_PI_C4.obj" "./libraries/DCL/DCL_PI_L1.obj" "./libraries/DCL/DCL_PI_L2.obj" "./libraries/sfra/sfra_gui_scicomms_driverlib.obj" "../2838x_FLASH_CLA_lnk_cpu1.cmd" "C:/ti/c2000/C2000Ware_5_01_00_00/driverlib/f2838x/driverlib/ccs/Debug/driverlib.lib" "../Driver/device/driverlib/ccs/Debug/driverlib.lib" "../Driver/device/driverlib/ccs/Release/driverlib.lib" "../libraries/CLAmath/F2838xCPU2_CLADATAROM_Symbols_fpu32.lib" "../libraries/CLAmath/cla1_math_library_datarom_fpu32_eabi.lib" "../libraries/sfra/sfra_f32_tmu_eabi.lib"  -lsfra_f32_tmu_eabi.lib -lrts2800_fpu32_fast_supplement_eabi.lib -lcla1_math_library_datarom_fpu32_eabi.lib -lF2838xCPU2_CLADATAROM_Symbols_fpu32.lib -llibc.a 
+<Linking>
+Finished building target: "PCS150KW_c28x_cpu1_V4.0.out"
+ 
+Building secondary target: "PCS150KW_c28x_cpu1_V4.0.hex"
+Invoking: C2000 Hex Utility
+"C:/ti/ccs1280/ccs/tools/compiler/ti-cgt-c2000_22.6.1.LTS/bin/hex2000" --memwidth=8 --diag_wrap=off --intel -o "PCS150KW_c28x_cpu1_V4.0.hex"  "PCS150KW_c28x_cpu1_V4.0.out" 
+Translating to Intel format...
+   "PCS150KW_c28x_cpu1_V4.0.out" codestart ==> codestart
+   "PCS150KW_c28x_cpu1_V4.0.out" .text ==> .text
+   "PCS150KW_c28x_cpu1_V4.0.out" .TI.ramfunc ==> .TI.ramfunc
+   "PCS150KW_c28x_cpu1_V4.0.out" Cla1Prog ==> Cla1Prog
+   "PCS150KW_c28x_cpu1_V4.0.out" .cinit ==> .cinit
+   "PCS150KW_c28x_cpu1_V4.0.out" .const ==> .const
+   "PCS150KW_c28x_cpu1_V4.0.out" FPUmathTables ==> FPUmathTables
+Finished building secondary target: "PCS150KW_c28x_cpu1_V4.0.hex"
+ 
+"HEX-BIN.EXE" "PCS150KW_c28x_cpu1_V4.0.hex"
+makefile:274: recipe for target 'post-build' failed
+process_begin: CreateProcess(NULL, HEX-BIN.EXE PCS150KW_c28x_cpu1_V4.0.hex, ...) failed.
+make (e=2): 系统找不到指定的文件。
+ 
+gmake[2]: [post-build] Error 2 (ignored)
+ 
 
 **** Build Finished ****

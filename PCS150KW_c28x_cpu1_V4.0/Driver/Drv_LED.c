@@ -34,9 +34,9 @@ void Drv_LedPin_Init(void)
     GPIO_setPadConfig(DEVICE_GPIO_PIN_LED3, GPIO_PIN_TYPE_STD);
     GPIO_setDirectionMode(DEVICE_GPIO_PIN_LED3, GPIO_DIR_MODE_OUT);
 
-    GPIO_writePin(DEVICE_GPIO_PIN_LED1, 1);//ио╣Го╗цПLED1╣ф
-    GPIO_writePin(DEVICE_GPIO_PIN_LED2, 1);//ио╣Го╗цПLED2╣ф
-    GPIO_writePin(DEVICE_GPIO_PIN_LED3, 1);//ио╣Го╗цПLED3╣ф
+    GPIO_writePin(DEVICE_GPIO_PIN_LED1, 1);//Д╦┼Г■╣Г├└Г│╜LED1Г│╞
+    GPIO_writePin(DEVICE_GPIO_PIN_LED2, 1);//Д╦┼Г■╣Г├└Г│╜LED2Г│╞
+    GPIO_writePin(DEVICE_GPIO_PIN_LED3, 1);//Д╦┼Г■╣Г├└Г│╜LED3Г│╞
 
     GPIO_setMasterCore(DEVICE_GPIO_PIN_LED1, GPIO_CORE_CPU1);
     GPIO_setMasterCore(DEVICE_GPIO_PIN_LED2, GPIO_CORE_CPU1);

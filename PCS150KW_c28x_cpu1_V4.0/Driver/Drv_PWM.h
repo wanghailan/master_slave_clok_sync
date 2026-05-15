@@ -1,7 +1,7 @@
 /*
  * Drv_PWM.h
  *
- *  Created on: 2024Äê9ÔÂ11ÈÕ
+ *  Created on: 2024å¹´9æœˆ11æ—¥
  *      Author: guowei680
  */
 
@@ -25,7 +25,7 @@
 
 #define EPWM8_TBPRD                 25000        //100M/2K/2
 #define EPWM_TBPRD                  3125        //100M/16K/2
-#define EPWM_MIN                    400         //Õ­Âö³åÏû³ý 4us
+#define EPWM_MIN                    400         //çª„è„‰å†²æ¶ˆé™¤ 4us
 
 
 void Drv_PwmPin_Init(void);

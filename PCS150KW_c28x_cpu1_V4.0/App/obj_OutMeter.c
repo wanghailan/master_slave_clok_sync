@@ -16,7 +16,7 @@
 
 #define PCS_GRID_MAX_FREQ           55
 #define PCS_GRID_MIN_FREQ           45
-#define MEAS_ISR_FREQUENCY_HZ      ((float32_t)8000.0f) //ÓĞĞ§Öµ¼ÆËãÖĞ¶ÏÆµÂÊ
+#define MEAS_ISR_FREQUENCY_HZ      ((float32_t)8000.0f) //æœ‰æ•ˆå€¼è®¡ç®—ä¸­æ–­é¢‘ç‡
 
 #define PCS_50HZ_8K_DIV             0.00625f
 
@@ -29,7 +29,7 @@ POWER_MEAS_SINE_ANALYZER Pcs_MeasAnalyzer_C;
 
 
 PCS_OUTPUT_DATA        Pcs_Output_Meter;
-static int16_t         i16_RmsCnt;       //ÓĞĞ§ÖµÀÛ¼ÓÊı
+static int16_t         i16_RmsCnt;       //æœ‰æ•ˆå€¼ç´¯åŠ æ•°
 
 static float32_t       ACRms_VC_Sum_fo;
 
@@ -184,11 +184,11 @@ void  obj_PcsOutput_PowerMeasAC(void)
 
 void  obj_PcsOutput_PowerMeas(void)
 {
-    //AC×ÜÓĞ¹¦¹¦ÂÊ
+    //ACæ€»æœ‰åŠŸåŠŸç‡
     Pcs_Output_Meter.PCS_AC_PowerP      = Pcs_Output_Meter.PCS_AC_PowerP_A+Pcs_Output_Meter.PCS_AC_PowerP_B+Pcs_Output_Meter.PCS_AC_PowerP_C;
-    //AC×ÜÎŞ¹¦¹¦ÂÊ
+    //ACæ€»æ— åŠŸåŠŸç‡
     Pcs_Output_Meter.PCS_AC_PowerQ      = Pcs_Output_Meter.PCS_AC_PowerQ_A+Pcs_Output_Meter.PCS_AC_PowerQ_B+Pcs_Output_Meter.PCS_AC_PowerQ_C;
-    //AC×ÜÊÓÔÚ¹¦¹¦ÂÊ
+    //ACæ€»è§†åœ¨åŠŸåŠŸç‡
     Pcs_Output_Meter.PCS_AC_PowerS      = Pcs_Output_Meter.PCS_AC_PowerS_A+Pcs_Output_Meter.PCS_AC_PowerS_B+Pcs_Output_Meter.PCS_AC_PowerS_C;
     Pcs_Output_Meter.PCS_DC_Power       = Pcs_Output_Meter.PCS_DC_BusVol*Pcs_Output_Meter.PCS_DC_BusCurr*0.001f;
 
@@ -207,7 +207,7 @@ void  obj_PcsOutput_RmsCalc(void)
     ACRms_VBC_Sum_pu    += math_f32_square(tCla2Cpu.Pcs_vGrid_BC_sensed_pu);
     ACRms_VCA_Sum_pu    += math_f32_square(tCla2Cpu.Pcs_vGrid_CA_sensed_pu);
 
-    if(Cpu1Ipc_cm2cpu.debugMode == 1)//µ÷ÊÔÄ£Ê½
+    if(Cpu1Ipc_cm2cpu.debugMode == 1)//è°ƒè¯•æ¨¡å¼
     {
         ACRms_IINVA_Sum_pu  += math_f32_square(tCla2Cpu.Pcs_iGrid_A_sensed_pu);
         ACRms_IINVB_Sum_pu  += math_f32_square(tCla2Cpu.Pcs_iGrid_B_sensed_pu);
@@ -259,7 +259,7 @@ void  obj_PcsOutput_RmsCalc(void)
         Pcs_Output_Meter.PCS_AC_PowerQ_B      = sqrtf(Pcs_Output_Meter.PCS_AC_PowerS_B*Pcs_Output_Meter.PCS_AC_PowerS_B-Pcs_Output_Meter.PCS_AC_PowerP_B*Pcs_Output_Meter.PCS_AC_PowerP_B);
         Pcs_Output_Meter.PCS_AC_PowerQ_C      = sqrtf(Pcs_Output_Meter.PCS_AC_PowerS_C*Pcs_Output_Meter.PCS_AC_PowerS_C-Pcs_Output_Meter.PCS_AC_PowerP_C*Pcs_Output_Meter.PCS_AC_PowerP_C);
 
-        //¸üĞÂµ½cmÏÔÊ¾
+        //æ›´æ–°åˆ°cmæ˜¾ç¤º
         Cpu1Ipc_cpu2cm.PCS_AC_VRms_LineAB     = (int16_t)(Pcs_Output_Meter.PCS_AC_VRms_LineAB*10.0f);
         Cpu1Ipc_cpu2cm.PCS_AC_VRms_LineBC     = (int16_t)(Pcs_Output_Meter.PCS_AC_VRms_LineBC*10.0f);
         Cpu1Ipc_cpu2cm.PCS_AC_VRms_LineCA     = (int16_t)(Pcs_Output_Meter.PCS_AC_VRms_LineCA*10.0f);
@@ -321,17 +321,17 @@ static float32_t  math_f32_square(float32_t f32_Dat)
 }
 
 /*
- * AdcDat ÊÇ·ÖÑ¹ºóµÄµçÑ¹Öµ
+ * AdcDat æ˜¯åˆ†å‹åçš„ç”µå‹å€¼
  *  TempDat = (int16_t)((float)AdcDat*0.00457771f)*6+36;
  * */
 static int16_t calc_NtcTemp(uint16_t AdcDat)
 {
     float temp;
     float Rt = 0;
-    //Rp ÉÏÀ­µç×è×èÖµ 10K
+    //Rp ä¸Šæ‹‰ç”µé˜»é˜»å€¼ 10K
     float Rp = 30000.0f;
-    float R25 = 5000.0f;//5K 25¶È
-    //T2Îª25¶È£¬ÕÛËãÎª¿ª¶ûÎÄÎÂ¶È
+    float R25 = 5000.0f;//5K 25åº¦
+    //T2ä¸º25åº¦ï¼ŒæŠ˜ç®—ä¸ºå¼€å°”æ–‡æ¸©åº¦
     float T25 = 298.15f;//273.15+25;
     float Bx = 3433.0f;//B25/100
     float Ka = 273.15f;
@@ -342,7 +342,7 @@ static int16_t calc_NtcTemp(uint16_t AdcDat)
     u16_temp = AdcDat;
 //    Vol = (float)u16_temp*0.0001373312+0.18f;//3*3.0/65535.0;
     Vol = (float)u16_temp*0.0000457763671875f;//3.0/65535.0;
-    Rt = (Vol*Rp)/(5.0f-Vol);//·ÖÑ¹µç×èRp µçÑ¹5V
+    Rt = (Vol*Rp)/(5.0f-Vol);//åˆ†å‹ç”µé˜»Rp ç”µå‹5V
     temp = 1.0f/(1/T25+logf(Rt/R25)/Bx)-Ka+0.5f;
 
     i16_tempx10 = (int16_t)(temp*10.0f);
@@ -354,10 +354,10 @@ static int16_t calc_NtcTemp_1(uint16_t AdcDat)
 {
     float temp;
     float Rt = 0;
-    //Rp ÉÏÀ­µç×è×èÖµ 10K
+    //Rp ä¸Šæ‹‰ç”µé˜»é˜»å€¼ 10K
     float Rp = 30000.0f;
-    float R25 = 10000.0f;// 10k 25¶È
-    //T2Îª25¶È£¬ÕÛËãÎª¿ª¶ûÎÄÎÂ¶È
+    float R25 = 10000.0f;// 10k 25åº¦
+    //T2ä¸º25åº¦ï¼ŒæŠ˜ç®—ä¸ºå¼€å°”æ–‡æ¸©åº¦
     float T25 = 298.15f;//273.15+25;
     float Bx = 3950.0f;//B25/100
     float Ka = 273.15f;
@@ -368,7 +368,7 @@ static int16_t calc_NtcTemp_1(uint16_t AdcDat)
     u16_temp = AdcDat;
 //    Vol = (float)u16_temp*0.0001373312+0.18f;//3*3.0/65535.0;
     Vol = (float)u16_temp*0.0000457763671875f;//3.0/65535.0;
-    Rt = (Vol*Rp)/(5.0f-Vol);//·ÖÑ¹µç×èRp µçÑ¹5V
+    Rt = (Vol*Rp)/(5.0f-Vol);//åˆ†å‹ç”µé˜»Rp ç”µå‹5V
     temp = 1.0f/(1/T25+logf(Rt/R25)/Bx)-Ka+0.5f;
 
     i16_tempx10 = (int16_t)(temp*10.0f);

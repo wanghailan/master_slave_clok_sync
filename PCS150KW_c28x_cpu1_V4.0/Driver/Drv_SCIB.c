@@ -44,30 +44,30 @@ void Drv_SCIBInit(void)
 
 
 /**********************************************************************************
-  º¯ÊıÃû³Æ£ºDrv_SCI_WriteByte()
-  ¹¦ÄÜÃèÊö£ºSCI·¢ËÍ
-  ĞŞ¸ÄÈÕÆÚ£º2018-11-14
+  å‡½æ•°åç§°ï¼šDrv_SCI_WriteByte()
+  åŠŸèƒ½æè¿°ï¼šSCIå‘é€
+  ä¿®æ”¹æ—¥æœŸï¼š2018-11-14
 ***********************************************************************************/
 void   Drv_SCIB_WriteByte(uint16_t dat)
 {
-//        while(SCI_getTxFIFOStatus(SCIBase) == SCI_FIFO_TX16);//fifoÂúÊ±µÈ´ı
+//        while(SCI_getTxFIFOStatus(SCIBase) == SCI_FIFO_TX16);//fifoæ»¡æ—¶ç­‰å¾…
         SCI_writeCharBlockingFIFO(SCIBase, dat);
-//        while(SCI_isSpaceAvailableNonFIFO(SCIBase) == false);//µÈ´ıSCITXBUF¿ÉÒÔ½ÓÊÕÏÂÒ»¸öÊı¾İ
+//        while(SCI_isSpaceAvailableNonFIFO(SCIBase) == false);//ç­‰å¾…SCITXBUFå¯ä»¥æ¥æ”¶ä¸‹ä¸€ä¸ªæ•°æ®
 }
 
 /**********************************************************************************
-  º¯ÊıÃû³Æ£ºDrv_SCI_WriteDataBuf()
-  ¹¦ÄÜÃèÊö£ºSCI·¢ËÍ
-  ĞŞ¸ÄÈÕÆÚ£º2024-08-31
+  å‡½æ•°åç§°ï¼šDrv_SCI_WriteDataBuf()
+  åŠŸèƒ½æè¿°ï¼šSCIå‘é€
+  ä¿®æ”¹æ—¥æœŸï¼š2024-08-31
 ***********************************************************************************/
 void   Drv_SCIB_WriteDataBuf(int16_t dLen,uint16_t *dBuf)
 {
-//    SCIB_TxEn();//·¢ËÍ
+//    SCIB_TxEn();//å‘é€
     SCI_writeCharArray(SCIBase,dBuf,dLen);
-    while(SCI_getTxFIFOStatus(SCIBase) != SCI_FIFO_TX0);//µÈ´ıFIFO·¢ËÍÍê
-    while(SCI_isTransmitterBusy(SCIBase) == true);//µÈ´ı·¢ËÍÆ÷¿Õ±êÖ¾
+    while(SCI_getTxFIFOStatus(SCIBase) != SCI_FIFO_TX0);//ç­‰å¾…FIFOå‘é€å®Œ
+    while(SCI_isTransmitterBusy(SCIBase) == true);//ç­‰å¾…å‘é€å™¨ç©ºæ ‡å¿—
 //    DEVICE_DELAY_US(300);
-//    SCIB_RxEn();//×ª½ÓÊÕ
+//    SCIB_RxEn();//è½¬æ¥æ”¶
 }
 
 

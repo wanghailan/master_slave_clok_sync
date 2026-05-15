@@ -1,7 +1,7 @@
 /*
  * obj_ipc.h
  *
- *  Created on: 2024Äê10ÔÂ11ÈÕ
+ *  Created on: 2024å¹´10æœˆ11æ—¥
  *      Author: guowei680
  */
 

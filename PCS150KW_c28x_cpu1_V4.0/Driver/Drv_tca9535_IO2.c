@@ -25,22 +25,22 @@ typedef enum {
 #define     UInt8       uint16_t
 #define     UInt32      uint32_t
 
-#define I2C_WR  0       // Ğ´¿ØÖÆbit
-#define I2C_RD  1       // ¶Á¿ØÖÆbit
+#define I2C_WR  0       // å†™æ§åˆ¶bit
+#define I2C_RD  1       // è¯»æ§åˆ¶bit
 
-#define TCA9535_I2C_ADDR            (0x20 << 1)  //À©Õ¹Ğ¾Æ¬1 I2CµØÖ·
+#define TCA9535_I2C_ADDR            (0x20 << 1)  //æ‰©å±•èŠ¯ç‰‡1 I2Cåœ°å€
 
-/************************** TCA9535 ¼Ä´æÆ÷¶¨Òå **************************/
-#define TCA9535_INPUT_PORT0         0x00  // ÊäÈë¶Ë¿Ú0¼Ä´æÆ÷£¨Ö»¶Á£©
-#define TCA9535_INPUT_PORT1         0x01  // ÊäÈë¶Ë¿Ú1¼Ä´æÆ÷£¨Ö»¶Á£©
-#define TCA9535_OUTPUT_PORT0        0x02  // Êä³ö¶Ë¿Ú0¼Ä´æÆ÷£¨¶ÁĞ´£©
-#define TCA9535_OUTPUT_PORT1        0x03  // Êä³ö¶Ë¿Ú1¼Ä´æÆ÷£¨¶ÁĞ´£©
-#define TCA9535_POLARITY_PORT0      0x04  // ¼«ĞÔ·´×ª¶Ë¿Ú0£¨0£ºÔ­¼«ĞÔ£¬1£º·´×ª£©
-#define TCA9535_POLARITY_PORT1      0x05  // ¼«ĞÔ·´×ª¶Ë¿Ú1
-#define TCA9535_CONFIG_PORT0        0x06  // ÅäÖÃ¶Ë¿Ú0£¨0£ºÊä³ö£¬1£ºÊäÈë£©
-#define TCA9535_CONFIG_PORT1        0x07  // ÅäÖÃ¶Ë¿Ú1
+/************************** TCA9535 å¯„å­˜å™¨å®šä¹‰ **************************/
+#define TCA9535_INPUT_PORT0         0x00  // è¾“å…¥ç«¯å£0å¯„å­˜å™¨ï¼ˆåªè¯»ï¼‰
+#define TCA9535_INPUT_PORT1         0x01  // è¾“å…¥ç«¯å£1å¯„å­˜å™¨ï¼ˆåªè¯»ï¼‰
+#define TCA9535_OUTPUT_PORT0        0x02  // è¾“å‡ºç«¯å£0å¯„å­˜å™¨ï¼ˆè¯»å†™ï¼‰
+#define TCA9535_OUTPUT_PORT1        0x03  // è¾“å‡ºç«¯å£1å¯„å­˜å™¨ï¼ˆè¯»å†™ï¼‰
+#define TCA9535_POLARITY_PORT0      0x04  // ææ€§åè½¬ç«¯å£0ï¼ˆ0ï¼šåŸææ€§ï¼Œ1ï¼šåè½¬ï¼‰
+#define TCA9535_POLARITY_PORT1      0x05  // ææ€§åè½¬ç«¯å£1
+#define TCA9535_CONFIG_PORT0        0x06  // é…ç½®ç«¯å£0ï¼ˆ0ï¼šè¾“å‡ºï¼Œ1ï¼šè¾“å…¥ï¼‰
+#define TCA9535_CONFIG_PORT1        0x07  // é…ç½®ç«¯å£1
 
-// TCA9535PWR IOÀ©Õ¹¿ØÖÆ½Ó¿Ú1£¬Í¨¹ıIOÄ£ÄâI2CÊµÏÖ
+// TCA9535PWR IOæ‰©å±•æ§åˆ¶æ¥å£1ï¼Œé€šè¿‡IOæ¨¡æ‹ŸI2Cå®ç°
 #define GPIO_PIN_IO2_SDA                    51U
 #define GPIO_CFG_IO2_SDA                    GPIO_51_GPIO51
 #define GPIO_PIN_IO2_SCL                    50U
@@ -59,8 +59,8 @@ static __inline void I2C_SCL_out(void)      {GPIO_setDirectionMode(GPIO_PIN_IO2_
 static __inline void I2C_SDA_in(void)       {GPIO_setDirectionMode(GPIO_PIN_IO2_SDA, GPIO_DIR_MODE_IN);}
 static __inline void I2C_SDA_out(void)      {GPIO_setDirectionMode(GPIO_PIN_IO2_SDA, GPIO_DIR_MODE_OUT);}
 
-#define I2C_SDA_READ()                      (GPIO_readPin(GPIO_PIN_IO2_SDA))   // ¶ÁSDA¿ÚÏß×´Ì¬
-#define I2C_SCL_READ()                      (GPIO_readPin(GPIO_PIN_IO2_SCL))   // ¶ÁSCL¿ÚÏß×´Ì¬
+#define I2C_SDA_READ()                      (GPIO_readPin(GPIO_PIN_IO2_SDA))   // è¯»SDAå£çº¿çŠ¶æ€
+#define I2C_SCL_READ()                      (GPIO_readPin(GPIO_PIN_IO2_SCL))   // è¯»SCLå£çº¿çŠ¶æ€
 
 static void i2c_Delay(void);
 static void i2c_Start(void);
@@ -77,14 +77,14 @@ static uint8_t tca9535_ReadReg(uint8_t baseAddr,uint8_t ReadAddr);
 
 static void Drv_TCA9535_IO2_PinInit(void)
 {
-    //¿ØÖÆIOÉèÖÃ
+    //æ§åˆ¶IOè®¾ç½®
     GPIO_setPinConfig(GPIO_CFG_IO2_SDA);
     GPIO_setPadConfig(GPIO_PIN_IO2_SDA, GPIO_PIN_TYPE_OD);
     GPIO_setDirectionMode(GPIO_PIN_IO2_SDA, GPIO_DIR_MODE_OUT);
     GPIO_setPinConfig(GPIO_CFG_IO2_SCL);
     GPIO_setPadConfig(GPIO_PIN_IO2_SCL, GPIO_PIN_TYPE_OD);
     GPIO_setDirectionMode(GPIO_PIN_IO2_SCL, GPIO_DIR_MODE_OUT);
-    //ÖĞ¶Ï¿ØÖÆIOÉèÖÃ
+    //ä¸­æ–­æ§åˆ¶IOè®¾ç½®
     GPIO_setPinConfig(GPIO_CFG_IO2_INT);
     GPIO_setPadConfig(GPIO_PIN_IO2_INT, GPIO_PIN_TYPE_STD);
     GPIO_setDirectionMode(GPIO_PIN_IO2_INT, GPIO_DIR_MODE_IN);
@@ -93,7 +93,7 @@ static void Drv_TCA9535_IO2_PinInit(void)
 
 static void i2c_Init(void)
 {
-    // ³õÊ¼»¯I2C0Òı½ÅPINMUX
+    // åˆå§‹åŒ–I2C0å¼•è„šPINMUX
     Drv_TCA9535_IO2_PinInit();
 
     Drv_Timer_usDelay(1000);
@@ -105,19 +105,19 @@ static void i2c_Init(void)
 
 /*
 *********************************************************************************************************
-*   º¯ Êı Ãû: bsp_InitI2C
-*   ¹¦ÄÜËµÃ÷: ÅäÖÃI2C×ÜÏßµÄGPIO£¬²ÉÓÃÄ£ÄâIOµÄ·½Ê½ÊµÏÖ
-*   ĞÎ    ²Î:  ÎŞ
-*   ·µ »Ø Öµ: ÎŞ
+*   å‡½ æ•° å: bsp_InitI2C
+*   åŠŸèƒ½è¯´æ˜: é…ç½®I2Cæ€»çº¿çš„GPIOï¼Œé‡‡ç”¨æ¨¡æ‹ŸIOçš„æ–¹å¼å®ç°
+*   å½¢    å‚:  æ— 
+*   è¿” å› å€¼: æ— 
 *********************************************************************************************************
 */
 
 /*
 *********************************************************************************************************
-*   º¯ Êı Ãû: i2c_Delay
-*   ¹¦ÄÜËµÃ÷: I2C×ÜÏßÎ»ÑÓ³Ù£¬×î¿ì400KHz
-*   ĞÎ    ²Î:  ÎŞ
-*   ·µ »Ø Öµ: ÎŞ
+*   å‡½ æ•° å: i2c_Delay
+*   åŠŸèƒ½è¯´æ˜: I2Cæ€»çº¿ä½å»¶è¿Ÿï¼Œæœ€å¿«400KHz
+*   å½¢    å‚:  æ— 
+*   è¿” å› å€¼: æ— 
 *********************************************************************************************************
 */
 //static void Delay(volatile unsigned int count)
@@ -129,11 +129,11 @@ static void i2c_Init(void)
 //{
 //    while(num--)
 //    {
-//        Delay(0x1d);//Ô¼1us
+//        Delay(0x1d);//çº¦1us
 //    }
 //}
 
-//100khzÊÇ5us,
+//100khzæ˜¯5us,
 static void i2c_Delay(void)
 {
 //    delay_us(2);
@@ -142,15 +142,15 @@ static void i2c_Delay(void)
 
 /*
 *********************************************************************************************************
-*   º¯ Êı Ãû: i2c_Start
-*   ¹¦ÄÜËµÃ÷: CPU·¢ÆğI2C×ÜÏßÆô¶¯ĞÅºÅ
-*   ĞÎ    ²Î:  ÎŞ
-*   ·µ »Ø Öµ: ÎŞ
+*   å‡½ æ•° å: i2c_Start
+*   åŠŸèƒ½è¯´æ˜: CPUå‘èµ·I2Cæ€»çº¿å¯åŠ¨ä¿¡å·
+*   å½¢    å‚:  æ— 
+*   è¿” å› å€¼: æ— 
 *********************************************************************************************************
 */
 static void i2c_Start(void)
 {
-    // µ±SCL¸ßµçÆ½Ê±£¬SDA³öÏÖÒ»¸öÏÂÌøÑØ±íÊ¾I2C×ÜÏßÆô¶¯ĞÅºÅ
+    // å½“SCLé«˜ç”µå¹³æ—¶ï¼ŒSDAå‡ºç°ä¸€ä¸ªä¸‹è·³æ²¿è¡¨ç¤ºI2Cæ€»çº¿å¯åŠ¨ä¿¡å·
     I2C_SDA_1();
     I2C_SCL_1();
     i2c_Delay();
@@ -162,37 +162,37 @@ static void i2c_Start(void)
 
 /*
 *********************************************************************************************************
-*   º¯ Êı Ãû: i2c_Stop
-*   ¹¦ÄÜËµÃ÷: CPU·¢ÆğI2C×ÜÏßÍ£Ö¹ĞÅºÅ
-*   ĞÎ    ²Î:  ÎŞ
-*   ·µ »Ø Öµ: ÎŞ
+*   å‡½ æ•° å: i2c_Stop
+*   åŠŸèƒ½è¯´æ˜: CPUå‘èµ·I2Cæ€»çº¿åœæ­¢ä¿¡å·
+*   å½¢    å‚:  æ— 
+*   è¿” å› å€¼: æ— 
 *********************************************************************************************************
 */
 static void i2c_Stop(void)
 {
-    // µ±SCL¸ßµçÆ½Ê±£¬SDA³öÏÖÒ»¸öÉÏÌøÑØ±íÊ¾I2C×ÜÏßÍ£Ö¹ĞÅºÅ
+    // å½“SCLé«˜ç”µå¹³æ—¶ï¼ŒSDAå‡ºç°ä¸€ä¸ªä¸Šè·³æ²¿è¡¨ç¤ºI2Cæ€»çº¿åœæ­¢ä¿¡å·
     I2C_SCL_0();
-    I2C_SDA_0();//Ê±ÖÓÎª¸ßÊ±£¬Êı¾İ´ÓµÍµ½¸ß±ä»¯Ê±¹Ø±Õ×ÜÏß
+    I2C_SDA_0();//æ—¶é’Ÿä¸ºé«˜æ—¶ï¼Œæ•°æ®ä»ä½åˆ°é«˜å˜åŒ–æ—¶å…³é—­æ€»çº¿
     i2c_Delay();
     I2C_SCL_1();
     i2c_Delay();
-    I2C_SDA_1();//·¢ËÍI2C×ÜÏß½áÊøĞÅºÅ
+    I2C_SDA_1();//å‘é€I2Cæ€»çº¿ç»“æŸä¿¡å·
     i2c_Delay();
 }
 
 /*
 *********************************************************************************************************
-*   º¯ Êı Ãû: i2c_SendByte
-*   ¹¦ÄÜËµÃ÷: CPUÏòI2C×ÜÏßÉè±¸·¢ËÍ8bitÊı¾İ
-*   ĞÎ    ²Î:  _ucByte £º µÈ´ı·¢ËÍµÄ×Ö½Ú
-*   ·µ »Ø Öµ: ÎŞ
+*   å‡½ æ•° å: i2c_SendByte
+*   åŠŸèƒ½è¯´æ˜: CPUå‘I2Cæ€»çº¿è®¾å¤‡å‘é€8bitæ•°æ®
+*   å½¢    å‚:  _ucByte ï¼š ç­‰å¾…å‘é€çš„å­—èŠ‚
+*   è¿” å› å€¼: æ— 
 *********************************************************************************************************
 */
 static void i2c_SendByte(UInt8 _ucByte)
 {
     UInt8 i;
 
-    // ÏÈ·¢ËÍ×Ö½ÚµÄ¸ßÎ»bit7
+    // å…ˆå‘é€å­—èŠ‚çš„é«˜ä½bit7
     for (i = 0; i < 8; i++)
     {
         if (_ucByte & 0x80)
@@ -209,9 +209,9 @@ static void i2c_SendByte(UInt8 _ucByte)
         I2C_SCL_0();
         if (i == 7)
         {
-             I2C_SDA_1(); // ÊÍ·Å×ÜÏß
+             I2C_SDA_1(); // é‡Šæ”¾æ€»çº¿
         }
-        _ucByte <<= 1;  // ×óÒÆÒ»¸öbit
+        _ucByte <<= 1;  // å·¦ç§»ä¸€ä¸ªbit
         i2c_Delay();
     }
 }
@@ -219,10 +219,10 @@ static void i2c_SendByte(UInt8 _ucByte)
 
 /*
 *********************************************************************************************************
-*   º¯ Êı Ãû: i2c_ReadByte
-*   ¹¦ÄÜËµÃ÷: CPU´ÓI2C×ÜÏßÉè±¸¶ÁÈ¡8bitÊı¾İ
-*   ĞÎ    ²Î:  ÎŞ
-*   ·µ »Ø Öµ: ¶Áµ½µÄÊı¾İ
+*   å‡½ æ•° å: i2c_ReadByte
+*   åŠŸèƒ½è¯´æ˜: CPUä»I2Cæ€»çº¿è®¾å¤‡è¯»å–8bitæ•°æ®
+*   å½¢    å‚:  æ— 
+*   è¿” å› å€¼: è¯»åˆ°çš„æ•°æ®
 *********************************************************************************************************
 */
 static UInt8 i2c_ReadByte(void)
@@ -230,8 +230,8 @@ static UInt8 i2c_ReadByte(void)
     UInt8 i;
     UInt8 value = 0;
 
-    // ¶Áµ½µÚ1¸öbitÎªÊı¾İµÄbit7
-//  I2C_SDA_1();//¶ÁÈ¡Ê±ÏÈ°ÑSDAÀ­¸ß
+    // è¯»åˆ°ç¬¬1ä¸ªbitä¸ºæ•°æ®çš„bit7
+//  I2C_SDA_1();//è¯»å–æ—¶å…ˆæŠŠSDAæ‹‰é«˜
     I2C_SDA_in();
     for (i = 0; i < 8; i++)
     {
@@ -251,22 +251,22 @@ static UInt8 i2c_ReadByte(void)
 
 /*
 *********************************************************************************************************
-*   º¯ Êı Ãû: i2c_WaitAck
-*   ¹¦ÄÜËµÃ÷: CPU²úÉúÒ»¸öÊ±ÖÓ£¬²¢¶ÁÈ¡Æ÷¼şµÄACKÓ¦´ğĞÅºÅ
-*   ĞÎ    ²Î:  ÎŞ
-*   ·µ »Ø Öµ: ·µ»Ø0±íÊ¾ÕıÈ·Ó¦´ğ£¬1±íÊ¾ÎŞÆ÷¼şÏìÓ¦
+*   å‡½ æ•° å: i2c_WaitAck
+*   åŠŸèƒ½è¯´æ˜: CPUäº§ç”Ÿä¸€ä¸ªæ—¶é’Ÿï¼Œå¹¶è¯»å–å™¨ä»¶çš„ACKåº”ç­”ä¿¡å·
+*   å½¢    å‚:  æ— 
+*   è¿” å› å€¼: è¿”å›0è¡¨ç¤ºæ­£ç¡®åº”ç­”ï¼Œ1è¡¨ç¤ºæ— å™¨ä»¶å“åº”
 *********************************************************************************************************
 */
 static UInt8 i2c_WaitAck(void)
 {
     UInt8 re;
 
-    I2C_SDA_1();    // CPUÊÍ·ÅSDA×ÜÏß
+    I2C_SDA_1();    // CPUé‡Šæ”¾SDAæ€»çº¿
     i2c_Delay();
-    I2C_SCL_1();    // CPUÇı¶¯SCL = 1, ´ËÊ±Æ÷¼ş»á·µ»ØACKÓ¦´ğ
+    I2C_SCL_1();    // CPUé©±åŠ¨SCL = 1, æ­¤æ—¶å™¨ä»¶ä¼šè¿”å›ACKåº”ç­”
     i2c_Delay();
     I2C_SDA_in();
-    if (I2C_SDA_READ()) // CPU¶ÁÈ¡SDA¿ÚÏß×´Ì¬
+    if (I2C_SDA_READ()) // CPUè¯»å–SDAå£çº¿çŠ¶æ€
     {
         re = 1;
     }
@@ -282,36 +282,36 @@ static UInt8 i2c_WaitAck(void)
 
 /*
 *********************************************************************************************************
-*   º¯ Êı Ãû: i2c_Ack
-*   ¹¦ÄÜËµÃ÷: CPU²úÉúÒ»¸öACKĞÅºÅ
-*   ĞÎ    ²Î:  ÎŞ
-*   ·µ »Ø Öµ: ÎŞ
+*   å‡½ æ•° å: i2c_Ack
+*   åŠŸèƒ½è¯´æ˜: CPUäº§ç”Ÿä¸€ä¸ªACKä¿¡å·
+*   å½¢    å‚:  æ— 
+*   è¿” å› å€¼: æ— 
 *********************************************************************************************************
 */
 static void i2c_Ack(void)
 {
-    I2C_SDA_0();    // CPUÇı¶¯SDA = 0
+    I2C_SDA_0();    // CPUé©±åŠ¨SDA = 0
     i2c_Delay();
-    I2C_SCL_1();    // CPU²úÉú1¸öÊ±ÖÓ
+    I2C_SCL_1();    // CPUäº§ç”Ÿ1ä¸ªæ—¶é’Ÿ
     i2c_Delay();
     I2C_SCL_0();
     i2c_Delay();
-    I2C_SDA_1();    // CPUÊÍ·ÅSDA×ÜÏß
+    I2C_SDA_1();    // CPUé‡Šæ”¾SDAæ€»çº¿
 }
 
 /*
 *********************************************************************************************************
-*   º¯ Êı Ãû: i2c_NAck
-*   ¹¦ÄÜËµÃ÷: CPU²úÉú1¸öNACKĞÅºÅ
-*   ĞÎ    ²Î:  ÎŞ
-*   ·µ »Ø Öµ: ÎŞ
+*   å‡½ æ•° å: i2c_NAck
+*   åŠŸèƒ½è¯´æ˜: CPUäº§ç”Ÿ1ä¸ªNACKä¿¡å·
+*   å½¢    å‚:  æ— 
+*   è¿” å› å€¼: æ— 
 *********************************************************************************************************
 */
 static void i2c_NAck(void)
 {
-    I2C_SDA_1();    // CPUÇı¶¯SDA = 1
+    I2C_SDA_1();    // CPUé©±åŠ¨SDA = 1
     i2c_Delay();
-    I2C_SCL_1();    // CPU²úÉú1¸öÊ±ÖÓ
+    I2C_SCL_1();    // CPUäº§ç”Ÿ1ä¸ªæ—¶é’Ÿ
     i2c_Delay();
     I2C_SCL_0();
     i2c_Delay();
@@ -319,10 +319,10 @@ static void i2c_NAck(void)
 
 /*
 *********************************************************************************************************
-*   º¯ Êı Ãû: i2c_CheckDevice
-*   ¹¦ÄÜËµÃ÷: ¼ì²âI2C×ÜÏßÉè±¸£¬CPUÏò·¢ËÍÉè±¸µØÖ·£¬È»ºó¶ÁÈ¡Éè±¸Ó¦´ğÀ´ÅĞ¶Ï¸ÃÉè±¸ÊÇ·ñ´æÔÚ
-*   ĞÎ    ²Î:  _Address£ºÉè±¸µÄI2C×ÜÏßµØÖ·
-*   ·µ »Ø Öµ: ·µ»ØÖµ 0 ±íÊ¾ÕıÈ·£¬ ·µ»Ø1±íÊ¾Î´Ì½²âµ½
+*   å‡½ æ•° å: i2c_CheckDevice
+*   åŠŸèƒ½è¯´æ˜: æ£€æµ‹I2Cæ€»çº¿è®¾å¤‡ï¼ŒCPUå‘å‘é€è®¾å¤‡åœ°å€ï¼Œç„¶åè¯»å–è®¾å¤‡åº”ç­”æ¥åˆ¤æ–­è¯¥è®¾å¤‡æ˜¯å¦å­˜åœ¨
+*   å½¢    å‚:  _Addressï¼šè®¾å¤‡çš„I2Cæ€»çº¿åœ°å€
+*   è¿” å› å€¼: è¿”å›å€¼ 0 è¡¨ç¤ºæ­£ç¡®ï¼Œ è¿”å›1è¡¨ç¤ºæœªæ¢æµ‹åˆ°
 *********************************************************************************************************
 */
 static UInt8 i2c2_CheckDevice(UInt8 _Address)
@@ -334,48 +334,48 @@ static UInt8 i2c2_CheckDevice(UInt8 _Address)
     {
         I2C_SCL_out();
         I2C_SDA_out();
-        i2c_Start();        // ·¢ËÍÆô¶¯ĞÅºÅ
+        i2c_Start();        // å‘é€å¯åŠ¨ä¿¡å·
 
-        // ·¢ËÍÉè±¸µØÖ·+¶ÁĞ´¿ØÖÆbit£¨0 = w£¬ 1 = r) bit7 ÏÈ´«
+        // å‘é€è®¾å¤‡åœ°å€+è¯»å†™æ§åˆ¶bitï¼ˆ0 = wï¼Œ 1 = r) bit7 å…ˆä¼ 
         i2c_SendByte(_Address | I2C_WR);
-        ucAck = i2c_WaitAck();  // ¼ì²âÉè±¸µÄACKÓ¦´ğ
+        ucAck = i2c_WaitAck();  // æ£€æµ‹è®¾å¤‡çš„ACKåº”ç­”
 
-        i2c_Stop();         // ·¢ËÍÍ£Ö¹ĞÅºÅ
+        i2c_Stop();         // å‘é€åœæ­¢ä¿¡å·
 
         return ucAck;
     }
     I2C_SCL_out();
     I2C_SDA_out();
-    return 1;   // I2C×ÜÏßÒì³£
+    return 1;   // I2Cæ€»çº¿å¼‚å¸¸
 }
 
 /*
 *********************************************************************************************************
-*   º¯ Êı Ãû: aic3106_WriteReg
-*   ¹¦ÄÜËµÃ÷: Ğ´aic3106¼Ä´æÆ÷
-*   ĞÎ    ²Î:  _ucRegAddr £º ¼Ä´æÆ÷µØÖ·
-*             _usValue £º¼Ä´æÆ÷Öµ
-*   ·µ »Ø Öµ: ÎŞ
+*   å‡½ æ•° å: aic3106_WriteReg
+*   åŠŸèƒ½è¯´æ˜: å†™aic3106å¯„å­˜å™¨
+*   å½¢    å‚:  _ucRegAddr ï¼š å¯„å­˜å™¨åœ°å€
+*             _usValue ï¼šå¯„å­˜å™¨å€¼
+*   è¿” å› å€¼: æ— 
 *********************************************************************************************************
 */
 static uint8_t tca9535_WriteReg(uint8_t baseAddr, uint8_t _ucRegAddr, uint16_t _usValue)
 {
-    // ·¢ËÍÆğÊ¼Î»
+    // å‘é€èµ·å§‹ä½
     i2c_Start();
-    // ·¢ËÍÉè±¸µØÖ·+¶ÁĞ´¿ØÖÆbit£¨0 = w£¬ 1 = r) bit7 ÏÈ´«
+    // å‘é€è®¾å¤‡åœ°å€+è¯»å†™æ§åˆ¶bitï¼ˆ0 = wï¼Œ 1 = r) bit7 å…ˆä¼ 
     i2c_SendByte(baseAddr | I2C_WR);
-    // ¼ì²âACK
+    // æ£€æµ‹ACK
     if (i2c_WaitAck() == 1)
         return 0;
-    // ·¢ËÍ¿ØÖÆ×Ö½Ú1
+    // å‘é€æ§åˆ¶å­—èŠ‚1
     i2c_SendByte(_ucRegAddr);
     if (i2c_WaitAck() == 1)
         return 0;
-    // ·¢ËÍ¿ØÖÆ×Ö½Ú2
+    // å‘é€æ§åˆ¶å­—èŠ‚2
     i2c_SendByte(_usValue & 0xFF);
     if (i2c_WaitAck() == 1)
         return 0;
-    // ·¢ËÍSTOP
+    // å‘é€STOP
     i2c_Stop();
     return 1;
 }
@@ -386,33 +386,33 @@ static uint8_t tca9535_ReadReg(uint8_t baseAddr,uint8_t ReadAddr)
     uint8_t data_buf;
 
     i2c_Start();
-    i2c_SendByte(baseAddr | I2C_WR);    // ¸ß7bitÊÇµØÖ·£¬bit0ÊÇ¶ÁĞ´¿ØÖÆÎ»£¬0±íÊ¾Ğ´£¬1±íÊ¾¶Á
-    if (i2c_WaitAck() != 0) //µÈ´ıÓ¦´ğ
-        return 0;   //ÎŞÓ¦´ğ
+    i2c_SendByte(baseAddr | I2C_WR);    // é«˜7bitæ˜¯åœ°å€ï¼Œbit0æ˜¯è¯»å†™æ§åˆ¶ä½ï¼Œ0è¡¨ç¤ºå†™ï¼Œ1è¡¨ç¤ºè¯»
+    if (i2c_WaitAck() != 0) //ç­‰å¾…åº”ç­”
+        return 0;   //æ— åº”ç­”
 
     i2c_SendByte(ReadAddr);
     if (i2c_WaitAck() != 0)
-        return 0;   //ÎŞÓ¦´ğ
+        return 0;   //æ— åº”ç­”
 
     i2c_Start();
-    i2c_SendByte(baseAddr | I2C_RD);    // ¸ß7bitÊÇµØÖ·£¬bit0ÊÇ¶ÁĞ´¿ØÖÆÎ»£¬0±íÊ¾Ğ´£¬1±íÊ¾¶Á
+    i2c_SendByte(baseAddr | I2C_RD);    // é«˜7bitæ˜¯åœ°å€ï¼Œbit0æ˜¯è¯»å†™æ§åˆ¶ä½ï¼Œ0è¡¨ç¤ºå†™ï¼Œ1è¡¨ç¤ºè¯»
     if (i2c_WaitAck() != 0)
-        return 0;   //ÎŞÓ¦´ğ
+        return 0;   //æ— åº”ç­”
 
-    data_buf = i2c_ReadByte();  // ¶Á1¸ö×Ö½Ú
-    i2c_NAck();             // ×îºó1¸ö×Ö½Ú¶ÁÍêºó£¬CPU²úÉúNACKĞÅºÅ(Çı¶¯SDA = 1)
+    data_buf = i2c_ReadByte();  // è¯»1ä¸ªå­—èŠ‚
+    i2c_NAck();             // æœ€å1ä¸ªå­—èŠ‚è¯»å®Œåï¼ŒCPUäº§ç”ŸNACKä¿¡å·(é©±åŠ¨SDA = 1)
 
-    i2c_Stop(); // ·¢ËÍI2C×ÜÏßÍ£Ö¹ĞÅºÅ
-    return data_buf;    // Ö´ĞĞ³É¹¦
+    i2c_Stop(); // å‘é€I2Cæ€»çº¿åœæ­¢ä¿¡å·
+    return data_buf;    // æ‰§è¡ŒæˆåŠŸ
 }
 
 int16_t  tca9535_io2_init(void)
 {
     i2c_Init();
 
-    tca9535_WriteReg(TCA9535_I2C_ADDR,TCA9535_CONFIG_PORT0,0x00);//ÅäÖÃP00~P07ÎªÊä³ö
-    tca9535_WriteReg(TCA9535_I2C_ADDR,TCA9535_CONFIG_PORT1,0xff);//ÅäÖÃP10~P17ÎªÊäÈë
-    tca9535_WriteReg(TCA9535_I2C_ADDR,TCA9535_OUTPUT_PORT0,0xff);//ÅäÖÃP10~P17Êä³ö¸ßµçÆ½
+    tca9535_WriteReg(TCA9535_I2C_ADDR,TCA9535_CONFIG_PORT0,0x00);//é…ç½®P00~P07ä¸ºè¾“å‡º
+    tca9535_WriteReg(TCA9535_I2C_ADDR,TCA9535_CONFIG_PORT1,0xff);//é…ç½®P10~P17ä¸ºè¾“å…¥
+    tca9535_WriteReg(TCA9535_I2C_ADDR,TCA9535_OUTPUT_PORT0,0xff);//é…ç½®P10~P17è¾“å‡ºé«˜ç”µå¹³
 
     return 0;
 }
