@@ -423,16 +423,6 @@ main(void)
                         0x00191B01,
                         ETHERNET_CHANNEL_0);
 
-//    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |=
-//                ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
-
-//    while((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) &
-//           ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR) == 0U)
-//    {
-//        HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |=
-//                ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
-//    }
-
     //
     // Configure PPS0 as fixed 1Hz waveform output.
     // The slave does not use target-time pulse scheduling.

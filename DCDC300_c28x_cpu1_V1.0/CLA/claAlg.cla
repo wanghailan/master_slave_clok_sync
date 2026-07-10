@@ -1,0 +1,729 @@
+//#############################################################################
+//
+// FILE: claAlg.cla
+//
+// TITLE: claAlg example
+//
+
+//
+// Included Files
+//
+/* CODEMAP_CLA
+ * Role: fast control loop executed by CLA task 1.
+ * Flow: read ADC -> scale/filter sensed values -> copy real-time refs/gains -> Buck/Boost control
+ * -> duty saturation -> update ePWM compare registers.
+ */
+#include "initial_CLA.h"
+
+void DCDC_CLA_ParamInit(void);
+/* CODEMAP_CLA_ADC
+ * Read raw ADC-derived macros, apply offsets/calibration/filtering, and publish sensed values to tCla2Cpu.
+ * Sampling bugs usually start here or in the ADC/channel macro definitions.
+ */
+void DCDC_CLA_AdSignalsRead(void);
+/* CODEMAP_CLA_REALTIME: copy references, limits, mode and PI gains from tCpu2Cla into CLA private variables. */
+void DCDC_CLA_RealTimeData(void);
+void DCDC_Int_PwmCtrl(int16_t _en);
+void DCDC_CLA_BuckCtrl(void);
+void DCDC_CLA_BoostCtrl(void);
+/* CODEMAP_CLA_PWM_UPDATE
+ * Writes duty commands to ePWM compare registers.
+ * Commissioning check: confirm all three phase compare updates are active and mapped to T1/T2, T3/T4, T5/T6.
+ */
+inline void DCDC_CLA_updatePWMDuty(float32_t dutyP1,float32_t dutyP2,float32_t dutyP3);
+void DCDC_CLA_PWMOff(void);
+float32_t satF32(float32_t input,float32_t min,float32_t max);
+float32_t OneOrder_lowFliter(int16_t index,float32_t f_xin);
+extern float delta_p, delta_v;
+//
+// function definitions
+//
+/* CODEMAP_CLA_TASK1: main fast-control task. This is the real-time heart of the converter. */
+__attribute__((interrupt))  void Cla1Task1 ( void )
+{
+    tCla2Cpu.PcsDebugi16_0++;
+    if(tCla2Cpu.PcsDebugi16_0 > 32000)
+        tCla2Cpu.PcsDebugi16_0 = 0;
+    tCla2Cpu.PcsDebugi16_1++;
+    tCla2Cpu.PcsDebugi16_2 = tCla2Cpu.PcsDebugi16_1-200;//CLAisqrt(tCla2Cpu.PcsDebugi16_1);
+    if(tCla2Cpu.PcsDebugi16_1 > 32000)
+        tCla2Cpu.PcsDebugi16_1 = 0;
+
+    DCDC_CLA_AdSignalsRead();
+    DCDC_CLA_RealTimeData();
+
+    tCla2Cpu.PcsDebugf32_0   = DCDC_VBUS_READ_AD;
+    tCla2Cpu.PcsDebugf32_1   = DCDC_VBUSS_READ_AD;
+    if(tCpu2Cla.PwmStartEnable)
+    {
+        if(tCpu2Cla.WorkMode == CLA_Mode_Buck) //buckģʽ
+            DCDC_CLA_BuckCtrl();
+        else if(tCpu2Cla.WorkMode == CLA_Mode_Boost) //boostģʽ
+            DCDC_CLA_BoostCtrl();
+//        else
+//            MPPT_PO_Algorithm();
+        tClaPrivate.Pwm_Enable = 1;
+    }
+    else
+    {
+        DCDC_CLA_PWMOff();
+        tClaPrivate.Pwm_Enable = 0;
+    }
+    DCDC_Int_PwmCtrl(tClaPrivate.Pwm_Enable);
+}
+
+__attribute__((interrupt))  void Cla1Task2 ( void )
+{
+
+}
+
+__attribute__((interrupt))  void Cla1Task3 ( void )
+{
+
+}
+
+__attribute__((interrupt))  void Cla1Task4 ( void )
+{
+
+}
+
+__attribute__((interrupt))  void Cla1Task5 ( void )
+{
+
+}
+
+__attribute__((interrupt))  void Cla1Task6 ( void )
+{
+
+}
+
+__attribute__((interrupt))  void Cla1Task7 ( void )
+{
+
+}
+
+__attribute__((interrupt))  void Cla1Task8 ( void )
+{
+    DCDC_CLA_ParamInit();
+}
+
+void DCDC_CLA_ParamInit(void)
+{
+    tCla2Cpu.PcsDebugi16_0 = 0;
+    tCla2Cpu.PcsDebugi16_1 = 0;
+    tClaPrivate.Pwm_Enable = 0;
+
+    /* initialise PI controller */
+    //��ѹ�⻷
+    tClaPrivate.DcDc_VKp = BUCK_VO_KP;
+    tClaPrivate.DcDc_VKi = BUCK_VO_KI;
+    //�����⻷
+    tClaPrivate.DcDc_IKp = BUCK_IO_KP;
+    tClaPrivate.DcDc_IKi = BUCK_IO_KI;
+    //���ڻ�
+    tClaPrivate.DcDc_ILKp   = BUCK_IL_KP;
+    tClaPrivate.DcDc_ILKi   = BUCK_IL_KI;
+
+    tClaPrivate.DcDc_VRegIOut       = 0.0f;
+    tClaPrivate.DcDc_VRegOut        = 0.0f;
+    tClaPrivate.DcDc_Ip1RegIOut     = 0.0f;
+    tClaPrivate.DcDc_Ip1RegOut      = 0.0f;
+    tClaPrivate.DcDc_Ip2RegIOut     = 0.0f;
+    tClaPrivate.DcDc_Ip2RegOut      = 0.0f;
+    tClaPrivate.DcDc_Ip3RegIOut     = 0.0f;
+    tClaPrivate.DcDc_Ip3RegOut      = 0.0f;
+    tClaPrivate.DcDc_ErrorVo_old    = 0.0f;
+
+    tClaPrivate.lpFilter_Yold_V1    = 0.0f;
+    tClaPrivate.lpFilter_Yold_V2    = 0.0f;
+    tClaPrivate.lpFilter_Yold_V3    = 0.0f;
+    tClaPrivate.lpFilter_Yold_V4    = 0.0f;
+    tClaPrivate.lpFilter_Yold_V5    = 0.0f;
+    tClaPrivate.lpFilter_Yold_V6    = 0.0f;
+    tClaPrivate.lpFilter_Yold_V7    = 0.0f;
+    tClaPrivate.lpFilter_Yold_V8    = 0.0f;
+    tClaPrivate.lpFilter_Yold_V9    = 0.0f;
+    tClaPrivate.lpFilter_Yold_I1    = 0.0f;
+    tClaPrivate.lpFilter_Yold_I2    = 0.0f;
+    tClaPrivate.lpFilter_Yold_I3    = 0.0f;
+    tClaPrivate.lpFilter_Yold_I4    = 0.0f;
+    tClaPrivate.lpFilter_Yold_I5    = 0.0f;
+    tClaPrivate.lpFilter_Yold_I6    = 0.0f;
+    tClaPrivate.lpFilter_Yold_I7    = 0.0f;
+
+}
+
+float32_t DCDC_CLA_Ad2Pu(int16_t type,uint16_t AdCh,float32_t offset)
+{
+    float32_t Temp;
+
+    Temp = (float32_t)AdCh * DC_ADC_PU_SCALE_FACTOR;
+    if(type == 0)//��ƫ��
+        Temp = Temp - DC_OFFSET_PU*tCpu2Cla.Ref1v5_Calibrat*offset;
+
+    return Temp;
+}
+
+/* CODEMAP_CLA_ADC
+ * Read raw ADC-derived macros, apply offsets/calibration/filtering, and publish sensed values to tCla2Cpu.
+ * Sampling bugs usually start here or in the ADC/channel macro definitions.
+ */
+void DCDC_CLA_AdSignalsRead(void)
+{
+    float32_t   f32_adPu;
+    //ֱ����ѹ����
+    f32_adPu                = DCDC_CLA_Ad2Pu(0,DCDC_VBAT_READ_AD, tCpu2Cla.VDC_Bat_offset)*tCpu2Cla.VBat_Calibrat;//
+    tClaPrivate.DC_VBat_pu  = OneOrder_lowFliter(1,f32_adPu);
+    f32_adPu                = DCDC_CLA_Ad2Pu(0,DCDC_VBUS_READ_AD, tCpu2Cla.VDC_Bus_offset)*tCpu2Cla.VBus_Calibrat;
+    tClaPrivate.DC_VBus_pu  = OneOrder_lowFliter(2,f32_adPu);
+    f32_adPu                = DCDC_CLA_Ad2Pu(0,DCDC_VBATS_READ_AD, tCpu2Cla.VDC_BatS_offset)*tCpu2Cla.VBatS_Calibrat;
+    tClaPrivate.DC_VBatS_pu = OneOrder_lowFliter(3,f32_adPu);
+    f32_adPu                = DCDC_CLA_Ad2Pu(0,DCDC_VBUSS_READ_AD, tCpu2Cla.VDC_BusS_offset)*tCpu2Cla.VBusS_Calibrat;
+    tClaPrivate.DC_VBusS_pu = OneOrder_lowFliter(4,f32_adPu);
+//    f32_adPu                = DCDC_CLA_Ad2Pu(1,DCDC_VBATP_READ_AD,1.0f)*tCpu2Cla.VBatP_Calibrat;
+//    tClaPrivate.DC_VBatP_pu = OneOrder_lowFliter(5,f32_adPu);
+//    f32_adPu                = DCDC_CLA_Ad2Pu(1,DCDC_VBATN_READ_AD,1.0f)*tCpu2Cla.VBatN_Calibrat;
+//    tClaPrivate.DC_VBatN_pu = OneOrder_lowFliter(6,f32_adPu);
+
+    f32_adPu                = DCDC_CLA_Ad2Pu(1,DCDC_VDC7_READ_AD,1.0f)*tCpu2Cla.Vdc7_Calibrat;
+    tClaPrivate.DC_Vdc7_pu  = OneOrder_lowFliter(7,f32_adPu);
+    f32_adPu                = DCDC_CLA_Ad2Pu(1,DCDC_VDC8_READ_AD,1.0f)*tCpu2Cla.Vdc8_Calibrat;
+    tClaPrivate.DC_Vdc8_pu  = OneOrder_lowFliter(8,f32_adPu);
+    f32_adPu                = DCDC_CLA_Ad2Pu(1,DCDC_VDC9_READ_AD,1.0f)*tCpu2Cla.Vdc9_Calibrat;
+    tClaPrivate.DC_Vdc9_pu  = OneOrder_lowFliter(9,f32_adPu);
+
+    f32_adPu                = DCDC_CLA_Ad2Pu(0,DCDC_IBAT_READ_AD, tCpu2Cla.IBat_offset)*tCpu2Cla.IBat_Calibrat;
+    tClaPrivate.DC_IBat_pu  = fabs(OneOrder_lowFliter(10,f32_adPu));
+    f32_adPu                = DCDC_CLA_Ad2Pu(0,DCDC_IBUS_READ_AD, tCpu2Cla.IBus_offset)*tCpu2Cla.IBus_Calibrat;
+    tClaPrivate.DC_IBus_pu  = fabs(OneOrder_lowFliter(11,f32_adPu));
+    f32_adPu                = DCDC_CLA_Ad2Pu(0,DCDC_IL1_READ_AD,  tCpu2Cla.IL1_offset)*tCpu2Cla.IL1_Calibrat;
+    tClaPrivate.DC_IL1_pu   = fabs(OneOrder_lowFliter(12,f32_adPu));
+    f32_adPu                = DCDC_CLA_Ad2Pu(0,DCDC_IL2_READ_AD,  tCpu2Cla.IL2_offset)*tCpu2Cla.IL2_Calibrat;
+    tClaPrivate.DC_IL2_pu   = fabs(OneOrder_lowFliter(13,f32_adPu));
+    f32_adPu                = DCDC_CLA_Ad2Pu(0,DCDC_IL3_READ_AD,  tCpu2Cla.IL3_offset)*tCpu2Cla.IL3_Calibrat;
+    tClaPrivate.DC_IL3_pu   = fabs(OneOrder_lowFliter(14,f32_adPu));
+
+    f32_adPu                = DCDC_CLA_Ad2Pu(0,DCDC_IDC5_READ_AD,tCpu2Cla.Ref1v5_Calibrat)*tCpu2Cla.Idc5_Calibrat;
+    tClaPrivate.DC_Idc5_pu  = fabs(OneOrder_lowFliter(15,f32_adPu));
+    f32_adPu                = DCDC_CLA_Ad2Pu(0,DCDC_IDC6_READ_AD,tCpu2Cla.Ref1v5_Calibrat)*tCpu2Cla.Idc6_Calibrat;
+    tClaPrivate.DC_Idc6_pu  = fabs(OneOrder_lowFliter(16,f32_adPu));
+
+
+    tCla2Cpu.DC_VBat_sensed_pu      = tClaPrivate.DC_VBat_pu;
+    tCla2Cpu.DC_VBus_sensed_pu      = tClaPrivate.DC_VBus_pu;
+    tCla2Cpu.DC_VBatS_sensed_pu     = tClaPrivate.DC_VBatS_pu;
+    tCla2Cpu.DC_VBusS_sensed_pu     = tClaPrivate.DC_VBusS_pu;
+//    tCla2Cpu.DC_VBatP_sensed_pu     = tClaPrivate.DC_VBatP_pu;
+//    tCla2Cpu.DC_VBatN_sensed_pu     = tClaPrivate.DC_VBatN_pu;
+
+    tCla2Cpu.DC_IBat_sensed_pu      = tClaPrivate.DC_IBat_pu;
+    tCla2Cpu.DC_IBus_sensed_pu      = tClaPrivate.DC_IBus_pu;
+    tCla2Cpu.DC_IL1_sensed_pu       = tClaPrivate.DC_IL1_pu;
+    tCla2Cpu.DC_IL2_sensed_pu       = tClaPrivate.DC_IL2_pu;
+    tCla2Cpu.DC_IL3_sensed_pu       = tClaPrivate.DC_IL3_pu;
+
+    tCla2Cpu.DC_NTC1_sensed_pu      = tClaPrivate.DC_NTC1_pu;
+    tCla2Cpu.DC_NTC2_sensed_pu      = tClaPrivate.DC_NTC2_pu;
+
+    tCla2Cpu.DC_Vdc7_sensed_pu      = tClaPrivate.DC_Vdc7_pu;
+    tCla2Cpu.DC_Vdc8_sensed_pu      = tClaPrivate.DC_Vdc8_pu;
+    tCla2Cpu.DC_Vdc9_sensed_pu      = tClaPrivate.DC_Vdc9_pu;
+
+    tCla2Cpu.DC_Idc5_sensed_pu      = tClaPrivate.DC_Idc5_pu;
+    tCla2Cpu.DC_Idc6_sensed_pu      = tClaPrivate.DC_Idc6_pu;
+}
+
+
+/* CODEMAP_CLA_REALTIME: copy references, limits, mode and PI gains from tCpu2Cla into CLA private variables. */
+void DCDC_CLA_RealTimeData(void)
+{
+    //��ѹ�⻷
+    tClaPrivate.DcDc_VKp            = tCpu2Cla.VOCtrl_Kp;
+    tClaPrivate.DcDc_VKi            = tCpu2Cla.VOCtrl_Ki*Tcylce;
+    //��ѹ�⻷
+    tClaPrivate.DcDc_IKp            = tCpu2Cla.IOCtrl_Kp;
+    tClaPrivate.DcDc_IKi            = tCpu2Cla.IOCtrl_Ki*Tcylce;
+    //���ڻ�
+    tClaPrivate.DcDc_ILKp           = tCpu2Cla.IICtrl_Kp;
+    tClaPrivate.DcDc_ILKi           = tCpu2Cla.IICtrl_Ki*Tcylce;
+
+    tClaPrivate.DC_Vbus_Live        = tClaPrivate.DC_VBus_pu*DC_VDC_MAX_SENSE_RATIO;
+    tClaPrivate.DC_Vbat_Live        = tClaPrivate.DC_VBat_pu*DC_VDC_MAX_SENSE_RATIO;
+//    tClaPrivate.DC_VbatP_Live       = tClaPrivate.DC_VBatP_pu*DC_VDC_MAX_SENSE_RATIO;
+//    tClaPrivate.DC_VbatN_Live       = tClaPrivate.DC_VBatN_pu*DC_VDC_MAX_SENSE_RATIO;
+    tClaPrivate.DC_IL1_Live         = tClaPrivate.DC_IL1_pu*DC_IDC100_MAX_SENSE_RATIO;
+    tClaPrivate.DC_IL2_Live         = tClaPrivate.DC_IL2_pu*DC_IDC100_MAX_SENSE_RATIO;
+    tClaPrivate.DC_IL3_Live         = tClaPrivate.DC_IL3_pu*DC_IDC100_MAX_SENSE_RATIO;
+    tClaPrivate.DC_IBus_Live        = tClaPrivate.DC_IBus_pu*DC_IDC300_MAX_SENSE_RATIO;
+    tClaPrivate.DC_IBat_Live        = tClaPrivate.DC_IBat_pu*DC_IDC200_MAX_SENSE_RATIO;
+
+    tClaPrivate.DcDc_VdcRef         = tCpu2Cla.DcDc_VdcRef;
+    tClaPrivate.DcDc_IdcRef         = tCpu2Cla.DcDc_IdcRef;
+    tClaPrivate.DcDc_PdcRef         = tCpu2Cla.DcDc_PdcRef;
+    tClaPrivate.DcDc_RdcRef         = tCpu2Cla.DcDc_RdcRef;
+
+    tClaPrivate.DC_IMax_Bus         = tCpu2Cla.DcBusMaxCurrent;
+    tClaPrivate.DC_IMax_Bat         = tCpu2Cla.DcBatMaxCurrent;
+    tClaPrivate.DC_VMax_Bus         = tCpu2Cla.DcBusMaxVol;
+    tClaPrivate.DC_VMax_Bat         = tCpu2Cla.DcBatMaxVol;
+
+    if(tCpu2Cla.WorkMode == 0) //buck
+    {
+        if((tCpu2Cla.CtrlMode == 0)||(tCpu2Cla.CtrlMode == 1))//��ѹģʽ
+        {
+            if(tClaPrivate.DcDc_VdcRef > tClaPrivate.DC_VMax_Bus)
+                tClaPrivate.DcDc_VdcRef = tClaPrivate.DC_VMax_Bus;
+        }
+        else if(tCpu2Cla.CtrlMode == 2)//����ģʽ
+        {
+            if(tClaPrivate.DcDc_IdcRef > tClaPrivate.DC_IMax_Bus)
+                tClaPrivate.DcDc_IdcRef = tClaPrivate.DC_IMax_Bus;
+        }
+        else if(tCpu2Cla.CtrlMode == 3)//�㹦��ģʽ
+        {
+            if(tClaPrivate.DcDc_PdcRef > (tClaPrivate.DC_IMax_Bus*tClaPrivate.DC_Vbus_Live))
+                tClaPrivate.DcDc_PdcRef = tClaPrivate.DC_IMax_Bus*tClaPrivate.DC_Vbus_Live;
+        }
+        else  if(tCpu2Cla.CtrlMode == 4)//����ģʽ
+        {
+            if(tClaPrivate.DcDc_RdcRef < (tClaPrivate.DC_Vbus_Live/tClaPrivate.DC_IMax_Bus))
+                tClaPrivate.DcDc_RdcRef = (tClaPrivate.DC_Vbus_Live/tClaPrivate.DC_IMax_Bus);
+        }
+    }
+    else if(tCpu2Cla.WorkMode == 1) //boost
+    {
+        if((tCpu2Cla.CtrlMode == 0)||(tCpu2Cla.CtrlMode == 1))//��ѹģʽ
+        {
+            if(tClaPrivate.DcDc_VdcRef > tClaPrivate.DC_VMax_Bat)
+                tClaPrivate.DcDc_VdcRef = tClaPrivate.DC_VMax_Bat;
+        }
+        else if(tCpu2Cla.CtrlMode == 2)//����ģʽ
+        {
+            if(tClaPrivate.DcDc_IdcRef > tClaPrivate.DC_IMax_Bat)
+                tClaPrivate.DcDc_IdcRef = tClaPrivate.DC_IMax_Bat;
+        }
+        else if(tCpu2Cla.CtrlMode == 3)//�㹦��ģʽ
+        {
+            if(tClaPrivate.DcDc_PdcRef > (tClaPrivate.DC_IMax_Bat*tClaPrivate.DC_Vbat_Live))
+                tClaPrivate.DcDc_PdcRef = tClaPrivate.DC_IMax_Bat*tClaPrivate.DC_Vbat_Live;
+        }
+        else  if(tCpu2Cla.CtrlMode == 4)//����ģʽ
+        {
+            if(tClaPrivate.DcDc_RdcRef < (tClaPrivate.DC_Vbat_Live/tClaPrivate.DC_IMax_Bat))
+                tClaPrivate.DcDc_RdcRef = (tClaPrivate.DC_Vbat_Live/tClaPrivate.DC_IMax_Bat);
+        }
+    }
+
+    tCla2Cpu.PwmRatio1             = tClaPrivate.f32_DRatio1;
+    tCla2Cpu.PwmRatio2             = tClaPrivate.f32_DRatio2;
+    tCla2Cpu.PwmRatio3             = tClaPrivate.f32_DRatio3;
+}
+
+//Buck�⻷����
+void Buck_OuterLoop_PICtrl(void)
+{
+    if(tCpu2Cla.CtrlMode == 1)//��ѹģʽ
+    {
+        tClaPrivate.DcDc_ErrorVo      = tClaPrivate.DcDc_VdcRef - tClaPrivate.DC_Vbus_Live;
+     //   tClaPrivate.DcDc_ErrorVo      = satF32(tClaPrivate.DcDc_ErrorVo,-20.0f,20.0f);
+        tClaPrivate.DcDc_VRegIOut     = (tClaPrivate.DcDc_ErrorVo-tClaPrivate.DcDc_ErrorVo_old)*tClaPrivate.DcDc_VKp + (tClaPrivate.DcDc_ErrorVo_old + tClaPrivate.DcDc_ErrorVo) * 0.5f * tClaPrivate.DcDc_VKi;
+        tClaPrivate.DcDc_VRegOut     += tClaPrivate.DcDc_VRegIOut;
+        tClaPrivate.DcDc_ErrorVo_old  = tClaPrivate.DcDc_ErrorVo;
+    }
+    else if(tCpu2Cla.CtrlMode == 2)//����ģʽ
+    {
+        if(tClaPrivate.DcDc_IdcRef > tClaPrivate.DC_IMax_Bus)
+           tClaPrivate.DcDc_IdcRef = tClaPrivate.DC_IMax_Bus;
+        if(tCpu2Cla.OutLoop_En)
+        {
+            tClaPrivate.DcDc_ErrorVo      = tClaPrivate.DcDc_IdcRef - tClaPrivate.DC_IBus_Live;
+            tClaPrivate.DcDc_VRegIOut     = (tClaPrivate.DcDc_ErrorVo-tClaPrivate.DcDc_ErrorVo_old)*tClaPrivate.DcDc_IKp + (tClaPrivate.DcDc_ErrorVo_old + tClaPrivate.DcDc_ErrorVo) * 0.5f * tClaPrivate.DcDc_IKi;
+            tClaPrivate.DcDc_VRegOut     += tClaPrivate.DcDc_VRegIOut;
+            tClaPrivate.DcDc_ErrorVo_old  = tClaPrivate.DcDc_ErrorVo;
+        }
+        else
+        {
+            tClaPrivate.DcDc_VRegOut      = tClaPrivate.DcDc_IdcRef;
+        }
+    }
+    else if(tCpu2Cla.CtrlMode == 3)//�㹦��ģʽ
+    {
+        float32_t iRef;
+        iRef = tClaPrivate.DcDc_PdcRef/tClaPrivate.DC_Vbus_Live;
+        if(iRef > tClaPrivate.DC_IMax_Bus)
+            iRef = tClaPrivate.DC_IMax_Bus;
+        tClaPrivate.DcDc_ErrorVo      = iRef - tClaPrivate.DC_IBus_Live;
+        tClaPrivate.DcDc_VRegIOut     = (tClaPrivate.DcDc_ErrorVo-tClaPrivate.DcDc_ErrorVo_old)*tClaPrivate.DcDc_IKp + (tClaPrivate.DcDc_ErrorVo_old + tClaPrivate.DcDc_ErrorVo) * 0.5f * tClaPrivate.DcDc_IKi;
+        tClaPrivate.DcDc_VRegOut     += tClaPrivate.DcDc_VRegIOut;
+        tClaPrivate.DcDc_ErrorVo_old  = tClaPrivate.DcDc_ErrorVo;
+    }
+    else  if(tCpu2Cla.CtrlMode == 4)//����ģʽ
+    {
+        float32_t iRef;
+        iRef = tClaPrivate.DC_Vbus_Live/tClaPrivate.DcDc_RdcRef;
+        if(iRef > tClaPrivate.DC_IMax_Bus)
+            iRef = tClaPrivate.DC_IMax_Bus;
+        tClaPrivate.DcDc_ErrorVo      = iRef - tClaPrivate.DC_IBus_Live;
+        tClaPrivate.DcDc_VRegIOut     = (tClaPrivate.DcDc_ErrorVo-tClaPrivate.DcDc_ErrorVo_old)*tClaPrivate.DcDc_IKp + (tClaPrivate.DcDc_ErrorVo_old + tClaPrivate.DcDc_ErrorVo) * 0.5f * tClaPrivate.DcDc_IKi;
+        tClaPrivate.DcDc_VRegOut     += tClaPrivate.DcDc_VRegIOut;
+        tClaPrivate.DcDc_ErrorVo_old  = tClaPrivate.DcDc_ErrorVo;
+    }
+
+//    tClaPrivate.DcDc_VRegIOut     = satF32(tClaPrivate.DcDc_VRegIOut,BUCK_VO_OUTLIMN,BUCK_VO_OUTLIMP);
+    tClaPrivate.DcDc_VRegOut      = satF32(tClaPrivate.DcDc_VRegOut, BUCK_VO_OUTLIMN,BUCK_VO_OUTLIMP);
+
+    tClaPrivate.DcDc_IoRefP1      = tClaPrivate.DcDc_VRegOut;//*0.33333333f
+    tClaPrivate.DcDc_IoRefP2      = tClaPrivate.DcDc_VRegOut;//*0.33333333f
+    tClaPrivate.DcDc_IoRefP3      = tClaPrivate.DcDc_VRegOut;//*0.33333333f
+}
+
+//�����ڻ�����
+void Buck_InterLoop_PICtrl(void)
+{
+    //��Ԫ1�����ڻ�
+    tClaPrivate.DcDc_IoRefP1      = satF32(tClaPrivate.DcDc_IoRefP1,0.0f-tClaPrivate.DC_IMax_Bus*0.33333333f,tClaPrivate.DC_IMax_Bus*0.33333333f);
+    tClaPrivate.DcDc_ErrorI1      = tClaPrivate.DcDc_IoRefP1 - tClaPrivate.DC_IL1_Live;
+//    tClaPrivate.DcDc_ErrorI1      = satF32(tClaPrivate.DcDc_ErrorI1,-1.0f,1.0f);
+    tClaPrivate.DcDc_Ip1RegOut    = tClaPrivate.DcDc_ErrorI1 * tClaPrivate.DcDc_ILKp + tClaPrivate.DcDc_Ip1RegIOut;
+    tClaPrivate.DcDc_Ip1RegOut    = satF32(tClaPrivate.DcDc_Ip1RegOut,BUCK_IL_OUTLIMN,BUCK_IL_OUTLIMP);
+    tClaPrivate.DcDc_Ip1RegIOut  += tClaPrivate.DcDc_ErrorI1 * tClaPrivate.DcDc_ILKi;
+    tClaPrivate.DcDc_Ip1RegIOut   = satF32(tClaPrivate.DcDc_Ip1RegIOut,BUCK_IL_OUTLIMN,BUCK_IL_OUTLIMP);
+
+    tClaPrivate.DcDc_I1PiOut      = tClaPrivate.DcDc_Ip1RegOut;
+
+    //��Ԫ2�����ڻ�
+    tClaPrivate.DcDc_IoRefP2      = satF32(tClaPrivate.DcDc_IoRefP2,0.0f-tClaPrivate.DC_IMax_Bus*0.33333333f,tClaPrivate.DC_IMax_Bus*0.33333333f);
+    tClaPrivate.DcDc_ErrorI2      = tClaPrivate.DcDc_IoRefP2 - tClaPrivate.DC_IL2_Live;
+//    tClaPrivate.DcDc_ErrorI2      = satF32(tClaPrivate.DcDc_ErrorI2,-1.0f,1.0f);
+    tClaPrivate.DcDc_Ip2RegOut    = tClaPrivate.DcDc_ErrorI2 * tClaPrivate.DcDc_ILKp + tClaPrivate.DcDc_Ip2RegIOut;
+    tClaPrivate.DcDc_Ip2RegOut    = satF32(tClaPrivate.DcDc_Ip2RegOut,BUCK_IL_OUTLIMN,BUCK_IL_OUTLIMP);
+    tClaPrivate.DcDc_Ip2RegIOut  += tClaPrivate.DcDc_ErrorI2 * tClaPrivate.DcDc_ILKi;
+    tClaPrivate.DcDc_Ip2RegIOut   = satF32(tClaPrivate.DcDc_Ip2RegIOut,BUCK_IL_OUTLIMN,BUCK_IL_OUTLIMP);
+
+    tClaPrivate.DcDc_I2PiOut      = tClaPrivate.DcDc_Ip2RegOut;
+
+    //��Ԫ3�����ڻ�
+    tClaPrivate.DcDc_IoRefP3      = satF32(tClaPrivate.DcDc_IoRefP3,0.0f-tClaPrivate.DC_IMax_Bus*0.33333333f,tClaPrivate.DC_IMax_Bus*0.33333333f);
+    tClaPrivate.DcDc_ErrorI3      = tClaPrivate.DcDc_IoRefP3 - tClaPrivate.DC_IL3_Live;
+//    tClaPrivate.DcDc_ErrorI3      = satF32(tClaPrivate.DcDc_ErrorI3,-1.0f,1.0f);
+    tClaPrivate.DcDc_Ip3RegOut    = tClaPrivate.DcDc_ErrorI3 * tClaPrivate.DcDc_ILKp + tClaPrivate.DcDc_Ip3RegIOut;
+    tClaPrivate.DcDc_Ip3RegOut    = satF32(tClaPrivate.DcDc_Ip3RegOut,BUCK_IL_OUTLIMN,BUCK_IL_OUTLIMP);
+    tClaPrivate.DcDc_Ip3RegIOut  += tClaPrivate.DcDc_ErrorI3 * tClaPrivate.DcDc_ILKi;
+    tClaPrivate.DcDc_Ip3RegIOut   = satF32(tClaPrivate.DcDc_Ip3RegIOut,BUCK_IL_OUTLIMN,BUCK_IL_OUTLIMP);
+
+    tClaPrivate.DcDc_I3PiOut      = tClaPrivate.DcDc_Ip3RegOut;
+}
+
+//Boost�⻷����
+void Boost_OuterLoop_PICtrl(void)
+{
+    if(tCpu2Cla.CtrlMode == 1)//��ѹģʽ
+    {
+        tClaPrivate.DcDc_ErrorVo      = tClaPrivate.DcDc_VdcRef - tClaPrivate.DC_Vbat_Live;
+//        tClaPrivate.DcDc_ErrorVo      = satF32(tClaPrivate.DcDc_ErrorVo,-10.0f,10.0f);
+        tClaPrivate.DcDc_VRegIOut     = (tClaPrivate.DcDc_ErrorVo-tClaPrivate.DcDc_ErrorVo_old)*tClaPrivate.DcDc_VKp + (tClaPrivate.DcDc_ErrorVo_old + tClaPrivate.DcDc_ErrorVo) * 0.5f * tClaPrivate.DcDc_VKi;
+        tClaPrivate.DcDc_VRegOut     += tClaPrivate.DcDc_VRegIOut;
+        tClaPrivate.DcDc_ErrorVo_old  = tClaPrivate.DcDc_ErrorVo;
+    }
+    else if(tCpu2Cla.CtrlMode == 2)//����ģʽ
+    {
+        if(tClaPrivate.DcDc_IdcRef > tClaPrivate.DC_IMax_Bat)
+           tClaPrivate.DcDc_IdcRef = tClaPrivate.DC_IMax_Bat;
+        if(tCpu2Cla.OutLoop_En)
+        {
+            tClaPrivate.DcDc_ErrorVo      = tClaPrivate.DcDc_IdcRef - tClaPrivate.DC_IBat_Live;
+            tClaPrivate.DcDc_VRegIOut     = (tClaPrivate.DcDc_ErrorVo-tClaPrivate.DcDc_ErrorVo_old)*tClaPrivate.DcDc_IKp + (tClaPrivate.DcDc_ErrorVo_old + tClaPrivate.DcDc_ErrorVo) * 0.5f * tClaPrivate.DcDc_IKi;
+            tClaPrivate.DcDc_VRegOut     += tClaPrivate.DcDc_VRegIOut;
+            tClaPrivate.DcDc_ErrorVo_old  = tClaPrivate.DcDc_ErrorVo;
+        }
+        else
+        {
+            tClaPrivate.DcDc_VRegOut      = tClaPrivate.DcDc_IdcRef;
+        }
+    }
+    else if(tCpu2Cla.CtrlMode == 3)//�㹦��ģʽ
+    {
+        float32_t iRef;
+        iRef = tClaPrivate.DcDc_PdcRef/tClaPrivate.DC_Vbat_Live;
+        if(iRef > tClaPrivate.DC_IMax_Bat)
+            iRef = tClaPrivate.DC_IMax_Bat;
+        tClaPrivate.DcDc_ErrorVo      = iRef - tClaPrivate.DC_IBat_Live;
+        tClaPrivate.DcDc_VRegIOut     = (tClaPrivate.DcDc_ErrorVo-tClaPrivate.DcDc_ErrorVo_old)*tClaPrivate.DcDc_IKp + (tClaPrivate.DcDc_ErrorVo_old + tClaPrivate.DcDc_ErrorVo) * 0.5f * tClaPrivate.DcDc_IKi;
+        tClaPrivate.DcDc_VRegOut     += tClaPrivate.DcDc_VRegIOut;
+        tClaPrivate.DcDc_ErrorVo_old  = tClaPrivate.DcDc_ErrorVo;
+    }
+    else  if(tCpu2Cla.CtrlMode == 4)//����ģʽ
+    {
+        float32_t iRef;
+        iRef = tClaPrivate.DC_Vbat_Live/tClaPrivate.DcDc_RdcRef;
+        if(iRef > tClaPrivate.DC_IMax_Bat)
+            iRef = tClaPrivate.DC_IMax_Bat;
+        tClaPrivate.DcDc_ErrorVo      = iRef - tClaPrivate.DC_IBat_Live;
+        tClaPrivate.DcDc_VRegIOut     = (tClaPrivate.DcDc_ErrorVo-tClaPrivate.DcDc_ErrorVo_old)*tClaPrivate.DcDc_IKp + (tClaPrivate.DcDc_ErrorVo_old + tClaPrivate.DcDc_ErrorVo) * 0.5f * tClaPrivate.DcDc_IKi;
+        tClaPrivate.DcDc_VRegOut     += tClaPrivate.DcDc_VRegIOut;
+        tClaPrivate.DcDc_ErrorVo_old  = tClaPrivate.DcDc_ErrorVo;
+    }
+
+//    tClaPrivate.DcDc_VRegIOut     = satF32(tClaPrivate.DcDc_VRegIOut,BUCK_VO_OUTLIMN,BUCK_VO_OUTLIMP);
+    tClaPrivate.DcDc_VRegOut      = satF32(tClaPrivate.DcDc_VRegOut, BUCK_VO_OUTLIMN,BUCK_VO_OUTLIMP);
+
+    tClaPrivate.DcDc_IoRefP1      = tClaPrivate.DcDc_VRegOut*0.33333333f;
+    tClaPrivate.DcDc_IoRefP2      = tClaPrivate.DcDc_VRegOut*0.33333333f;
+    tClaPrivate.DcDc_IoRefP3      = tClaPrivate.DcDc_VRegOut*0.33333333f;
+}
+
+//�����ڻ�����
+void Boost_InterLoop_PICtrl(void)
+{
+    //��Ԫ1�����ڻ�
+    tClaPrivate.DcDc_IoRefP1      = satF32(tClaPrivate.DcDc_IoRefP1,0.0f-tClaPrivate.DC_IMax_Bus*0.33333333f,tClaPrivate.DC_IMax_Bus*0.33333333f);
+    tClaPrivate.DcDc_ErrorI1      = tClaPrivate.DcDc_IoRefP1 - tClaPrivate.DC_IL1_Live;
+//    tClaPrivate.DcDc_ErrorI1      = satF32(tClaPrivate.DcDc_ErrorI1,-5.0f,5.0f);
+    tClaPrivate.DcDc_Ip1RegOut    = tClaPrivate.DcDc_ErrorI1 * tClaPrivate.DcDc_ILKp + tClaPrivate.DcDc_Ip1RegIOut;
+    tClaPrivate.DcDc_Ip1RegOut    = satF32(tClaPrivate.DcDc_Ip1RegOut,BUCK_IL_OUTLIMN,BUCK_IL_OUTLIMP);
+    tClaPrivate.DcDc_Ip1RegIOut  += tClaPrivate.DcDc_ErrorI1 * tClaPrivate.DcDc_ILKi;
+    tClaPrivate.DcDc_Ip1RegIOut   = satF32(tClaPrivate.DcDc_Ip1RegIOut,BUCK_IL_OUTLIMN,BUCK_IL_OUTLIMP);
+
+    tClaPrivate.DcDc_I1PiOut      = tClaPrivate.DcDc_Ip1RegOut;
+
+    //��Ԫ2�����ڻ�
+    tClaPrivate.DcDc_IoRefP2      = satF32(tClaPrivate.DcDc_IoRefP2,0.0f-tClaPrivate.DC_IMax_Bus*0.33333333f,tClaPrivate.DC_IMax_Bus*0.33333333f);
+    tClaPrivate.DcDc_ErrorI2      = tClaPrivate.DcDc_IoRefP2 - tClaPrivate.DC_IL2_Live;
+//    tClaPrivate.DcDc_ErrorI2      = satF32(tClaPrivate.DcDc_ErrorI2,-5.0f,5.0f);
+    tClaPrivate.DcDc_Ip2RegOut    = tClaPrivate.DcDc_ErrorI2 * tClaPrivate.DcDc_ILKp + tClaPrivate.DcDc_Ip2RegIOut;
+    tClaPrivate.DcDc_Ip2RegOut    = satF32(tClaPrivate.DcDc_Ip2RegOut,BUCK_IL_OUTLIMN,BUCK_IL_OUTLIMP);
+    tClaPrivate.DcDc_Ip2RegIOut  += tClaPrivate.DcDc_ErrorI2 * tClaPrivate.DcDc_ILKi;
+    tClaPrivate.DcDc_Ip2RegIOut   = satF32(tClaPrivate.DcDc_Ip2RegIOut,BUCK_IL_OUTLIMN,BUCK_IL_OUTLIMP);
+
+    tClaPrivate.DcDc_I2PiOut      = tClaPrivate.DcDc_Ip2RegOut;
+
+    //��Ԫ3�����ڻ�
+    tClaPrivate.DcDc_IoRefP3      = satF32(tClaPrivate.DcDc_IoRefP3,0.0f-tClaPrivate.DC_IMax_Bus*0.33333333f,tClaPrivate.DC_IMax_Bus*0.33333333f);
+    tClaPrivate.DcDc_ErrorI3      = tClaPrivate.DcDc_IoRefP3 - tClaPrivate.DC_IL3_Live;
+//    tClaPrivate.DcDc_ErrorI3      = satF32(tClaPrivate.DcDc_ErrorI3,-5.0f,5.0f);
+    tClaPrivate.DcDc_Ip3RegOut    = tClaPrivate.DcDc_ErrorI3 * tClaPrivate.DcDc_ILKp + tClaPrivate.DcDc_Ip3RegIOut;
+    tClaPrivate.DcDc_Ip3RegOut    = satF32(tClaPrivate.DcDc_Ip3RegOut,BUCK_IL_OUTLIMN,BUCK_IL_OUTLIMP);
+    tClaPrivate.DcDc_Ip3RegIOut  += tClaPrivate.DcDc_ErrorI3 * tClaPrivate.DcDc_ILKi;
+    tClaPrivate.DcDc_Ip3RegIOut   = satF32(tClaPrivate.DcDc_Ip3RegIOut,BUCK_IL_OUTLIMN,BUCK_IL_OUTLIMP);
+
+    tClaPrivate.DcDc_I3PiOut      = tClaPrivate.DcDc_Ip3RegOut;
+}
+
+/* CODEMAP_CLA_BUCK: Buck-mode control path. Outer loop creates current reference, inner loops create phase duties. */
+void  DCDC_CLA_BuckCtrl(void)
+{
+    float32_t  f32_RatioCtrl;
+    float32_t  DcDc_P1_Pwm,DcDc_P2_Pwm,DcDc_P3_Pwm;
+
+    f32_RatioCtrl = 1.0f/tClaPrivate.DC_Vbat_Live;
+    if(tCpu2Cla.CtrlMode == 0)//����ģʽ
+    {
+        DcDc_P1_Pwm = 0.33333333f;//tClaPrivate.DcDc_VdcRef/tClaPrivate.DC_Vbat_Live
+        DcDc_P2_Pwm = DcDc_P1_Pwm;
+        DcDc_P3_Pwm = DcDc_P2_Pwm;
+    }
+    else
+    {
+        Buck_OuterLoop_PICtrl();
+        Buck_InterLoop_PICtrl();
+        DcDc_P1_Pwm = (tClaPrivate.DcDc_I1PiOut+tClaPrivate.DC_Vbus_Live)*f32_RatioCtrl;
+        DcDc_P2_Pwm = (tClaPrivate.DcDc_I2PiOut+tClaPrivate.DC_Vbus_Live)*f32_RatioCtrl;//
+        DcDc_P3_Pwm = (tClaPrivate.DcDc_I3PiOut+tClaPrivate.DC_Vbus_Live)*f32_RatioCtrl;//
+    }
+    tClaPrivate.f32_DRatio1 = DcDc_P1_Pwm;
+    tClaPrivate.f32_DRatio2 = DcDc_P2_Pwm;
+    tClaPrivate.f32_DRatio3 = DcDc_P3_Pwm;
+}
+
+/* CODEMAP_CLA_BOOST: Boost-mode control path. Outer loop creates current reference, inner loops create phase duties. */
+void  DCDC_CLA_BoostCtrl(void)
+{
+    float32_t  f32_RatioCtrl;
+    float32_t  DcDc_P1_Pwm,DcDc_P2_Pwm,DcDc_P3_Pwm;
+
+    f32_RatioCtrl = 1.0f/tClaPrivate.DC_Vbat_Live;
+//    if (tCpu2Cla.MPPT_En == 1)
+//    {
+//        DcDc_P1_Pwm = tCpu2Cla.MPPT_Duty;
+//        DcDc_P2_Pwm = DcDc_P1_Pwm;
+//        DcDc_P3_Pwm = DcDc_P2_Pwm;
+//    }
+//    else
+//    {
+        if(tCpu2Cla.CtrlMode == 0)//����ģʽ
+        {
+            DcDc_P1_Pwm = tClaPrivate.DC_Vbus_Live/tClaPrivate.DcDc_VdcRef;
+            DcDc_P2_Pwm = DcDc_P1_Pwm;
+            DcDc_P3_Pwm = DcDc_P2_Pwm;
+        }
+        else
+        {
+            Boost_OuterLoop_PICtrl();
+            Boost_InterLoop_PICtrl();
+            DcDc_P1_Pwm = 1.0f-((tClaPrivate.DcDc_I1PiOut+tClaPrivate.DC_Vbus_Live)*f32_RatioCtrl);
+            DcDc_P2_Pwm = 1.0f-((tClaPrivate.DcDc_I2PiOut+tClaPrivate.DC_Vbus_Live)*f32_RatioCtrl);//
+            DcDc_P3_Pwm = 1.0f-((tClaPrivate.DcDc_I3PiOut+tClaPrivate.DC_Vbus_Live)*f32_RatioCtrl);//
+        }
+//    }
+
+    tClaPrivate.f32_DRatio1 = DcDc_P1_Pwm;
+    tClaPrivate.f32_DRatio2 = DcDc_P2_Pwm;
+    tClaPrivate.f32_DRatio3 = DcDc_P3_Pwm;
+}
+
+/* CODEMAP_CLA_PWM_CTRL: saturates duty commands and sends them to DCDC_CLA_updatePWMDuty(). */
+void  DCDC_Int_PwmCtrl(int16_t _en)
+{
+    if(_en == 1)
+    {
+        tClaPrivate.f32_DRatio1 = satF32(tClaPrivate.f32_DRatio1,0.05f,0.95f);
+        tClaPrivate.f32_DRatio2 = satF32(tClaPrivate.f32_DRatio2,0.05f,0.95f);
+        tClaPrivate.f32_DRatio3 = satF32(tClaPrivate.f32_DRatio3,0.05f,0.95f);
+    }
+    else
+    {
+        tClaPrivate.f32_DRatio1 = 0.3333333f;
+        tClaPrivate.f32_DRatio2 = 0.3333333f;
+        tClaPrivate.f32_DRatio3 = 0.3333333f;
+    }
+
+    DCDC_CLA_updatePWMDuty(tClaPrivate.f32_DRatio1,tClaPrivate.f32_DRatio2,tClaPrivate.f32_DRatio3);
+}
+
+/* CODEMAP_CLA_PWM_UPDATE
+ * Writes duty commands to ePWM compare registers.
+ * Commissioning check: confirm all three phase compare updates are active and mapped to T1/T2, T3/T4, T5/T6.
+ */
+inline void DCDC_CLA_updatePWMDuty(float32_t dutyP1,float32_t dutyP2,float32_t dutyP3)
+{
+    uint32_t dutyP1_Upticks;
+    uint32_t dutyP2_Upticks;
+    uint32_t dutyP3_Upticks;
+    float32_t epwm_perid;
+    epwm_perid       = (float32_t)EPWM_TBPRD;
+
+//    dutyP1 = satF32(dutyP1,DC_PWM_MIN_RATIO,DC_PWM_MAX_RATIO);
+    dutyP1_Upticks = (uint32_t)(epwm_perid*dutyP1);
+
+//    dutyP2 = satF32(dutyP2,DC_PWM_MIN_RATIO,DC_PWM_MAX_RATIO);
+    dutyP2_Upticks = (uint32_t)(epwm_perid*dutyP2);
+
+    dutyP3_Upticks = (uint32_t)(epwm_perid*dutyP3);
+
+    // Set PWM outputs
+    EPWM_setCounterCompareValue(DCP1_Q3_Q4_A_PWM_BASE,EPWM_COUNTER_COMPARE_A,dutyP1_Upticks);
+
+//    EPWM_setCounterCompareValue(DCP1_Q7_Q8_A_PWM_BASE,EPWM_COUNTER_COMPARE_A,dutyP2_Upticks);
+
+//    EPWM_setCounterCompareValue(DCP1_Q1_Q2_A_PWM_BASE,EPWM_COUNTER_COMPARE_A,dutyP3_Upticks);
+}
+
+void DCDC_CLA_PWMOff(void)
+{
+    tClaPrivate.DcDc_VRegIOut       = 0.0f;
+    tClaPrivate.DcDc_VRegOut        = 0.0f;
+    tClaPrivate.DcDc_Ip1RegIOut     = 0.0f;
+    tClaPrivate.DcDc_Ip1RegOut      = 0.0f;
+    tClaPrivate.DcDc_Ip2RegIOut     = 0.0f;
+    tClaPrivate.DcDc_Ip2RegOut      = 0.0f;
+    tClaPrivate.DcDc_Ip3RegIOut     = 0.0f;
+    tClaPrivate.DcDc_Ip3RegOut      = 0.0f;
+    tClaPrivate.DcDc_ErrorVo_old    = 0.0f;
+}
+
+
+
+float32_t satF32(float32_t input,float32_t min,float32_t max)
+{
+    float32_t output;
+
+    output = __mminf32(input,max);
+    output = __mmaxf32(output,min);
+
+    return output;
+}
+
+/*һ�׵�ͨ�˲���*/
+float32_t OneOrder_lowFliter(int16_t index,float32_t f_xin)
+{
+    float32_t lpFilter_Yn;
+
+    switch(index)
+    {
+        case  1:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_V1;
+            tClaPrivate.lpFilter_Yold_V1 = lpFilter_Yn;
+            break;
+        case  2:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_V2;
+            tClaPrivate.lpFilter_Yold_V2 = lpFilter_Yn;
+            break;
+        case  3:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_V3;
+            tClaPrivate.lpFilter_Yold_V3 = lpFilter_Yn;
+            break;
+        case  4:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_V4;
+            tClaPrivate.lpFilter_Yold_V4 = lpFilter_Yn;
+            break;
+        case  5:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_V5;
+            tClaPrivate.lpFilter_Yold_V5 = lpFilter_Yn;
+            break;
+        case  6:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_V6;
+            tClaPrivate.lpFilter_Yold_V6 = lpFilter_Yn;
+            break;
+        case  7:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_V7;
+            tClaPrivate.lpFilter_Yold_V7 = lpFilter_Yn;
+            break;
+        case  8:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_V8;
+            tClaPrivate.lpFilter_Yold_V8 = lpFilter_Yn;
+            break;
+        case  9:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_V9;
+            tClaPrivate.lpFilter_Yold_V9 = lpFilter_Yn;
+            break;
+        case 10:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_I1;
+            tClaPrivate.lpFilter_Yold_I1 = lpFilter_Yn;
+            break;
+        case 11:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_I2;
+            tClaPrivate.lpFilter_Yold_I2 = lpFilter_Yn;
+            break;
+        case 12:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_I3;
+            tClaPrivate.lpFilter_Yold_I3 = lpFilter_Yn;
+            break;
+        case 13:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_I4;
+            tClaPrivate.lpFilter_Yold_I4 = lpFilter_Yn;
+            break;
+        case 14:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_I5;
+            tClaPrivate.lpFilter_Yold_I5 = lpFilter_Yn;
+            break;
+        case 15:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_I6;
+            tClaPrivate.lpFilter_Yold_I6 = lpFilter_Yn;
+            break;
+        case 16:
+            lpFilter_Yn = lFilter_a*f_xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yold_I7;
+            tClaPrivate.lpFilter_Yold_I7 = lpFilter_Yn;
+            break;
+        default:break;
+    }
+
+    return lpFilter_Yn;
+}
+
+
+
+
+
+//
+// End of file
+//

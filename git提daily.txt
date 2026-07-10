@@ -1,0 +1,58 @@
+
+git init
+git add xxxx
+git commit -m "first commit"
+git branch -M dev
+git remote add origin https://github.com/wanghailan/master_slave_clok_sync.git
+git push -u origin dev
+
+# 标记当前提交为 v1.0 版本
+git tag -a v1.0 -m "v1.0 正式版本：新增用户注册与登录功能"
+
+# 标记指定提交
+git tag -a v1.1 -m "v1.1 版本：优化性能" <commit-hash>
+
+# 推送单个标签
+git push origin v1.0
+
+# 推送所有本地未推送的标签
+git push origin --tags
+
+git tag # 列出所有标签
+git show v1.0 # 查看标签详情
+
+
+########### git 常用命令  #################
+git init                    # 初始化仓库
+git status                  # 查看文件状态
+git add .                   # 添加所有改动
+git commit -m "描述"         # 提交
+git log --oneline           # 简洁历史
+git checkout -- 文件名       # 撤销某文件的未提交修改
+git reset --hard HEAD~1     # 回退到上一个版本（慎用）
+git branch                  # 查看分支
+git checkout -b 新分支名     # 创建并切换分支
+
+
+# 1. 先确认提交历史
+git log --oneline
+
+# 2. 临时切换到该版本（进入游离状态）
+git checkout 1905a2d
+
+
+#3. 彻底回退，丢弃该版本之后的所有提交
+# 1. 先确认你在正确的分支上
+git branch
+
+# 2. 强制回退到指定提交
+git reset --hard 1905a2d
+
+
+#如果 reset --hard 后发现回退错了，立刻执行：
+git reflog
+
+然后恢复到回退前的版本：
+git reset --hard a1b2c3d
+
+
