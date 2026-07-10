@@ -25,6 +25,8 @@ void IPC_ISR0();
 
 void ipc_init(void)
 {
+      cpuIpc_flag = 0;
+
       // Clear any IPC flags if set already
       IPC_clearFlagLtoR(IPC_CM_L_CPU1_R, IPC_FLAG_ALL);
       // Enable IPC interrupts

@@ -1,7 +1,7 @@
 /*
  * initial_CLA.h
  *
- *  Created on: 2024å¹´9æœˆ16æ—¥
+ *  Created on: 2024Äê9ÔÂ16ÈÕ
  *      Author: guowei680
  */
 
@@ -40,22 +40,22 @@ extern "C" {
 
 #define  float32    float
 
-#define   Tcylce        0.00003125f //32K é‡‡æ ·å‘¨æœŸ
+#define   Tcylce        0.00003125f //32K ²ÉÑùÖÜÆÚ
 
-//é€†å˜ç”µå‹ç¬æ—¶å€¼ç¯Kpç³»æ•°
+//Äæ±äµçÑ¹Ë²Ê±Öµ»·KpÏµÊı
 #define   INV3P_VINV_KP      0.75f
-//é€†å˜ç”µå‹ç¬æ—¶å€¼ç¯Kiç³»æ•°
+//Äæ±äµçÑ¹Ë²Ê±Öµ»·KiÏµÊı
 #define   INV3P_VINV_KI     (10.0f*Tcylce)  //0.0115966796875f
 
-//é€†å˜ç¬æ—¶ç”µæµç¯Kp,Kiç³»æ•°
+//Äæ±äË²Ê±µçÁ÷»·Kp,KiÏµÊı
 #define   INV3P_IINV_KP      1.06667f
 #define   INV3P_IINV_KI      (106.6667f*Tcylce)
 
-//ç›´æµæ’ç”µæµç”µæµç¯Kp,Kiç³»æ•°
+//Ö±Á÷ºãµçÁ÷µçÁ÷»·Kp,KiÏµÊı
 #define   INV3P_IDC_KP      2.0f
 #define   INV3P_IDC_KI      (10.0f*Tcylce)
 
-#define   lFilter_a         0.08939813f  //500HZä½é€šæ»¤æ³¢
+#define   lFilter_a         0.08939813f  //500HZµÍÍ¨ÂË²¨
 
 
 enum
@@ -75,34 +75,34 @@ enum
 typedef struct
 {
     int16_t         PwmStartEnable;
-    int16_t         WorkMode;//0:ç¦»ç½‘ï¼Œ1:å¹¶ç½‘
-    int16_t         OnGridMode;//å¹¶ç½‘å·¥ä½œæ¨¡å¼(0:æ’åŠŸç‡,1:æ’æµ,2:æ’ç›´æµç”µå‹,3:æ’ç›´æµç”µæµ)
+    int16_t         WorkMode;//0:ÀëÍø£¬1:²¢Íø
+    int16_t         OnGridMode;//²¢Íø¹¤×÷Ä£Ê½(0:ºã¹¦ÂÊ,1:ºãÁ÷,2:ºãÖ±Á÷µçÑ¹,3:ºãÖ±Á÷µçÁ÷)
     int16_t         OpenLoopMode;
-    int16_t         pcsLineMode;//0:3P3Lï¼Œ1:3P4L
+    int16_t         pcsLineMode;//0:3P3L£¬1:3P4L
     int16_t         OutLoop_En;
 
-    float32_t       VgridA_Calibrat;    //Aç›¸ç”µç½‘ç”µå‹æ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       VgridB_Calibrat;    //Bç›¸ç”µç½‘ç”µå‹æ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       VgridC_Calibrat;    //Cç›¸ç”µç½‘ç”µå‹æ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       VInvA_Calibrat;     //Aç›¸é€†å˜ç”µå‹æ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       VInvB_Calibrat;     //Bç›¸é€†å˜ç”µå‹æ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       VInvC_Calibrat;     //Cç›¸é€†å˜ç”µå‹æ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       IGridA_Calibrat;    //Aç›¸è¾“å‡ºç”µæµæ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       IGridB_Calibrat;    //Bç›¸è¾“å‡ºç”µæµæ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       IGridC_Calibrat;    //Cç›¸è¾“å‡ºç”µæµæ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       IInvA_Calibrat;     //Aç›¸é€†å˜ç”µæµæ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       IInvB_Calibrat;     //Bç›¸é€†å˜ç”µæµæ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       IInvC_Calibrat;     //Cç›¸é€†å˜ç”µæµæ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       VdcP_Calibrat;      //ç›´æµç”µå‹æ­£æ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       VdcN_Calibrat;      //ç›´æµç”µå‹è´Ÿæ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       Idc_Calibrat;       //ç›´æµç”µæµæ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       Vdc_Calibrat;       //ç›´æµç”µå‹æ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       Ref1v5_Calibrat;    //ç›´æµç”µå‹åç½®æ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       IN_Calibrat;        //Nçº¿ç”µæµæ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       Idc_offset;         //ç›´æµç”µæµåç½®æ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       Iac_Aoffset;        //äº¤æµç”µæµAåç½®æ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       Iac_Boffset;        //äº¤æµç”µæµBåç½®æ ¡å‡† (80.00%~120.00%) 8000~12000
-    float32_t       Iac_Coffset;        //äº¤æµç”µæµCåç½®æ ¡å‡† (80.00%~120.00%) 8000~12000
+    float32_t       VgridA_Calibrat;    //AÏàµçÍøµçÑ¹Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       VgridB_Calibrat;    //BÏàµçÍøµçÑ¹Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       VgridC_Calibrat;    //CÏàµçÍøµçÑ¹Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       VInvA_Calibrat;     //AÏàÄæ±äµçÑ¹Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       VInvB_Calibrat;     //BÏàÄæ±äµçÑ¹Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       VInvC_Calibrat;     //CÏàÄæ±äµçÑ¹Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       IGridA_Calibrat;    //AÏàÊä³öµçÁ÷Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       IGridB_Calibrat;    //BÏàÊä³öµçÁ÷Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       IGridC_Calibrat;    //CÏàÊä³öµçÁ÷Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       IInvA_Calibrat;     //AÏàÄæ±äµçÁ÷Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       IInvB_Calibrat;     //BÏàÄæ±äµçÁ÷Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       IInvC_Calibrat;     //CÏàÄæ±äµçÁ÷Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       VdcP_Calibrat;      //Ö±Á÷µçÑ¹ÕıĞ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       VdcN_Calibrat;      //Ö±Á÷µçÑ¹¸ºĞ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       Idc_Calibrat;       //Ö±Á÷µçÁ÷Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       Vdc_Calibrat;       //Ö±Á÷µçÑ¹Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       Ref1v5_Calibrat;    //Ö±Á÷µçÑ¹Æ«ÖÃĞ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       IN_Calibrat;        //NÏßµçÁ÷Ğ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       Idc_offset;         //Ö±Á÷µçÁ÷Æ«ÖÃĞ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       Iac_Aoffset;        //½»Á÷µçÁ÷AÆ«ÖÃĞ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       Iac_Boffset;        //½»Á÷µçÁ÷BÆ«ÖÃĞ£×¼ (80.00%~120.00%) 8000~12000
+    float32_t       Iac_Coffset;        //½»Á÷µçÁ÷CÆ«ÖÃĞ£×¼ (80.00%~120.00%) 8000~12000
 
     float32_t       Ilac_Aoffset;
     float32_t       Ilac_Boffset;
@@ -110,11 +110,11 @@ typedef struct
 
     float32_t       IdcN_offset;
 
-    float32_t       Pcs_VdcRms;     //ç›´æµä¾§ç”µå‹æœ‰æ•ˆå€¼
-    float32_t       Pcs_VinvMdRef;  //äº¤æµè¾“å‡ºç”µå‹ç»™å®š
+    float32_t       Pcs_VdcRms;     //Ö±Á÷²àµçÑ¹ÓĞĞ§Öµ
+    float32_t       Pcs_VinvMdRef;  //½»Á÷Êä³öµçÑ¹¸ø¶¨
 
-    float32_t       Pcs_PacRef;     //å¹¶ç½‘æœ‰åŠŸåŠŸç‡ç»™å®š
-    float32_t       Pcs_QacRef;     //å¹¶ç½‘æ— åŠŸåŠŸç‡ç»™å®š
+    float32_t       Pcs_PacRef;     //²¢ÍøÓĞ¹¦¹¦ÂÊ¸ø¶¨
+    float32_t       Pcs_QacRef;     //²¢ÍøÎŞ¹¦¹¦ÂÊ¸ø¶¨
     float32_t       Pcs_VdcRef;
     float32_t       Pcs_IdcRef;
     float32_t       Pcs_ACIoutRef;
@@ -132,14 +132,14 @@ typedef struct
     float32_t       Pcs_vGrid_dq0_neg_q;
     float32_t       Pcs_vGrid_dq0_neg_z;
 
-    float32_t       RatedVoltage;     //é¢å®šç”µå‹è®¾å®š
-    float32_t       RatedCurrent;     //é¢å®šç”µæµè®¾å®š
-    float32_t       RatedPower;       //é¢å®šåŠŸç‡è®¾å®š
-    int16_t         i16_Kp_Udc;//ç›´æµç”µå‹å¤–ç¯Kp
-    int16_t         i16_Ki_Udc;//ç›´æµç”µå‹å¤–ç¯Ki
+    float32_t       RatedVoltage;     //¶î¶¨µçÑ¹Éè¶¨
+    float32_t       RatedCurrent;     //¶î¶¨µçÁ÷Éè¶¨
+    float32_t       RatedPower;       //¶î¶¨¹¦ÂÊÉè¶¨
+    int16_t         i16_Kp_Udc;//Ö±Á÷µçÑ¹Íâ»·Kp
+    int16_t         i16_Ki_Udc;//Ö±Á÷µçÑ¹Íâ»·Ki
 
-    int16_t         i16_Kp_Iinv;//é€†å˜ç”µæµå†…ç¯Kp
-    int16_t         i16_Ki_Iinv;//é€†å˜ç”µæµå†…ç¯Ki
+    int16_t         i16_Kp_Iinv;//Äæ±äµçÁ÷ÄÚ»·Kp
+    int16_t         i16_Ki_Iinv;//Äæ±äµçÁ÷ÄÚ»·Ki
 
     int16_t         PcsDebugi16_0;
     int16_t         PcsDebugi16_1;
@@ -153,15 +153,15 @@ typedef struct
 
 typedef struct
 {
-    //ç›¸ç”µå‹
+    //ÏàµçÑ¹
     float32_t       Pcs_vGrid_AB_sensed_pu;
     float32_t       Pcs_vGrid_BC_sensed_pu;
     float32_t       Pcs_vGrid_CA_sensed_pu;
-    //ç›¸ç”µå‹
+    //ÏàµçÑ¹
     float32_t       Pcs_vGrid_A_sensed_pu;
     float32_t       Pcs_vGrid_B_sensed_pu;
     float32_t       Pcs_vGrid_C_sensed_pu;
-    //çº¿ç”µå‹
+    //ÏßµçÑ¹
     float32_t       Pcs_vInv_A_sensed_pu;
     float32_t       Pcs_vInv_B_sensed_pu;
     float32_t       Pcs_vInv_C_sensed_pu;
@@ -205,11 +205,11 @@ typedef struct
 
 typedef struct
 {
-    //ç›¸ç”µå‹
+    //ÏàµçÑ¹
     float32_t       Pcs_vGrid_AB_sensed_pu;
     float32_t       Pcs_vGrid_BC_sensed_pu;
     float32_t       Pcs_vGrid_CA_sensed_pu;
-    //ç›¸ç”µå‹
+    //ÏàµçÑ¹
     float32_t       Pcs_vGrid_A_sensed_pu;
     float32_t       Pcs_vGrid_B_sensed_pu;
     float32_t       Pcs_vGrid_C_sensed_pu;
@@ -226,7 +226,7 @@ typedef struct
     float32_t       Pcs_iInv_B_sensed_pu;
     float32_t       Pcs_iInv_C_sensed_pu;
 
-    float32_t       Pcs_vBatt_sensed_pu;//DCç«¯å£ç”µå‹
+    float32_t       Pcs_vBatt_sensed_pu;//DC¶Ë¿ÚµçÑ¹
     float32_t       Pcs_vBusP_sensed_pu;
     float32_t       Pcs_vBusN_sensed_pu;
 
@@ -236,9 +236,9 @@ typedef struct
     float32_t       Pcs_vBus_DC;
     float32_t       Pcs_iBus_DC;
 
-    float32_t       Pcs_activePower;        //æœ‰åŠŸåŠŸç‡å®æ—¶å€¼
-    float32_t       Pcs_reactivePower;      //æ— åŠŸåŠŸç‡å®æ—¶å€¼
-    float32_t       Pcs_activePowerFilt;    //æœ‰åŠŸåŠŸç‡æ»¤æ³¢å€¼
+    float32_t       Pcs_activePower;        //ÓĞ¹¦¹¦ÂÊÊµÊ±Öµ
+    float32_t       Pcs_reactivePower;      //ÎŞ¹¦¹¦ÂÊÊµÊ±Öµ
+    float32_t       Pcs_activePowerFilt;    //ÓĞ¹¦¹¦ÂÊÂË²¨Öµ
     float32_t       Pcs_reactivePowerFilt;
 
 
@@ -248,50 +248,50 @@ typedef struct
 
     float32_t       Pcs_VinvAlpha;
     float32_t       Pcs_VinvBeta;
-    //äº¤æµç”µå‹æ­£åºDQZ
+    //½»Á÷µçÑ¹ÕıĞòDQZ
     float32_t       Pcs_VinvMd;
     float32_t       Pcs_VinvMq;
     float32_t       Pcs_VinvMz;
-    //ç”µæ„Ÿç”µæµDQZ
+    //µç¸ĞµçÁ÷DQZ
     float32_t       Pcs_IlMd;
     float32_t       Pcs_IlMq;
     float32_t       Pcs_IlMz;
-    //äº¤æµç”µå‹è´ŸåºDQZ
+    //½»Á÷µçÑ¹¸ºĞòDQZ
     float32_t       Pcs_VinvMd_N;
     float32_t       Pcs_VinvMq_N;
     float32_t       Pcs_VinvMz_N;
-    //äº¤æµç”µæµæ­£åºDQZ
+    //½»Á÷µçÁ÷ÕıĞòDQZ
     float32_t       Pcs_IoutMd;
     float32_t       Pcs_IoutMq;
     float32_t       Pcs_IoutMz;
-    //ç¦»ç½‘ç”µå‹ç¯ç»™å®š
+    //ÀëÍøµçÑ¹»·¸ø¶¨
     float32_t       Pcs_VinvMdRef;
 //    float32_t       Pcs_VinvMqRef;
 //    float32_t       Pcs_VinvMzRef;
 
     float32_t       Pcs_VdcRef;
     float32_t       Pcs_IdcRef;
-    //ç¦»ç½‘ç”µæµç¯å‰é¦ˆç»™å®š
+    //ÀëÍøµçÁ÷»·Ç°À¡¸ø¶¨
     float32_t       Pcs_VinvMdRef_1;
     float32_t       Pcs_VinvMqRef_1;
     float32_t       Pcs_VinvMzRef_1;
 
-    float32_t       Pcs_PacRef;     //å¹¶ç½‘æœ‰åŠŸåŠŸç‡ç»™å®š
-    float32_t       Pcs_QacRef;     //å¹¶ç½‘æ— åŠŸåŠŸç‡ç»™å®š
+    float32_t       Pcs_PacRef;     //²¢ÍøÓĞ¹¦¹¦ÂÊ¸ø¶¨
+    float32_t       Pcs_QacRef;     //²¢ÍøÎŞ¹¦¹¦ÂÊ¸ø¶¨
 
     float32_t       Pcs_ACIoutRef;
 
     float32_t       Pcs_ErrorVinvMd;
     float32_t       Pcs_ErrorVinvMq;
     float32_t       Pcs_ErrorVinvMz;
-    //ç¦»ç½‘PIè°ƒèŠ‚å‚æ•°
-    float32_t       Pcs_VinvDRegIOut;//Dè½´è°ƒèŠ‚è¾“å‡º På‚æ•°
+    //ÀëÍøPIµ÷½Ú²ÎÊı
+    float32_t       Pcs_VinvDRegIOut;//DÖáµ÷½ÚÊä³ö P²ÎÊı
     float32_t       Pcs_VinvDRegOut;
 
-    float32_t       Pcs_VinvQRegIOut;//Qè½´è°ƒèŠ‚è¾“å‡º
+    float32_t       Pcs_VinvQRegIOut;//QÖáµ÷½ÚÊä³ö
     float32_t       Pcs_VinvQRegOut;
 
-    float32_t       Pcs_VinvZRegIOut;//Zè½´è°ƒèŠ‚è¾“å‡º
+    float32_t       Pcs_VinvZRegIOut;//ZÖáµ÷½ÚÊä³ö
     float32_t       Pcs_VinvZRegOut;
 
     float32_t       Pcs_ErrorVinvMd_N;
@@ -302,22 +302,22 @@ typedef struct
     float32_t       Pcs_VinvQRegIOut_N;
     float32_t       Pcs_VinvQRegOut_N;
 
-    float32_t       Pcs_IlDRegIOut;     // ç”µæµç¯Dè½´Iè¾“å‡º
-    float32_t       Pcs_IlDRegOut;      // ç”µæµç¯Dè½´è¾“å‡º
+    float32_t       Pcs_IlDRegIOut;     // µçÁ÷»·DÖáIÊä³ö
+    float32_t       Pcs_IlDRegOut;      // µçÁ÷»·DÖáÊä³ö
 
-    float32_t       Pcs_IlQRegIOut;     // ç”µæµç¯Qè½´Iè¾“å‡º
-    float32_t       Pcs_IlQRegOut;      // ç”µæµç¯Qè½´è¾“å‡º
+    float32_t       Pcs_IlQRegIOut;     // µçÁ÷»·QÖáIÊä³ö
+    float32_t       Pcs_IlQRegOut;      // µçÁ÷»·QÖáÊä³ö
 
-    float32_t       Pcs_IlZRegIOut;     // ç”µæµç¯Zè½´Iè¾“å‡º
-    float32_t       Pcs_IlZRegOut;      // ç”µæµç¯Zè½´è¾“å‡º
+    float32_t       Pcs_IlZRegIOut;     // µçÁ÷»·ZÖáIÊä³ö
+    float32_t       Pcs_IlZRegOut;      // µçÁ÷»·ZÖáÊä³ö
 
-    //æ­£åºç”µå‹ç¯è¾“å‡ºDQ
+    //ÕıĞòµçÑ¹»·Êä³öDQ
     float32_t       Pcs_IinvMdRef_P;
     float32_t       Pcs_IinvMqRef_P;
-    //è´Ÿåºç”µå‹ç¯è¾“å‡ºDQ
+    //¸ºĞòµçÑ¹»·Êä³öDQ
     float32_t       Pcs_IinvMdRef_N;
     float32_t       Pcs_IinvMqRef_N;
-    //æ­£è´Ÿåºç”µå‹ç¯åˆå¹¶è¾“å‡ºDQZï¼Œç”µæµç¯è¾“å…¥ç»™å®š
+    //Õı¸ºĞòµçÑ¹»·ºÏ²¢Êä³öDQZ£¬µçÁ÷»·ÊäÈë¸ø¶¨
     float32_t       Pcs_IinvMdRef;
     float32_t       Pcs_IinvMqRef;
     float32_t       Pcs_IinvMzRef;
@@ -331,23 +331,23 @@ typedef struct
     float32_t       Pcs_ErrorIlMz;
     float32_t       Pcs_ErrorIlMd_old;
     float32_t       Pcs_ErrorIlMq_old;
-    //ç”µæµç¯è¾“å‡ºç»™å®šPWMè¾“å‡º
+    //µçÁ÷»·Êä³ö¸ø¶¨PWMÊä³ö
     float32_t       Pcs_UirD;
     float32_t       Pcs_UirQ;
     float32_t       Pcs_UirZ;
 
-    //ç¦»ç½‘ç”µå‹å¤–ç¯PIå‚æ•°
+    //ÀëÍøµçÑ¹Íâ»·PI²ÎÊı
     float32_t       Pcs_VinvKp;
     float32_t       Pcs_VinvKi;
 
     float32_t       Pcs_IlKp;
     float32_t       Pcs_IlKi;
 
-    float32_t       Pcs_Kp_Udc;//ç›´æµç”µå‹å¤–ç¯Kp
-    float32_t       Pcs_Ki_Udc;//ç›´æµç”µå‹å¤–ç¯Ki
+    float32_t       Pcs_Kp_Udc;//Ö±Á÷µçÑ¹Íâ»·Kp
+    float32_t       Pcs_Ki_Udc;//Ö±Á÷µçÑ¹Íâ»·Ki
 
-    float32_t       Pcs_Kp_Idc;//ç›´æµç”µæµå¤–ç¯Kp
-    float32_t       Pcs_Ki_Idc;//ç›´æµç”µæµå¤–ç¯Ki
+    float32_t       Pcs_Kp_Idc;//Ö±Á÷µçÁ÷Íâ»·Kp
+    float32_t       Pcs_Ki_Idc;//Ö±Á÷µçÁ÷Íâ»·Ki
 
     float32_t       Pcs_VBatt_pu;
     float32_t       Pcs_VBus_pu;
@@ -355,13 +355,13 @@ typedef struct
     float32_t       Pcs_VBusN_pu;
     float32_t       Pcs_IBatt_pu;
 
-    float32_t       RatedVoltage;     //é¢å®šç”µå‹è®¾å®š
-    float32_t       RatedCurrent;     //é¢å®šç”µæµè®¾å®š
-    float32_t       RatedPower;       //é¢å®šåŠŸç‡è®¾å®š
+    float32_t       RatedVoltage;     //¶î¶¨µçÑ¹Éè¶¨
+    float32_t       RatedCurrent;     //¶î¶¨µçÁ÷Éè¶¨
+    float32_t       RatedPower;       //¶î¶¨¹¦ÂÊÉè¶¨
 
-    float32_t       MaxCurrent;     //æœ€å¤§å·¥ä½œç”µæµ
-    float32_t       MaxPower;       //æœ€å¤§å·¥ä½œåŠŸç‡
-    float32_t       MaxVoltage;       //æœ€å¤§å·¥ä½œç”µå‹
+    float32_t       MaxCurrent;     //×î´ó¹¤×÷µçÁ÷
+    float32_t       MaxPower;       //×î´ó¹¤×÷¹¦ÂÊ
+    float32_t       MaxVoltage;       //×î´ó¹¤×÷µçÑ¹
 
     float32_t       lpFilter_Yn_l;
     float32_t       lpFilter_Yn_V;

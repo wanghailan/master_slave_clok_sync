@@ -39,13 +39,13 @@ void main(void)
                 Pcs_InvCtrl_SoftStar();
             else
             {
-                if(Cpu1Ipc_cm2cpu.OnGridMode == 2)      //鎭掔洿娴佺數鍘嬫ā寮�
+                if(Cpu1Ipc_cm2cpu.OnGridMode == 2)      //恒直流电压模式
                     Pcs_DcConstVolCtrl_SoftStar();
-                else if(Cpu1Ipc_cm2cpu.OnGridMode == 1)  //鎭掍氦娴佺數娴�
+                else if(Cpu1Ipc_cm2cpu.OnGridMode == 1)  //恒交流电流
                     Pcs_AcConstCurrCtrl_SoftStar();
-                else if(Cpu1Ipc_cm2cpu.OnGridMode == 3)  //鎭掔洿娴佺數娴�
+                else if(Cpu1Ipc_cm2cpu.OnGridMode == 3)  //恒直流电流
                     Pcs_DcConstCurrCtrl_SoftStar();
-                else if(Cpu1Ipc_cm2cpu.OnGridMode == 0)  //鎭掑姛鐜�
+                else if(Cpu1Ipc_cm2cpu.OnGridMode == 0)  //恒功率
                     Pcs_PQConstCtrl_SoftStar();
             }
         }

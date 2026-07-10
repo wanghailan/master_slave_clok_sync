@@ -364,6 +364,7 @@ typedef struct _IPC_DATA_CM2CPU //
     int16_t   CAN_2_Fault;            //CAN_2通信故障
     int16_t   EE_Fault;               //EEPROM故障
     int16_t   Sflash_Fault;           //spi flash通信故障
+    int16_t   PtpSynced;              //0: not synced, 1: synced
 }IPC_DATA_CM2CPU;
 
 
@@ -392,6 +393,7 @@ extern uint8_t pIpAddr2[4];
 
 void bsp_init(void);
 void Pcs_CmRunISR(void);
+void Ptp_SetSynced(int16_t synced);
 void Cm_Fault_Reset(void);
 void Output_KWHDeal(void);
 void Output_RunTimeCnt(void);

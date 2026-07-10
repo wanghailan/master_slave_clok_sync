@@ -29,7 +29,7 @@
 #define PWM_MAX_STEP_NS             100L
 #define PWM_LOCK_THRESHOLD_NS       1000L
 #define PPS_ISR_MAX_LATENCY_NS      5000UL
-#define PPS_PHASE_OFFSET_NS         -1000L
+#define PPS_PHASE_OFFSET_NS         0L
 #define PWM_SYNC_NOMINAL_TBPRD      ((uint32_t)EPWM_TBPRD)
 
 #define PPS_ECAP_ALL_INT_FLAGS      (ECAP_ISR_SOURCE_CAPTURE_EVENT_1 | \

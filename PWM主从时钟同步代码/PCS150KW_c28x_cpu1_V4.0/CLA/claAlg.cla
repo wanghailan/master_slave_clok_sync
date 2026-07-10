@@ -1,0 +1,850 @@
+//#############################################################################
+//
+// FILE: claAlg.cla
+//
+// TITLE: claAlg example
+//
+
+//
+// Included Files
+//
+#include "initial_CLA.h"
+
+#ifndef PWM_SYNC_TEST_MODE
+#define PWM_SYNC_TEST_MODE 0
+#endif
+
+
+
+DQ0_ABC         PCS_vInv_dq0;      //
+ABC_DQ0_POS     PCS_iGrid_dq0_pos; //输出电流
+ABC_DQ0_POS     PCS_iInv_dq0_pos;  //电感电流
+ClarkT  PCS_vGrid_Clark;
+ParkT   PCS_vGrid_Park_p,PCS_vGrid_Park_n;
+
+
+void PCS_CLA_ParamInit(void);
+void PCS_CLA_AdSignalsRead(void);
+void PCS_CLA_RunTransform(void);
+void  PCS_CLA_RealTimeData(void);
+void  PCS_Int_PwmCtrl(int16_t _en);
+void PCS_Int_InvVolReg(void);
+void PCS_Int_InvCurrReg(void);
+void Pcs_Int_PQCtrlReg(void);
+void Pcs_Int_ACCurrCtrlReg(void);
+void PCS_Int_DCCurrReg(void);
+void  PCS_CLA_Int_OffGrid(void);
+void  PCS_CLA_Int_OnGrid(void);
+inline void PCS_CLA_updatePWMDuty(float32_t dutyA,float32_t dutyB,float32_t dutyC,float32_t dutyN);
+void PCS_CLA_PWMOff(void);
+float32_t satF32(float32_t input,float32_t min,float32_t max);
+float32_t order1_lowFliter(float32_t xin,uint16_t flag);
+uint32_t PWM_Limit(uint32_t Pwm_set,uint32_t Pwm_min,uint32_t Pwm_max);
+
+//
+// function definitions
+//
+__attribute__((interrupt))  void Cla1Task1 ( void )
+{
+    tCla2Cpu.PcsDebugi16_0++;
+    if(tCla2Cpu.PcsDebugi16_0 > 32000)
+        tCla2Cpu.PcsDebugi16_0 = 0;
+    tCla2Cpu.PcsDebugi16_1++;
+    tCla2Cpu.PcsDebugi16_2 = tCla2Cpu.PcsDebugi16_1-200;//CLAisqrt(tCla2Cpu.PcsDebugi16_1);
+    if(tCla2Cpu.PcsDebugi16_1 > 32000)
+        tCla2Cpu.PcsDebugi16_1 = 0;
+    //读AD转换结果,并标幺
+    PCS_CLA_AdSignalsRead();
+    //ABC变换到DQ
+    PCS_CLA_RunTransform();
+    PCS_CLA_RealTimeData();
+
+    if(tCpu2Cla.PwmStartEnable)
+    {
+        if(tCpu2Cla.OpenLoopMode == 0)//开环
+        {
+            tClaPrivate.Pcs_UirD = tClaPrivate.Pcs_VinvMdRef;
+            tClaPrivate.Pcs_UirQ = 0.0f;
+            tClaPrivate.Pcs_UirZ = 0.0f;
+        }
+        else //闭环
+        {
+            if(tCpu2Cla.WorkMode == CLA_GRID_DISCONNECTED)//离网
+            {
+                PCS_CLA_Int_OffGrid();
+            }
+            else if(tCpu2Cla.WorkMode == CLA_GRID_CONNECTED)//并网
+            {
+                PCS_CLA_Int_OnGrid();
+            }
+        }
+        tClaPrivate.Pwm_Enable = 1;
+    }
+    else
+    {
+        PCS_CLA_PWMOff();
+        tClaPrivate.Pwm_Enable = 0;
+    }
+    PCS_Int_PwmCtrl(tClaPrivate.Pwm_Enable);
+}
+
+__attribute__((interrupt))  void Cla1Task2 ( void )
+{
+
+}
+
+__attribute__((interrupt))  void Cla1Task3 ( void )
+{
+
+}
+
+__attribute__((interrupt))  void Cla1Task4 ( void )
+{
+
+}
+
+__attribute__((interrupt))  void Cla1Task5 ( void )
+{
+
+}
+
+__attribute__((interrupt))  void Cla1Task6 ( void )
+{
+
+}
+
+__attribute__((interrupt))  void Cla1Task7 ( void )
+{
+
+}
+
+__attribute__((interrupt))  void Cla1Task8 ( void )
+{
+    PCS_CLA_ParamInit();
+}
+
+void PCS_CLA_ParamInit(void)
+{
+    tCla2Cpu.PcsDebugi16_0 = 0;
+    tCla2Cpu.PcsDebugi16_1 = 0;
+    tClaPrivate.Pwm_Enable = 0;
+    DQ0_ABC_reset(&(PCS_vInv_dq0));
+    ABC_DQ0_POS_reset(&PCS_iGrid_dq0_pos);
+    ABC_DQ0_POS_reset(&PCS_iInv_dq0_pos);
+    clarkT_reset(&PCS_vGrid_Clark);
+    ParkT_reset(&PCS_vGrid_Park_p);
+    ParkT_reset(&PCS_vGrid_Park_n);
+
+
+    /* initialise PI controller */
+    //交流稳压外环
+    tClaPrivate.Pcs_VinvKp = INV3P_VINV_KP;
+    tClaPrivate.Pcs_VinvKi = INV3P_VINV_KI;
+    //直流稳压外环
+    tClaPrivate.Pcs_Kp_Udc = INV3P_VINV_KP;
+    tClaPrivate.Pcs_Ki_Udc = INV3P_VINV_KI;
+    //恒直流电流外环
+    tClaPrivate.Pcs_Kp_Idc = INV3P_IDC_KP;
+    tClaPrivate.Pcs_Ki_Idc = INV3P_IDC_KI;
+    //电感电流内环
+    tClaPrivate.Pcs_IlKp   = INV3P_IINV_KP;
+    tClaPrivate.Pcs_IlKi   = INV3P_IINV_KI;
+
+    tClaPrivate.Pcs_VinvDRegIOut  = 0.0f;
+    tClaPrivate.Pcs_VinvQRegIOut  = 0.0f;
+    tClaPrivate.Pcs_VinvZRegIOut  = 0.0f;
+    tClaPrivate.Pcs_VinvDRegIOut_N  = 0.0f;
+    tClaPrivate.Pcs_VinvQRegIOut_N  = 0.0f;
+
+    tClaPrivate.Pcs_IlDRegIOut  = 0.0f;
+    tClaPrivate.Pcs_IlQRegIOut  = 0.0f;
+    tClaPrivate.Pcs_IlZRegIOut  = 0.0f;
+    tClaPrivate.Pcs_ErrorIlMd_old = 0.0f;
+    tClaPrivate.Pcs_ErrorIlMq_old = 0.0f;
+
+    tClaPrivate.lpFilter_Yn_l  = 0.0f;
+    tClaPrivate.lpFilter_Yn_V  = 0.0f;
+}
+
+float32_t PCS_CLA_Ad2Pu(int16_t type,uint16_t AdCh,float32_t offset)
+{
+    float32_t Temp;
+
+    Temp = (float32_t)AdCh * PCS_ADC_PU_SCALE_FACTOR;
+    if(type == 0)//有偏置
+        Temp = Temp - PCS_OFFSET_PU*tCpu2Cla.Ref1v5_Calibrat*offset;
+
+    return Temp;
+}
+
+void PCS_CLA_AdSignalsRead(void)
+{
+    //输出电流
+    tClaPrivate.Pcs_iGrid_A_sensed_pu = PCS_CLA_Ad2Pu(0,PCS_IGRID_A_READ_AD,tCpu2Cla.Iac_Aoffset)*2.0f*tCpu2Cla.IGridA_Calibrat;//反向接,采样取反
+    tClaPrivate.Pcs_iGrid_B_sensed_pu = PCS_CLA_Ad2Pu(0,PCS_IGRID_B_READ_AD,tCpu2Cla.Iac_Boffset)*2.0f*tCpu2Cla.IGridB_Calibrat;
+    tClaPrivate.Pcs_iGrid_C_sensed_pu = PCS_CLA_Ad2Pu(0,PCS_IGRID_C_READ_AD,tCpu2Cla.Iac_Coffset)*2.0f*tCpu2Cla.IGridC_Calibrat;
+    //逆变电流
+    tClaPrivate.Pcs_iInv_A_sensed_pu  =  PCS_CLA_Ad2Pu(0,PCS_IINV_A_READ_AD,tCpu2Cla.Ilac_Aoffset)*2.0f*tCpu2Cla.IInvA_Calibrat;
+    tClaPrivate.Pcs_iInv_B_sensed_pu  =  PCS_CLA_Ad2Pu(0,PCS_IINV_B_READ_AD,tCpu2Cla.Ilac_Boffset)*2.0f*tCpu2Cla.IInvB_Calibrat;
+    tClaPrivate.Pcs_iInv_C_sensed_pu  =  PCS_CLA_Ad2Pu(0,PCS_IINV_C_READ_AD,tCpu2Cla.Ilac_Coffset)*2.0f*tCpu2Cla.IInvC_Calibrat;
+    //输出相电压
+    tClaPrivate.Pcs_vGrid_AB_sensed_pu  = PCS_CLA_Ad2Pu(0,PCS_VGRID_A_READ_AD,tCpu2Cla.VgridA_Calibrat)*2.0f;
+    tClaPrivate.Pcs_vGrid_BC_sensed_pu  = PCS_CLA_Ad2Pu(0,PCS_VGRID_B_READ_AD,tCpu2Cla.VgridB_Calibrat)*2.0f;
+    tClaPrivate.Pcs_vGrid_CA_sensed_pu  = PCS_CLA_Ad2Pu(0,PCS_VGRID_C_READ_AD,tCpu2Cla.VgridC_Calibrat)*2.0f;
+    tClaPrivate.Pcs_vGrid_A_sensed_pu  = (tClaPrivate.Pcs_vGrid_AB_sensed_pu - tClaPrivate.Pcs_vGrid_CA_sensed_pu)*0.3333333f;
+    tClaPrivate.Pcs_vGrid_B_sensed_pu  = (tClaPrivate.Pcs_vGrid_BC_sensed_pu - tClaPrivate.Pcs_vGrid_AB_sensed_pu)*0.3333333f;
+    tClaPrivate.Pcs_vGrid_C_sensed_pu  = (tClaPrivate.Pcs_vGrid_CA_sensed_pu - tClaPrivate.Pcs_vGrid_BC_sensed_pu)*0.3333333f;
+
+    //逆变电压
+    tClaPrivate.Pcs_vInv_A_sensed_pu   = PCS_CLA_Ad2Pu(0,PCS_VINV_A_READ_AD,tCpu2Cla.VInvA_Calibrat)*2.0f;
+    tClaPrivate.Pcs_vInv_B_sensed_pu   = PCS_CLA_Ad2Pu(0,PCS_VINV_B_READ_AD,tCpu2Cla.VInvB_Calibrat)*2.0f;
+    tClaPrivate.Pcs_vInv_C_sensed_pu   = PCS_CLA_Ad2Pu(0,PCS_VINV_C_READ_AD,tCpu2Cla.VInvC_Calibrat)*2.0f;
+    //直流电压电流
+    tClaPrivate.Pcs_vBusP_sensed_pu    = PCS_CLA_Ad2Pu(1,PCS_VDCP_READ_AD,1.0f)*tCpu2Cla.VdcP_Calibrat;
+    tClaPrivate.Pcs_vBusN_sensed_pu    = PCS_CLA_Ad2Pu(1,PCS_VDCN_READ_AD,1.0f)*tCpu2Cla.VdcN_Calibrat;
+    tClaPrivate.Pcs_vBatt_sensed_pu    = PCS_CLA_Ad2Pu(0,PCS_VDC_READ_AD,tCpu2Cla.Vdc_Calibrat);
+    tClaPrivate.Pcs_iBus_sensed_pu     = PCS_CLA_Ad2Pu(0,PCS_IDC_READ_AD,tCpu2Cla.Idc_offset)*tCpu2Cla.Idc_Calibrat;
+    tClaPrivate.Pcs_iBusN_sensed_pu    = PCS_CLA_Ad2Pu(0,PCS_IMN_READ_AD,tCpu2Cla.IdcN_offset)*tCpu2Cla.IN_Calibrat;
+
+    tClaPrivate.Pcs_IBatt_pu           = order1_lowFliter(tClaPrivate.Pcs_iBus_sensed_pu,0);
+    tClaPrivate.Pcs_VBusP_pu           = order1_lowFliter(tClaPrivate.Pcs_vBusP_sensed_pu,2);
+    tClaPrivate.Pcs_VBusN_pu           = order1_lowFliter(tClaPrivate.Pcs_vBusN_sensed_pu,3);
+
+    tClaPrivate.Pcs_VBatt_pu           = order1_lowFliter(tClaPrivate.Pcs_vBatt_sensed_pu,1);
+
+    tCla2Cpu.Pcs_iGrid_A_sensed_pu     = tClaPrivate.Pcs_iGrid_A_sensed_pu;
+    tCla2Cpu.Pcs_iGrid_B_sensed_pu     = tClaPrivate.Pcs_iGrid_B_sensed_pu;
+    tCla2Cpu.Pcs_iGrid_C_sensed_pu     = tClaPrivate.Pcs_iGrid_C_sensed_pu;
+
+    tCla2Cpu.Pcs_iInv_A_sensed_pu      = tClaPrivate.Pcs_iInv_A_sensed_pu;
+    tCla2Cpu.Pcs_iInv_B_sensed_pu      = tClaPrivate.Pcs_iInv_B_sensed_pu;
+    tCla2Cpu.Pcs_iInv_C_sensed_pu      = tClaPrivate.Pcs_iInv_C_sensed_pu;
+
+    tCla2Cpu.Pcs_vInv_A_sensed_pu      = tClaPrivate.Pcs_vInv_A_sensed_pu;
+    tCla2Cpu.Pcs_vInv_B_sensed_pu      = tClaPrivate.Pcs_vInv_B_sensed_pu;
+    tCla2Cpu.Pcs_vInv_C_sensed_pu      = tClaPrivate.Pcs_vInv_C_sensed_pu;
+
+    tCla2Cpu.Pcs_vGrid_A_sensed_pu     = tClaPrivate.Pcs_vGrid_A_sensed_pu;
+    tCla2Cpu.Pcs_vGrid_B_sensed_pu     = tClaPrivate.Pcs_vGrid_B_sensed_pu;
+    tCla2Cpu.Pcs_vGrid_C_sensed_pu     = tClaPrivate.Pcs_vGrid_C_sensed_pu;
+
+    tCla2Cpu.Pcs_vGrid_AB_sensed_pu     = tClaPrivate.Pcs_vGrid_AB_sensed_pu;
+    tCla2Cpu.Pcs_vGrid_BC_sensed_pu     = tClaPrivate.Pcs_vGrid_BC_sensed_pu;
+    tCla2Cpu.Pcs_vGrid_CA_sensed_pu     = tClaPrivate.Pcs_vGrid_CA_sensed_pu;
+
+    tCla2Cpu.Pcs_vBusP_sensed_pu       = tClaPrivate.Pcs_VBusP_pu;
+    tCla2Cpu.Pcs_vBusN_sensed_pu       = tClaPrivate.Pcs_VBusN_pu;
+    tClaPrivate.Pcs_VBus_pu            = tClaPrivate.Pcs_VBusP_pu + tClaPrivate.Pcs_VBusN_pu;
+    tCla2Cpu.Pcs_vBus_sensed_pu        = tClaPrivate.Pcs_VBus_pu;
+
+    tCla2Cpu.Pcs_iBus_sensed_pu        = tClaPrivate.Pcs_IBatt_pu;//tClaPrivate.Pcs_iBus_sensed_pu;
+    tCla2Cpu.Pcs_iBusN_sensed_pu       = tClaPrivate.Pcs_iBusN_sensed_pu;
+    tCla2Cpu.Pcs_vBatt_sensed_pu        =tClaPrivate.Pcs_VBatt_pu;
+
+    tClaPrivate.Pcs_vBus_DC   = tClaPrivate.Pcs_VBus_pu*PCS_VDC_MAX_SENSE_VOLTS;
+//    tClaPrivate.Pcs_vBus_DC   = tClaPrivate.Pcs_VBatt_pu*PCS_VBATT_MAX_SENSE_VOLTS;
+    tClaPrivate.Pcs_iBus_DC   = tClaPrivate.Pcs_IBatt_pu*PCS_IDC_MAX_SENSE_VOLTS;
+}
+
+void PCS_CLA_RunTransform(void)
+{
+    if(tCpu2Cla.WorkMode == CLA_GRID_DISCONNECTED)//离网
+    {
+        tClaPrivate.Pcs_CosRef          = tCpu2Cla.Pcs_cosine;
+        tClaPrivate.Pcs_SinRef          = tCpu2Cla.Pcs_sine;
+    }
+    else
+    {
+        tClaPrivate.Pcs_CosRef          = tCpu2Cla.Pcs_Gridcosine;
+        tClaPrivate.Pcs_SinRef          = tCpu2Cla.Pcs_Gridsine;
+    }
+    //电网电流CLARK&PARK变换
+    ABC_DQ0_POS_run(&PCS_iGrid_dq0_pos,
+                    tClaPrivate.Pcs_iGrid_A_sensed_pu,
+                    tClaPrivate.Pcs_iGrid_B_sensed_pu,
+                    tClaPrivate.Pcs_iGrid_C_sensed_pu,
+                    tClaPrivate.Pcs_SinRef, tClaPrivate.Pcs_CosRef);
+
+    //电感电流CLARK&PARK变换
+    ABC_DQ0_POS_run(&PCS_iInv_dq0_pos,
+                    tClaPrivate.Pcs_iInv_A_sensed_pu,
+                    tClaPrivate.Pcs_iInv_B_sensed_pu,
+                    tClaPrivate.Pcs_iInv_C_sensed_pu,
+                    tClaPrivate.Pcs_SinRef, tClaPrivate.Pcs_CosRef);
+
+    clarkT_run(&PCS_vGrid_Clark,
+                   tClaPrivate.Pcs_vGrid_A_sensed_pu, tClaPrivate.Pcs_vGrid_B_sensed_pu, tClaPrivate.Pcs_vGrid_C_sensed_pu);
+    ParkT_Pos_run(&PCS_vGrid_Park_p,
+                  PCS_vGrid_Clark.alpha, PCS_vGrid_Clark.beta, PCS_vGrid_Clark.zero,
+                  tClaPrivate.Pcs_SinRef, tClaPrivate.Pcs_CosRef);
+    ParkT_Neg_run(&PCS_vGrid_Park_n,
+                  PCS_vGrid_Clark.alpha, PCS_vGrid_Clark.beta, PCS_vGrid_Clark.zero,
+                   tClaPrivate.Pcs_SinRef, tClaPrivate.Pcs_CosRef);
+}
+
+void  PCS_CLA_RealTimeData(void)
+{
+    //电网输出电流
+    tClaPrivate.Pcs_IoutMd          = PCS_iGrid_dq0_pos.d*PCS_IGRID_MAX_SENSE_AMPS;
+    tClaPrivate.Pcs_IoutMq          = PCS_iGrid_dq0_pos.q*PCS_IGRID_MAX_SENSE_AMPS;
+    tClaPrivate.Pcs_IoutMz          = PCS_iGrid_dq0_pos.z*PCS_IGRID_MAX_SENSE_AMPS;
+    //电感电流
+    tClaPrivate.Pcs_IlMd            = PCS_iInv_dq0_pos.d*PCS_IINV_MAX_SENSE_AMPS;
+    tClaPrivate.Pcs_IlMq            = PCS_iInv_dq0_pos.q*PCS_IINV_MAX_SENSE_AMPS;
+    tClaPrivate.Pcs_IlMz            = PCS_iInv_dq0_pos.z*PCS_IINV_MAX_SENSE_AMPS;
+
+    tClaPrivate.Pcs_VinvMd          = PCS_vGrid_Park_p.d*PCS_VGRID_MAX_SENSE_VOLTS;
+    tClaPrivate.Pcs_VinvMq          = PCS_vGrid_Park_p.q*PCS_VGRID_MAX_SENSE_VOLTS;
+    tClaPrivate.Pcs_VinvMz          = PCS_vGrid_Park_p.z*PCS_VGRID_MAX_SENSE_VOLTS;
+
+    tClaPrivate.Pcs_VinvMd_N        = PCS_vGrid_Park_n.d*PCS_VGRID_MAX_SENSE_VOLTS;
+    tClaPrivate.Pcs_VinvMq_N        = PCS_vGrid_Park_n.q*PCS_VGRID_MAX_SENSE_VOLTS;
+    tClaPrivate.Pcs_VinvMz_N        = PCS_vGrid_Park_n.z*PCS_VGRID_MAX_SENSE_VOLTS;
+
+    tClaPrivate.Pcs_Kp_Udc          = tCpu2Cla.i16_Kp_Udc*0.01f;
+    tClaPrivate.Pcs_Ki_Udc          = tCpu2Cla.i16_Ki_Udc*0.01f;
+    tClaPrivate.Pcs_Ki_Udc         *= Tcylce;
+
+    tClaPrivate.Pcs_IlKp          = tCpu2Cla.i16_Kp_Iinv*0.01f;
+    tClaPrivate.Pcs_IlKi          = tCpu2Cla.i16_Ki_Iinv*0.01f;
+    tClaPrivate.Pcs_IlKi         *= Tcylce;
+
+    tClaPrivate.RatedCurrent        = tCpu2Cla.RatedCurrent*SQRT2;//转为DQ值
+    tClaPrivate.RatedVoltage        = tCpu2Cla.RatedVoltage*SQRT2;//转为DQ值
+    tClaPrivate.RatedPower          = tCpu2Cla.RatedPower;
+
+    tClaPrivate.MaxCurrent          = tClaPrivate.RatedCurrent*1.2f;
+    tClaPrivate.MaxVoltage          = tClaPrivate.RatedVoltage*1.2f;
+    tClaPrivate.MaxPower            = tClaPrivate.RatedPower*1.2f;
+    tCla2Cpu.Pcs_vGrid_Vod          = tClaPrivate.Pcs_VinvMd;
+    tCla2Cpu.Pcs_vGrid_Voq          = tClaPrivate.Pcs_VinvMq;
+
+    tCla2Cpu.Pcs_IoutMd             = tClaPrivate.Pcs_IoutMd;
+    tCla2Cpu.Pcs_IoutMq             = tClaPrivate.Pcs_IoutMq;
+
+    tCla2Cpu.Pcs_iInv_Iod           = tClaPrivate.Pcs_IlMd;
+    tCla2Cpu.Pcs_iInv_Ioq           = tClaPrivate.Pcs_IlMq;
+
+    //逆变电压给定
+    tClaPrivate.Pcs_VinvMdRef       = tCpu2Cla.Pcs_VinvMdRef*SQRT2;
+    tClaPrivate.Pcs_PacRef          = tCpu2Cla.Pcs_PacRef*1000.0f;
+    tClaPrivate.Pcs_QacRef          = tCpu2Cla.Pcs_QacRef*1000.0f;
+    //交流恒流电流给定
+    tClaPrivate.Pcs_ACIoutRef       = tCpu2Cla.Pcs_ACIoutRef*SQRT2;
+
+    tClaPrivate.Pcs_VdcRef          = tCpu2Cla.Pcs_VdcRef;
+    tClaPrivate.Pcs_IdcRef          = tCpu2Cla.Pcs_IdcRef;
+
+//    tClaPrivate.Pcs_vBus_DC         = tCpu2Cla.Pcs_VdcRms;
+//    //总有功功率
+//    tClaPrivate.Pcs_activePower     =  (tClaPrivate.Pcs_VinvMd * tClaPrivate.Pcs_IoutMd +
+//                                       tClaPrivate.Pcs_VinvMq * tClaPrivate.Pcs_IoutMq) * 1.5f;//(3.0f / 2.0f)
+//    //总无功功率
+//    tClaPrivate.Pcs_reactivePower   = (tClaPrivate.Pcs_VinvMd * tClaPrivate.Pcs_IoutMq -
+//                                      tClaPrivate.Pcs_VinvMq * tClaPrivate.Pcs_IoutMd) * 1.5f;
+
+}
+
+//离网电压控制外环
+void PCS_Int_InvVolReg(void)
+{
+  /*  float32_t KpRatio,KiRatio;
+    //Z轴调节
+//    tClaPrivate.Pcs_ErrorVinvMz = 0.0f - tClaPrivate.Pcs_VinvMz;
+//    tClaPrivate.Pcs_ErrorVinvMz = satF32(tClaPrivate.Pcs_ErrorVinvMz,INV3P_VERRLIM_N,INV3P_VERRLIM_P);
+//    tClaPrivate.Pcs_VinvZRegOut  = tClaPrivate.Pcs_ErrorVinvMz * tClaPrivate.Pcs_VinvKp + tClaPrivate.Pcs_VinvZRegIOut;
+//    tClaPrivate.Pcs_VinvZRegIOut += tClaPrivate.Pcs_ErrorVinvMz * tClaPrivate.Pcs_VinvKi;
+//    tClaPrivate.Pcs_VinvZRegIOut = satF32(tClaPrivate.Pcs_VinvZRegIOut,INV3P_VQREGOUTLIMI_N,INV3P_VQREGOUTLIMI_P);
+
+//    if((tCpu2ClaPcs.m_i16_SoftEndFlag == 0) || (tCpu2ClaPcs.tClaAlgFlag.bInvPhaseMode == CLA_THR_PHS_OUT_3P3W))
+//    {
+//        temp = tClaPrivate.Pcs_VinvZRegOut - tClaPrivate.Pcs_IoutMz * 0.5;
+//    }
+//    else
+//    {
+       temp = tClaPrivate.Pcs_VinvZRegOut - tClaPrivate.Pcs_IoutMz;
+       tClaPrivate.Pcs_VinvZRegIOut = 0;
+//       tClaPrivate.Pcs_VinvZRegIOut_0 = (tClaPrivate.m_f32_VbusP_0 - tClaPrivate.m_f32_VbusN_0) * tClaPrivate.Pcs_VinvZKp;
+//    }
+   temp = __mminf32(temp,INV3P_VQREGOUTLIM_P);
+   temp = __mmaxf32(temp,INV3P_VQREGOUTLIM_N);
+   tClaPrivate.Pcs_IinvMzRef = temp;
+    tClaPrivate.Pcs_IinvMzRef   = 0.0f;
+//   tClaPrivate.Pcs_IinvMzRef = satF32(tClaPrivate.Pcs_VinvZRegOut - tClaPrivate.Pcs_IoutMz,INV3P_VQREGOUTLIM_N,INV3P_VQREGOUTLIM_P);
+    */
+
+    float32 f32_UirAlpha , f32_UirBeta;
+    float32 f32_UirAlpha_P , f32_UirBeta_P;
+    float32 f32_UirAlpha_N , f32_UirBeta_N;
+//正序D轴调节
+   tClaPrivate.Pcs_ErrorVinvMd    = tClaPrivate.Pcs_VinvMdRef - tClaPrivate.Pcs_VinvMd;
+//   tClaPrivate.Pcs_ErrorVinvMd    = satF32(tClaPrivate.Pcs_ErrorVinvMd,INV3P_VERRLIM_N,INV3P_VERRLIM_P);
+   tClaPrivate.Pcs_VinvDRegOut    = tClaPrivate.Pcs_ErrorVinvMd*tClaPrivate.Pcs_VinvKp + tClaPrivate.Pcs_VinvDRegIOut;
+   tClaPrivate.Pcs_VinvDRegOut    = satF32(tClaPrivate.Pcs_VinvDRegOut,(0.0f-tClaPrivate.MaxCurrent)*5.0f,tClaPrivate.MaxCurrent*5.0f);//PI输出限幅
+   tClaPrivate.Pcs_VinvDRegIOut  += tClaPrivate.Pcs_ErrorVinvMd * tClaPrivate.Pcs_VinvKi;
+   tClaPrivate.Pcs_VinvDRegIOut   = satF32(tClaPrivate.Pcs_VinvDRegIOut,(0.0f-tClaPrivate.MaxCurrent)*5.0f,tClaPrivate.MaxCurrent*5.0f);//积分限幅
+
+   tClaPrivate.Pcs_IinvMdRef_P    = tClaPrivate.Pcs_VinvDRegOut-(tClaPrivate.Pcs_VinvMq*PI2*GridFreq*Cf);
+//   tClaPrivate.Pcs_IinvMdRef_P    = satF32(tClaPrivate.Pcs_IinvMdRef_P,INV3P_VDREGOUTLIM_N,INV3P_VDREGOUTLIM_P);
+
+   //正序Q轴调节
+   tClaPrivate.Pcs_ErrorVinvMq    = 0.0f - tClaPrivate.Pcs_VinvMq;
+//   tClaPrivate.Pcs_ErrorVinvMq    = satF32(tClaPrivate.Pcs_ErrorVinvMq,INV3P_VERRLIM_N,INV3P_VERRLIM_P);
+   tClaPrivate.Pcs_VinvQRegOut    = tClaPrivate.Pcs_ErrorVinvMq * tClaPrivate.Pcs_VinvKp + tClaPrivate.Pcs_VinvQRegIOut;
+   tClaPrivate.Pcs_VinvQRegOut    = satF32(tClaPrivate.Pcs_VinvQRegOut,(0.0f-tClaPrivate.MaxCurrent)*4.0f,tClaPrivate.MaxCurrent*4.0f);
+   tClaPrivate.Pcs_VinvQRegIOut  += tClaPrivate.Pcs_ErrorVinvMq * tClaPrivate.Pcs_VinvKi;
+   tClaPrivate.Pcs_VinvQRegIOut   = satF32(tClaPrivate.Pcs_VinvQRegIOut,(0.0f-tClaPrivate.MaxCurrent)*2.0f,tClaPrivate.MaxCurrent*2.0f);
+
+   tClaPrivate.Pcs_IinvMqRef_P    = tClaPrivate.Pcs_VinvQRegOut+(tClaPrivate.Pcs_VinvMd*PI2*GridFreq*Cf);
+//   tClaPrivate.Pcs_IinvMqRef_P    = satF32(tClaPrivate.Pcs_IinvMqRef_P,INV3P_VDREGOUTLIM_N,INV3P_VDREGOUTLIM_P);
+
+   //负序D轴调节
+  tClaPrivate.Pcs_ErrorVinvMd_N   = 0.0f - tClaPrivate.Pcs_VinvMd_N;
+//  tClaPrivate.Pcs_ErrorVinvMd_N   = satF32(tClaPrivate.Pcs_ErrorVinvMd_N,INV3P_VERRLIM_N,INV3P_VERRLIM_P);
+  tClaPrivate.Pcs_VinvDRegOut_N   = tClaPrivate.Pcs_ErrorVinvMd_N*tClaPrivate.Pcs_VinvKp + tClaPrivate.Pcs_VinvDRegIOut_N;
+  tClaPrivate.Pcs_VinvDRegOut_N   = satF32(tClaPrivate.Pcs_VinvDRegOut_N,(0.0f-tClaPrivate.MaxCurrent)*4.0f,tClaPrivate.MaxCurrent*4.0f);
+  tClaPrivate.Pcs_VinvDRegIOut_N += tClaPrivate.Pcs_ErrorVinvMd_N * tClaPrivate.Pcs_VinvKi;
+  tClaPrivate.Pcs_VinvDRegIOut_N  = satF32(tClaPrivate.Pcs_VinvDRegIOut_N,(0.0f-tClaPrivate.MaxCurrent)*2.0f,tClaPrivate.MaxCurrent*2.0f);
+
+  tClaPrivate.Pcs_IinvMdRef_N     = tClaPrivate.Pcs_VinvDRegOut_N-(tClaPrivate.Pcs_VinvMq_N*PI2*GridFreq*Cf);
+//  tClaPrivate.Pcs_IinvMdRef_N     = satF32(tClaPrivate.Pcs_IinvMdRef_N,INV3P_VDREGOUTLIM_N,INV3P_VDREGOUTLIM_P);
+
+  //负序Q轴调节
+  tClaPrivate.Pcs_ErrorVinvMq_N   = 0.0f - tClaPrivate.Pcs_VinvMq_N;
+//  tClaPrivate.Pcs_ErrorVinvMq_N   = satF32(tClaPrivate.Pcs_ErrorVinvMq_N,INV3P_VERRLIM_N,INV3P_VERRLIM_P);
+  tClaPrivate.Pcs_VinvQRegOut_N   = tClaPrivate.Pcs_ErrorVinvMq_N * tClaPrivate.Pcs_VinvKp + tClaPrivate.Pcs_VinvQRegIOut_N;
+  tClaPrivate.Pcs_VinvQRegOut_N   = satF32(tClaPrivate.Pcs_VinvQRegOut_N,(0.0f-tClaPrivate.MaxCurrent)*4.0f,tClaPrivate.MaxCurrent*4.0f);
+  tClaPrivate.Pcs_VinvQRegIOut_N += tClaPrivate.Pcs_ErrorVinvMq_N * tClaPrivate.Pcs_VinvKi;
+  tClaPrivate.Pcs_VinvQRegIOut_N  = satF32(tClaPrivate.Pcs_VinvQRegIOut_N,(0.0f-tClaPrivate.MaxCurrent)*2.0f,tClaPrivate.MaxCurrent*2.0f);
+
+  tClaPrivate.Pcs_IinvMqRef_N     = tClaPrivate.Pcs_VinvQRegOut_N+(tClaPrivate.Pcs_VinvMd_N*PI2*GridFreq*Cf);
+//  tClaPrivate.Pcs_IinvMqRef_N     = satF32(tClaPrivate.Pcs_IinvMqRef_N,INV3P_VDREGOUTLIM_N,INV3P_VDREGOUTLIM_P);
+
+  //正负序控制解耦
+  f32_UirAlpha_P    =   tClaPrivate.Pcs_IinvMdRef_P * tClaPrivate.Pcs_CosRef - tClaPrivate.Pcs_IinvMqRef_P * tClaPrivate.Pcs_SinRef;
+  f32_UirBeta_P     =   tClaPrivate.Pcs_IinvMdRef_P * tClaPrivate.Pcs_SinRef + tClaPrivate.Pcs_IinvMqRef_P * tClaPrivate.Pcs_CosRef;
+  f32_UirAlpha_N    =   tClaPrivate.Pcs_IinvMdRef_N * tClaPrivate.Pcs_CosRef + tClaPrivate.Pcs_IinvMqRef_N * tClaPrivate.Pcs_SinRef;
+  f32_UirBeta_N     =  -tClaPrivate.Pcs_IinvMdRef_N * tClaPrivate.Pcs_SinRef + tClaPrivate.Pcs_IinvMqRef_N * tClaPrivate.Pcs_CosRef;
+  f32_UirAlpha      =   f32_UirAlpha_P + f32_UirAlpha_N;
+  f32_UirBeta       =   f32_UirBeta_P + f32_UirBeta_N;
+  tClaPrivate.Pcs_IinvMdRef =  f32_UirAlpha * tClaPrivate.Pcs_CosRef + f32_UirBeta * tClaPrivate.Pcs_SinRef;
+  tClaPrivate.Pcs_IinvMdRef = satF32(tClaPrivate.Pcs_IinvMdRef,(0.0f-tClaPrivate.MaxCurrent)*1.0f,tClaPrivate.MaxCurrent*1.0f);
+  tClaPrivate.Pcs_IinvMqRef = -f32_UirAlpha * tClaPrivate.Pcs_SinRef + f32_UirBeta * tClaPrivate.Pcs_CosRef;
+  tClaPrivate.Pcs_IinvMqRef = satF32(tClaPrivate.Pcs_IinvMqRef,(0.0f-tClaPrivate.MaxCurrent)*1.0f,tClaPrivate.MaxCurrent*1.0f);
+
+  tClaPrivate.Pcs_IinvMzRef = 0.0f;
+
+   tClaPrivate.Pcs_IinvMdRef_1 = tClaPrivate.Pcs_IinvMdRef;
+   tClaPrivate.Pcs_IinvMqRef_1 = tClaPrivate.Pcs_IinvMqRef;
+   tClaPrivate.Pcs_IinvMzRef_1 = tClaPrivate.Pcs_IinvMzRef;
+}
+
+
+
+//PI电流内环
+void PCS_Int_InvCurrReg(void)
+{
+    // D轴电流调节
+    tClaPrivate.Pcs_IinvMdRef_1 = satF32(tClaPrivate.Pcs_IinvMdRef_1,0.0f-tClaPrivate.MaxCurrent,tClaPrivate.MaxCurrent);
+    tClaPrivate.Pcs_ErrorIlMd   = tClaPrivate.Pcs_IinvMdRef_1 - tClaPrivate.Pcs_IlMd;
+//    tClaPrivate.Pcs_ErrorIlMd  = satF32(tClaPrivate.Pcs_ErrorIlMd,-20.0f,20.0f);
+    tClaPrivate.Pcs_IlDRegOut   = tClaPrivate.Pcs_ErrorIlMd * tClaPrivate.Pcs_IlKp + tClaPrivate.Pcs_IlDRegIOut;
+    tClaPrivate.Pcs_IlDRegIOut += tClaPrivate.Pcs_ErrorIlMd * tClaPrivate.Pcs_IlKi;
+    tClaPrivate.Pcs_IlDRegIOut  = satF32(tClaPrivate.Pcs_IlDRegIOut,0.0f-tClaPrivate.MaxVoltage,tClaPrivate.MaxVoltage);
+
+    tClaPrivate.Pcs_UirD        = tClaPrivate.Pcs_IlDRegOut + tClaPrivate.Pcs_VinvMd -(tClaPrivate.Pcs_IlMq*PI2*GridFreq*(Lf1+Lf2));
+    tClaPrivate.Pcs_UirD        = satF32(tClaPrivate.Pcs_UirD,0.0f-tClaPrivate.MaxVoltage,tClaPrivate.MaxVoltage);
+
+    // Q轴电流调节
+    tClaPrivate.Pcs_IinvMqRef_1 = satF32(tClaPrivate.Pcs_IinvMqRef_1,0.0f-tClaPrivate.MaxCurrent,tClaPrivate.MaxCurrent);
+    tClaPrivate.Pcs_ErrorIlMq   = tClaPrivate.Pcs_IinvMqRef_1 - tClaPrivate.Pcs_IlMq;
+//    tClaPrivate.Pcs_ErrorIlMq  = satF32(tClaPrivate.Pcs_ErrorIlMq,-20.0f,20.0f);
+    tClaPrivate.Pcs_IlQRegOut   = tClaPrivate.Pcs_ErrorIlMq * tClaPrivate.Pcs_IlKp + tClaPrivate.Pcs_IlQRegIOut;
+    tClaPrivate.Pcs_IlQRegIOut += tClaPrivate.Pcs_ErrorIlMq * tClaPrivate.Pcs_IlKi;
+    tClaPrivate.Pcs_IlQRegIOut  = satF32(tClaPrivate.Pcs_IlQRegIOut,0.0f-tClaPrivate.MaxVoltage,tClaPrivate.MaxVoltage);
+
+    tClaPrivate.Pcs_UirQ        = tClaPrivate.Pcs_IlQRegOut + tClaPrivate.Pcs_VinvMq +(tClaPrivate.Pcs_IlMd*PI2*GridFreq*(Lf1+Lf2));
+    tClaPrivate.Pcs_UirQ        = satF32(tClaPrivate.Pcs_UirQ,0.0f-tClaPrivate.MaxVoltage,tClaPrivate.MaxVoltage);
+
+    // Z轴电流调节
+//   tClaPrivate.Pcs_ErrorIlMz    = tClaPrivate.Pcs_IinvMzRef_1 - tClaPrivate.Pcs_IlMz;
+//   tClaPrivate.Pcs_IlZRegOut    = tClaPrivate.Pcs_ErrorIlMz * tClaPrivate.Pcs_IlKp;
+//
+//   tClaPrivate.Pcs_UirZ         = tClaPrivate.Pcs_IlZRegOut + tClaPrivate.Pcs_VinvMz;
+//   tClaPrivate.Pcs_UirZ         = satF32(tClaPrivate.Pcs_UirZ,INV3P_IINVL_OUTLIMN,INV3P_IINVL_OUTLIMP);
+    tClaPrivate.Pcs_UirZ        =  0.0f;
+}
+//void PCS_Int_InvCurrReg(void)
+//{
+//    tClaPrivate.Pcs_IinvMdRef_1 = satF32(tClaPrivate.Pcs_IinvMdRef_1,0.0f-tClaPrivate.AcMaxDisChargeCurrent,tClaPrivate.AcMaxChargeCurrent);
+//    tClaPrivate.Pcs_ErrorIlMd = tClaPrivate.Pcs_IinvMdRef_1 - tClaPrivate.Pcs_IlMd;
+//    tClaPrivate.Pcs_IlDRegIOut = (tClaPrivate.Pcs_ErrorIlMd - tClaPrivate.Pcs_ErrorIlMd_old) * tClaPrivate.Pcs_IlKp + (tClaPrivate.Pcs_ErrorIlMd + tClaPrivate.Pcs_ErrorIlMd_old) * 0.5f * tClaPrivate.Pcs_IlKi;
+//    tClaPrivate.Pcs_IlDRegOut += tClaPrivate.Pcs_IlDRegIOut;
+//    tClaPrivate.Pcs_ErrorIlMd_old = tClaPrivate.Pcs_ErrorIlMd;
+//    // D轴电流调节
+////    tClaPrivate.Pcs_IinvMdRef_1 = satF32(tClaPrivate.Pcs_IinvMdRef_1,0.0f-tClaPrivate.AcMaxDisChargeCurrent,tClaPrivate.AcMaxChargeCurrent);
+////    tClaPrivate.Pcs_ErrorIlMd   = tClaPrivate.Pcs_IinvMdRef_1 - tClaPrivate.Pcs_IlMd;
+//////    tClaPrivate.Pcs_ErrorIlMd  = satF32(tClaPrivate.Pcs_ErrorIlMd,-20.0f,20.0f);
+////    tClaPrivate.Pcs_IlDRegOut   = tClaPrivate.Pcs_ErrorIlMd * tClaPrivate.Pcs_IlKp + tClaPrivate.Pcs_IlDRegIOut;
+////    tClaPrivate.Pcs_IlDRegIOut += tClaPrivate.Pcs_ErrorIlMd * tClaPrivate.Pcs_IlKi;
+////    tClaPrivate.Pcs_IlDRegIOut  = satF32(tClaPrivate.Pcs_IlDRegIOut,INV3P_IINVL_OUTLIMN,INV3P_IINVL_OUTLIMP);
+//
+//    tClaPrivate.Pcs_UirD        = tClaPrivate.Pcs_IlDRegOut + tClaPrivate.Pcs_VinvMd-(tClaPrivate.Pcs_IlMq*PI2*GridFreq*(Lf1+Lf2));
+//    tClaPrivate.Pcs_UirD        = satF32(tClaPrivate.Pcs_UirD,INV3P_IINVL_OUTLIMN,INV3P_IINVL_OUTLIMP);
+//
+//    tClaPrivate.Pcs_IinvMqRef_1 = satF32(tClaPrivate.Pcs_IinvMqRef_1,-20.0f,20.0f);
+//    tClaPrivate.Pcs_ErrorIlMq   = tClaPrivate.Pcs_IinvMqRef_1 - tClaPrivate.Pcs_IlMq;
+//    tClaPrivate.Pcs_IlQRegIOut  = (tClaPrivate.Pcs_ErrorIlMq - tClaPrivate.Pcs_ErrorIlMq_old) * tClaPrivate.Pcs_IlKp + (tClaPrivate.Pcs_ErrorIlMq + tClaPrivate.Pcs_ErrorIlMq_old) * 0.5f * tClaPrivate.Pcs_IlKi;
+//    tClaPrivate.Pcs_IlQRegOut += tClaPrivate.Pcs_IlQRegIOut;
+//    tClaPrivate.Pcs_ErrorIlMq_old = tClaPrivate.Pcs_ErrorIlMq;
+//    // Q轴电流调节
+////    tClaPrivate.Pcs_IinvMqRef_1 = satF32(tClaPrivate.Pcs_IinvMqRef_1,-20.0f,20.0f);
+////    tClaPrivate.Pcs_ErrorIlMq   = tClaPrivate.Pcs_IinvMqRef_1 - tClaPrivate.Pcs_IlMq;
+//////    tClaPrivate.Pcs_ErrorIlMq  = satF32(tClaPrivate.Pcs_ErrorIlMq,-20.0f,20.0f);
+////    tClaPrivate.Pcs_IlQRegOut   = tClaPrivate.Pcs_ErrorIlMq * tClaPrivate.Pcs_IlKp + tClaPrivate.Pcs_IlQRegIOut;
+////    tClaPrivate.Pcs_IlQRegIOut += tClaPrivate.Pcs_ErrorIlMq * tClaPrivate.Pcs_IlKi;
+////    tClaPrivate.Pcs_IlQRegIOut  = satF32(tClaPrivate.Pcs_IlQRegIOut,INV3P_IINVL_OUTLIMN,INV3P_IINVL_OUTLIMP);
+//
+//    tClaPrivate.Pcs_UirQ        = tClaPrivate.Pcs_IlQRegOut + tClaPrivate.Pcs_VinvMq+(tClaPrivate.Pcs_IlMd*PI2*GridFreq*(Lf1+Lf2));
+//    tClaPrivate.Pcs_UirQ        = satF32(tClaPrivate.Pcs_UirQ,INV3P_IINVL_OUTLIMN,INV3P_IINVL_OUTLIMP);
+//
+//    // Z轴电流调节
+////   tClaPrivate.Pcs_ErrorIlMz    = tClaPrivate.Pcs_IinvMzRef_1 - tClaPrivate.Pcs_IlMz;
+////   tClaPrivate.Pcs_IlZRegOut    = tClaPrivate.Pcs_ErrorIlMz * tClaPrivate.Pcs_IlKp;
+////
+////   tClaPrivate.Pcs_UirZ         = tClaPrivate.Pcs_IlZRegOut + tClaPrivate.Pcs_VinvMz;
+////   tClaPrivate.Pcs_UirZ         = satF32(tClaPrivate.Pcs_UirZ,INV3P_IINVL_OUTLIMN,INV3P_IINVL_OUTLIMP);
+//    tClaPrivate.Pcs_UirZ        =  0.0f;
+//}
+
+void Pcs_Int_PQCtrlReg(void)
+{
+ //   if(tClaPrivate.Pcs_PacRef > 0.0f)//给定功率大于0，电流从直流到交流
+    {
+        float32_t div_param;
+        div_param = 0.666666667f/(tClaPrivate.Pcs_VinvMd*tClaPrivate.Pcs_VinvMd+tClaPrivate.Pcs_VinvMq*tClaPrivate.Pcs_VinvMq);
+        tClaPrivate.Pcs_IinvMdRef_1 = (tClaPrivate.Pcs_PacRef*tClaPrivate.Pcs_VinvMd-tClaPrivate.Pcs_QacRef*tClaPrivate.Pcs_VinvMq)*div_param;
+        tClaPrivate.Pcs_IinvMqRef_1 = (tClaPrivate.Pcs_PacRef*tClaPrivate.Pcs_VinvMq-tClaPrivate.Pcs_QacRef*tClaPrivate.Pcs_VinvMd)*div_param;
+        tClaPrivate.Pcs_IinvMzRef_1 = 0.0f;
+    }
+//    else //给定功率小于0，电流从交流到直流
+//    {
+//        tClaPrivate.Pcs_ErrorVinvMd      = tClaPrivate.Pcs_IdcRef - tClaPrivate.Pcs_iBus_DC;
+//     //   tClaPrivate.Pcs_ErrorVinvMd      = satF32(tClaPrivate.Pcs_ErrorVinvMd,-2.0f,2.0f);
+//        tClaPrivate.Pcs_VinvDRegOut      = tClaPrivate.Pcs_ErrorVinvMd * tClaPrivate.Pcs_Kp_Idc + tClaPrivate.Pcs_VinvDRegIOut;
+//        tClaPrivate.Pcs_VinvDRegOut      = satF32(tClaPrivate.Pcs_VinvDRegOut, INV3P_VDREGOUTLIM_N,INV3P_VDREGOUTLIM_P);
+//        tClaPrivate.Pcs_VinvDRegIOut    += tClaPrivate.Pcs_ErrorVinvMd * tClaPrivate.Pcs_Ki_Idc;
+//        tClaPrivate.Pcs_VinvDRegIOut     = satF32(tClaPrivate.Pcs_VinvDRegIOut,INV3P_VDREGOUTLIM_N,INV3P_VDREGOUTLIM_P);
+//
+//        tClaPrivate.Pcs_IinvMdRef        = tClaPrivate.Pcs_VinvDRegOut;
+//        tClaPrivate.Pcs_IinvMqRef        = 0.0f;
+//        tClaPrivate.Pcs_IinvMzRef        = 0.0f;
+//
+//        tClaPrivate.Pcs_IinvMdRef_1      = tClaPrivate.Pcs_IinvMdRef;
+//        tClaPrivate.Pcs_IinvMqRef_1      = tClaPrivate.Pcs_IinvMqRef;
+//        tClaPrivate.Pcs_IinvMzRef_1      = tClaPrivate.Pcs_IinvMzRef;
+//    }
+}
+
+void Pcs_Int_ACCurrCtrlReg(void)
+{ //正电池放电，负电池充电
+    tClaPrivate.Pcs_IinvMdRef_1 = tClaPrivate.Pcs_ACIoutRef;
+    tClaPrivate.Pcs_IinvMqRef_1 = 0.0f;
+    tClaPrivate.Pcs_IinvMzRef_1 = 0.0f;
+}
+
+//并网恒直流电压模式,直流源模式
+void PCS_Int_DCVolReg(void)
+{
+//直流电压环
+
+   tClaPrivate.Pcs_ErrorVinvMd      = tClaPrivate.Pcs_vBus_DC - tClaPrivate.Pcs_VdcRef;
+//       tClaPrivate.Pcs_ErrorVinvMd      = satF32(tClaPrivate.Pcs_ErrorVinvMd,-2.0f,2.0f);
+   tClaPrivate.Pcs_VinvDRegOut      = tClaPrivate.Pcs_ErrorVinvMd * tClaPrivate.Pcs_Kp_Udc + tClaPrivate.Pcs_VinvDRegIOut;
+   tClaPrivate.Pcs_VinvDRegOut      = satF32(tClaPrivate.Pcs_VinvDRegOut, (0.0f-tClaPrivate.MaxCurrent)*1.0f,tClaPrivate.MaxCurrent*1.0f);
+   tClaPrivate.Pcs_VinvDRegIOut    += tClaPrivate.Pcs_ErrorVinvMd * tClaPrivate.Pcs_Ki_Udc;
+   tClaPrivate.Pcs_VinvDRegIOut     = satF32(tClaPrivate.Pcs_VinvDRegIOut,(0.0f-tClaPrivate.MaxCurrent)*1.0f,tClaPrivate.MaxCurrent*1.0f);
+
+   tClaPrivate.Pcs_IinvMdRef        = tClaPrivate.Pcs_VinvDRegOut;
+   tClaPrivate.Pcs_IinvMqRef        = 0.0f;
+   tClaPrivate.Pcs_IinvMzRef        = 0.0f;
+
+   tClaPrivate.Pcs_IinvMdRef_1      = tClaPrivate.Pcs_IinvMdRef;
+   tClaPrivate.Pcs_IinvMqRef_1      = tClaPrivate.Pcs_IinvMqRef;
+   tClaPrivate.Pcs_IinvMzRef_1      = tClaPrivate.Pcs_IinvMzRef;
+}
+
+//并网直流恒流控制
+void PCS_Int_DCCurrReg(void)
+{
+   tClaPrivate.Pcs_ErrorVinvMd      = tClaPrivate.Pcs_IdcRef - tClaPrivate.Pcs_iBus_DC;
+//   tClaPrivate.Pcs_ErrorVinvMd      = satF32(tClaPrivate.Pcs_ErrorVinvMd,-2.0f,2.0f);
+   tClaPrivate.Pcs_VinvDRegOut      = tClaPrivate.Pcs_ErrorVinvMd * tClaPrivate.Pcs_Kp_Idc + tClaPrivate.Pcs_VinvDRegIOut;
+   tClaPrivate.Pcs_VinvDRegOut      = satF32(tClaPrivate.Pcs_VinvDRegOut, (0.0f-tClaPrivate.MaxCurrent)*1.0f,tClaPrivate.MaxCurrent*1.0f);
+   tClaPrivate.Pcs_VinvDRegIOut    += tClaPrivate.Pcs_ErrorVinvMd * tClaPrivate.Pcs_Ki_Idc;
+   tClaPrivate.Pcs_VinvDRegIOut     = satF32(tClaPrivate.Pcs_VinvDRegIOut,(0.0f-tClaPrivate.MaxCurrent)*1.0f,tClaPrivate.MaxCurrent*1.0f);
+
+   tClaPrivate.Pcs_IinvMdRef        = tClaPrivate.Pcs_VinvDRegOut;
+   tClaPrivate.Pcs_IinvMqRef        = 0.0f;
+   tClaPrivate.Pcs_IinvMzRef        = 0.0f;
+
+   tClaPrivate.Pcs_IinvMdRef_1      = tClaPrivate.Pcs_IinvMdRef;
+   tClaPrivate.Pcs_IinvMqRef_1      = tClaPrivate.Pcs_IinvMqRef;
+   tClaPrivate.Pcs_IinvMzRef_1      = tClaPrivate.Pcs_IinvMzRef;
+}
+
+void  PCS_CLA_Int_OffGrid(void)
+{
+    PCS_Int_InvVolReg();
+    PCS_Int_InvCurrReg();
+}
+
+void  PCS_CLA_Int_OnGrid(void)
+{
+    if(tCpu2Cla.OnGridMode==0)//恒功率
+        Pcs_Int_PQCtrlReg();
+    else if(tCpu2Cla.OnGridMode==1)//恒AC电流
+        Pcs_Int_ACCurrCtrlReg();
+    else if(tCpu2Cla.OnGridMode==2)//恒直流电压
+        PCS_Int_DCVolReg();
+    else if(tCpu2Cla.OnGridMode==3)//恒直流电流
+        PCS_Int_DCCurrReg();
+    PCS_Int_InvCurrReg();
+}
+
+void  PCS_Int_PwmCtrl(int16_t _en)
+{
+    float32_t f32_UirAx_0,f32_UirBx_0,f32_UirCx_0;
+    float32_t  Pcs_VoutD_Pwm,Pcs_VoutQ_Pwm,Pcs_VoutZ_Pwm;
+    float32_t f32_UirMax_0,f32_UirMin_0,f32_UirZx_0;
+    float32_t f32_ctrlLimt;
+    float32_t f32_DCBanaceCtrl;
+
+//    if(tCpu2Cla.pcsLineMode == CLA_PHS_OUT_3P3L)
+        f32_ctrlLimt = 1.15f;
+//    else
+//        f32_ctrlLimt = 0.86f;
+
+    if(_en == 1)
+    {
+        Pcs_VoutD_Pwm = tClaPrivate.Pcs_UirD*2.0f/tClaPrivate.Pcs_vBus_DC;
+        Pcs_VoutQ_Pwm = tClaPrivate.Pcs_UirQ*2.0f/tClaPrivate.Pcs_vBus_DC;
+        Pcs_VoutZ_Pwm = tClaPrivate.Pcs_UirZ*2.0f/tClaPrivate.Pcs_vBus_DC;
+
+        Pcs_VoutD_Pwm = satF32(Pcs_VoutD_Pwm,0.0f,f32_ctrlLimt);
+        Pcs_VoutQ_Pwm = satF32(Pcs_VoutQ_Pwm,0.0f,f32_ctrlLimt);
+        Pcs_VoutZ_Pwm = satF32(Pcs_VoutZ_Pwm,0.0f,f32_ctrlLimt);
+    }
+    else
+    {
+        Pcs_VoutD_Pwm = 0.0f;
+        Pcs_VoutQ_Pwm = 0.0f;
+        Pcs_VoutZ_Pwm = 0.0f;
+    }
+    tCla2Cpu.Pcs_vdRatio_pu  = Pcs_VoutD_Pwm;
+
+    DQ0_ABC_run(&PCS_vInv_dq0, Pcs_VoutD_Pwm, Pcs_VoutQ_Pwm, Pcs_VoutZ_Pwm,
+                tClaPrivate.Pcs_SinRef, tClaPrivate.Pcs_CosRef);
+
+    f32_UirAx_0 = PCS_vInv_dq0.a;//-1~1范围
+    f32_UirBx_0 = PCS_vInv_dq0.b;
+    f32_UirCx_0 = PCS_vInv_dq0.c;
+
+
+    //直流中点电压平衡控制
+    if((tClaPrivate.Pcs_VBusP_pu-tClaPrivate.Pcs_VBusN_pu) > 0.0f)
+        f32_DCBanaceCtrl = 0.0125f;
+    else
+        f32_DCBanaceCtrl = -0.0125f;
+
+    if(tClaPrivate.Pcs_IinvMdRef_1 < 0.0f)
+        f32_DCBanaceCtrl *= -1.0f;
+
+//    if(tCpu2Cla.pcsLineMode == CLA_PHS_OUT_3P3L)
+    {
+        // 注入0序 类SVPWM
+        f32_UirMax_0 = __mmaxf32(f32_UirAx_0,f32_UirBx_0);
+        f32_UirMax_0 = __mmaxf32(f32_UirMax_0,f32_UirCx_0);
+        f32_UirMin_0 = __mminf32(f32_UirAx_0,f32_UirBx_0);
+        f32_UirMin_0 = __mminf32(f32_UirMin_0,f32_UirCx_0);
+        f32_UirZx_0  = -0.5f*(f32_UirMax_0 + f32_UirMin_0)+ f32_DCBanaceCtrl;
+
+        f32_UirAx_0 += (f32_UirZx_0);
+        f32_UirBx_0 += (f32_UirZx_0);
+        f32_UirCx_0 += (f32_UirZx_0);
+
+    }
+
+    PCS_CLA_updatePWMDuty(f32_UirAx_0, f32_UirBx_0, f32_UirCx_0,f32_UirZx_0);
+}
+
+inline void PCS_CLA_updatePWMDuty(float32_t dutyA,float32_t dutyB,float32_t dutyC,float32_t dutyN)
+{
+    uint32_t dutyAP_ticks, dutyBP_ticks, dutyCP_ticks, dutyNP_ticks;
+    uint32_t dutyAN_ticks, dutyBN_ticks, dutyCN_ticks, dutyNN_ticks;
+    float32_t epwm_perid = (float32_t)EPWM_TBPRD;
+
+    if(dutyA > 0)
+    {
+        if(dutyA > PCS_PWM_MAX_RATIO)
+            dutyA = PCS_PWM_MAX_RATIO;
+        dutyAP_ticks = (uint32_t)(epwm_perid*dutyA);
+        dutyAN_ticks = (uint32_t)(epwm_perid*1.0f);
+    }
+    else
+    {
+        if(dutyA < PCS_PWM_MIN_RATIO)
+           dutyA = PCS_PWM_MIN_RATIO;
+        dutyAP_ticks = (uint32_t)(epwm_perid*0.0f);
+        dutyAN_ticks = (uint32_t)(epwm_perid*(dutyA+1.0f));
+    }
+
+    if(dutyB > 0)
+    {
+        if(dutyB > PCS_PWM_MAX_RATIO)
+           dutyB = PCS_PWM_MAX_RATIO;
+        dutyBP_ticks = (uint32_t)(epwm_perid*dutyB);
+        dutyBN_ticks = (uint32_t)(epwm_perid*1.0f);
+    }
+    else
+    {
+        if(dutyB < PCS_PWM_MIN_RATIO)
+           dutyB = PCS_PWM_MIN_RATIO;
+        dutyBP_ticks = (uint32_t)(epwm_perid*0.0f);
+        dutyBN_ticks = (uint32_t)(epwm_perid*(dutyB+1.0f));
+    }
+
+    if(dutyC > 0)
+    {
+        if(dutyC > PCS_PWM_MAX_RATIO)
+           dutyC = PCS_PWM_MAX_RATIO;
+        dutyCP_ticks = (uint32_t)(epwm_perid*dutyC);
+        dutyCN_ticks = (uint32_t)(epwm_perid*1.0f);
+    }
+    else
+    {
+        if(dutyC < PCS_PWM_MIN_RATIO)
+           dutyC = PCS_PWM_MIN_RATIO;
+        dutyCP_ticks = (uint32_t)(epwm_perid*0.0f);
+        dutyCN_ticks = (uint32_t)(epwm_perid*(dutyC+1.0f));
+    }
+	
+    if(tCpu2Cla.pcsLineMode == CLA_PHS_OUT_3P4L)
+    {
+        if(dutyN > 0)
+        {
+            if(dutyN > PCS_PWM_MAX_RATIO)
+                dutyN = PCS_PWM_MAX_RATIO;
+            dutyNP_ticks = (uint32_t)(epwm_perid*dutyN);
+            dutyNN_ticks = (uint32_t)(epwm_perid*1.0f);
+        }
+        else
+        {
+            if(dutyN < PCS_PWM_MIN_RATIO)
+                dutyN = PCS_PWM_MIN_RATIO;
+            dutyNP_ticks = (uint32_t)(epwm_perid*0.0f);
+            dutyNN_ticks = (uint32_t)(epwm_perid*(dutyN+1.0f));
+        }
+    }
+    
+//    dutyAP_ticks = PWM_Limit(dutyAP_ticks,EPWM_MIN,EPWM_TBPRD);
+//    dutyAN_ticks = PWM_Limit(dutyAN_ticks,EPWM_MIN,EPWM_TBPRD);
+//    dutyBP_ticks = PWM_Limit(dutyBP_ticks,EPWM_MIN,EPWM_TBPRD);
+//    dutyBN_ticks = PWM_Limit(dutyBN_ticks,EPWM_MIN,EPWM_TBPRD);
+//    dutyCP_ticks = PWM_Limit(dutyCP_ticks,EPWM_MIN,EPWM_TBPRD);
+//    dutyCN_ticks = PWM_Limit(dutyCN_ticks,EPWM_MIN,EPWM_TBPRD);
+#if PWM_SYNC_TEST_MODE
+    dutyAP_ticks = (uint32_t)(epwm_perid * 0.5f);
+#endif
+    //
+    // Set PWM outputs
+    EPWM_setCounterCompareValue(PCS_Q1_Q3_A_PWM_BASE,EPWM_COUNTER_COMPARE_A,dutyAP_ticks);
+    EPWM_setCounterCompareValue(PCS_Q2_Q4_A_PWM_BASE,EPWM_COUNTER_COMPARE_A,dutyAN_ticks);
+
+    EPWM_setCounterCompareValue(PCS_Q1_Q3_B_PWM_BASE,EPWM_COUNTER_COMPARE_A,dutyBP_ticks);
+    EPWM_setCounterCompareValue(PCS_Q2_Q4_B_PWM_BASE,EPWM_COUNTER_COMPARE_A,dutyBN_ticks);
+
+    EPWM_setCounterCompareValue(PCS_Q1_Q3_C_PWM_BASE,EPWM_COUNTER_COMPARE_A,dutyCP_ticks);
+    EPWM_setCounterCompareValue(PCS_Q2_Q4_C_PWM_BASE,EPWM_COUNTER_COMPARE_A,dutyCN_ticks);
+    if(tCpu2Cla.pcsLineMode == CLA_PHS_OUT_3P4L)
+    {
+        EPWM_setCounterCompareValue(PCS_Q1_Q2_N_PWM_BASE,EPWM_COUNTER_COMPARE_A,dutyNP_ticks);
+        EPWM_setCounterCompareValue(PCS_Q1_Q2_N_PWM_BASE,EPWM_COUNTER_COMPARE_B,dutyNN_ticks);
+    }
+}
+
+void PCS_CLA_PWMOff(void)
+{
+//    GPIO_writePin(97, 1);
+
+    tClaPrivate.Pcs_VinvDRegIOut  = 0.0f;
+    tClaPrivate.Pcs_VinvQRegIOut  = 0.0f;
+    tClaPrivate.Pcs_VinvZRegIOut  = 0.0f;
+    tClaPrivate.Pcs_VinvDRegIOut_N  = 0.0f;
+    tClaPrivate.Pcs_VinvQRegIOut_N  = 0.0f;
+
+    tClaPrivate.Pcs_IlDRegIOut  = 0.0f;
+    tClaPrivate.Pcs_IlQRegIOut  = 0.0f;
+    tClaPrivate.Pcs_IlZRegIOut  = 0.0f;
+    tClaPrivate.Pcs_ErrorIlMd_old = 0.0f;
+    tClaPrivate.Pcs_ErrorIlMq_old = 0.0f;
+
+    tClaPrivate.Pcs_VinvMdRef = 0.0f;
+
+}
+
+
+
+float32_t satF32(float32_t input,float32_t min,float32_t max)
+{
+    float32_t output;
+
+    output = __mminf32(input,max);
+    output = __mmaxf32(output,min);
+
+    return output;
+}
+
+/*一阶低通滤波器*/
+float32_t order1_lowFliter(float32_t xin,uint16_t flag)//0是电压；1是电流；3是p母线电压；4是n母线电压
+{
+    float32_t lpFilter_Yn;
+    if(flag==0)
+    {
+        lpFilter_Yn = lFilter_a*xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yn_l;
+        tClaPrivate.lpFilter_Yn_l = lpFilter_Yn;
+    }
+    if(flag==1)
+    {
+        lpFilter_Yn = lFilter_a*xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yn_V;
+        tClaPrivate.lpFilter_Yn_V = lpFilter_Yn;
+    }
+    if(flag==2)
+    {
+        lpFilter_Yn = lFilter_a*xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yn_BPV;
+        tClaPrivate.lpFilter_Yn_BPV = lpFilter_Yn;
+    }
+    if(flag==3)
+    {
+        lpFilter_Yn = lFilter_a*xin + (1-lFilter_a)*tClaPrivate.lpFilter_Yn_BNV;
+        tClaPrivate.lpFilter_Yn_BNV = lpFilter_Yn;
+    }
+    return lpFilter_Yn;
+}
+
+uint32_t PWM_Limit(uint32_t Pwm_set,uint32_t Pwm_min,uint32_t Pwm_max)
+{
+    uint32_t temp_Data;
+
+    if (Pwm_set < Pwm_min)
+        temp_Data = 0;
+    else if (Pwm_set < (Pwm_max-Pwm_min))
+        temp_Data = Pwm_set;
+    else
+        temp_Data = Pwm_max;
+
+    return temp_Data;
+}
+//
+// End of file
+//

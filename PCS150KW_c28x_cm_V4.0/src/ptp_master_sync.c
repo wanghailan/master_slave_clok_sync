@@ -6,11 +6,9 @@
 #include "cm.h"
 
 #define ONE_BILLION             1000000000UL
-#define PTP_REF_CLOCK_FREQ      200000000UL
-#define PTP_TIMESTAMP_FREQ      (PTP_REF_CLOCK_FREQ / 2U)
-#define PTP_TIMESTAMP_INC_NS    (ONE_BILLION / PTP_TIMESTAMP_FREQ)
-#define PTP_ADDEND_BASE         0x80000000UL
-#define PTP_PPS_COUNTER_FREQ    PTP_TIMESTAMP_FREQ
+#define PTP_REF_CLOCK_FREQ      100000000UL
+#define PTP_TIMESTAMP_INC_NS    (ONE_BILLION / PTP_REF_CLOCK_FREQ)
+#define PTP_PPS_EDGE_1HZ        ETHERNET_MAC_PPS_CONTROL_PPSCTRL_PPS_OUTPUT_1HZ
 
 #define PACKET_LENGTH           200U
 #define PTP_HEADER_OFFSET       14U
@@ -25,14 +23,15 @@
 #define DELAY_RESP_LENGTH       54U
 
 #define PTP_HW_WAIT_LIMIT       1000000UL
-#define PTP_TIMEBASE_VERIFY_US  1000U
-#define PTP_TIMEBASE_MIN_NS     800000UL
-#define PTP_TIMEBASE_MAX_NS     1200000UL
-#define PTP_TIMEBASE_RETRIES    5U
+#define PTP_TIMEBASE_VERIFY_US  20000U
+#define PTP_TIMEBASE_MIN_NS     15000000UL
+#define PTP_TIMEBASE_MAX_NS     25000000UL
+#define PTP_TIMEBASE_RETRIES    10U
 
 #define ETHERNET_DEBUG
 
 extern Ethernet_Handle emac_handle;
+extern void Ptp_SetSynced(int16_t synced);
 
 typedef enum { FALSE = 0, TRUE } Boolean;
 typedef char Octet;
@@ -130,7 +129,7 @@ volatile uint32_t debug_master_timebase_retry_cnt = 0U;
 volatile uint32_t debug_master_pps_control = 0U;
 volatile uint32_t debug_master_timestamp_control = 0U;
 volatile uint32_t debug_master_subsec_inc = 0U;
-volatile uint32_t debug_master_addend = PTP_ADDEND_BASE;
+volatile uint32_t debug_master_addend = 0U;
 
 static void msgPackHeader(Octet *buf, PTPMasterState *ptpMasterState);
 static void msgPackSync(Octet *buf, PTPMasterState *ptpMasterState);
@@ -162,16 +161,6 @@ void ptp_master_init(void)
                         0x00191B01U,
                         ETHERNET_CHANNEL_0);
 
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |=
-            ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
-
-    while((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) &
-           ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR) == 0U)
-    {
-        HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |=
-                ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
-    }
-
     configurePps1Hz();
 
     *((uint32_t *)gSyncMsgBuf + 0U) = 0x00191B01U;
@@ -186,6 +175,7 @@ void ptp_master_init(void)
     (void)timeNanosec;
     ptpMasterNextSyncSec = timeSec + 1U;
     ptpMasterInitialized = true;
+    Ptp_SetSynced(1);
 }
 
 void ptp_master_run(void)
@@ -461,11 +451,9 @@ static void initTimestampTimebase(void)
 {
     uint32_t varPtpConfig;
     float subSecondInc;
-    uint32_t retry;
 
     varPtpConfig = (0U << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
-                   ETHERNET_MAC_TIMESTAMP_CONTROL_TSCFUPDT |
                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSMSTRENA |
                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSEVNTENA |
                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSVER2ENA |
@@ -473,31 +461,52 @@ static void initTimestampTimebase(void)
 
     subSecondInc = (float)PTP_TIMESTAMP_INC_NS;
 
-    for(retry = 0U; retry < PTP_TIMEBASE_RETRIES; retry++)
-    {
-        Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
-        Ethernet_setAddend(EMAC_BASE, PTP_ADDEND_BASE);
-        Ethernet_enableSysTimePTP(EMAC_BASE);
-        waitTimestampIdle();
-        Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCAU, 0x25a5a5a5U);
-        waitTimestampIdle();
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = 0x00U;
+    DEVICE_DELAY_US(10U);
 
-        if(verifyTimestampTimebase() == true)
-        {
-            break;
-        }
+    Ethernet_disableSysTimePTP(EMAC_BASE);
+    waitTimestampIdle();
 
-        DEVICE_DELAY_US(1000U);
-    }
+    Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
+    Ethernet_enableSysTimePTP(EMAC_BASE);
+    waitTimestampIdle();
+
+    Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCAU, 0x25a5a5a5U);
+    waitTimestampIdle();
+
+    (void)verifyTimestampTimebase();
 
 #ifdef ETHERNET_DEBUG
-    debug_master_timebase_retry_cnt = retry;
+    debug_master_timebase_retry_cnt = 0U;
     debug_master_timestamp_control = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL);
     debug_master_subsec_inc = HWREG(EMAC_BASE + ETHERNET_O_MAC_SUB_SECOND_INCREMENT);
     debug_master_addend = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_ADDEND);
 #endif
 }
 
+//static bool verifyTimestampTimebase(void)
+//{
+//    uint32_t startSec;
+//    uint32_t startNs;
+//    uint32_t endSec;
+//    uint32_t endNs;
+//    uint32_t elapsedNs;
+//
+//    Ethernet_getSysTimePTP(EMAC_BASE, &startSec, &startNs);
+//    DEVICE_DELAY_US(PTP_TIMEBASE_VERIFY_US);
+//    Ethernet_getSysTimePTP(EMAC_BASE, &endSec, &endNs);
+//
+//    elapsedNs = getElapsedNs(startSec, startNs, endSec, endNs);
+//
+//#ifdef ETHERNET_DEBUG
+//    debug_master_timebase_delta_ns = elapsedNs;
+//#endif
+//
+//    return ((elapsedNs >= PTP_TIMEBASE_MIN_NS) &&
+//            (elapsedNs <= PTP_TIMEBASE_MAX_NS));
+//}
+
+// 修正效验延时不准
 static bool verifyTimestampTimebase(void)
 {
     uint32_t startSec;
@@ -505,20 +514,41 @@ static bool verifyTimestampTimebase(void)
     uint32_t endSec;
     uint32_t endNs;
     uint32_t elapsedNs;
+    uint32_t tsCtrl;
+    uint32_t subSecInc;
+    uint32_t addend;
+
+    tsCtrl = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL);
+    subSecInc = HWREG(EMAC_BASE + ETHERNET_O_MAC_SUB_SECOND_INCREMENT);
+    addend = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_ADDEND);
+
+    if((tsCtrl & ETHERNET_MAC_TIMESTAMP_CONTROL_TSENA) == 0U)
+    {
+#ifdef ETHERNET_DEBUG
+        debug_master_timestamp_control = tsCtrl;
+        debug_master_subsec_inc = subSecInc;
+        debug_master_addend = addend;
+        debug_master_timebase_delta_ns = 0U;
+#endif
+        return false;
+    }
 
     Ethernet_getSysTimePTP(EMAC_BASE, &startSec, &startNs);
     DEVICE_DELAY_US(PTP_TIMEBASE_VERIFY_US);
     Ethernet_getSysTimePTP(EMAC_BASE, &endSec, &endNs);
-
     elapsedNs = getElapsedNs(startSec, startNs, endSec, endNs);
 
 #ifdef ETHERNET_DEBUG
+    debug_master_timestamp_control = tsCtrl;
+    debug_master_subsec_inc = subSecInc;
+    debug_master_addend = addend;
     debug_master_timebase_delta_ns = elapsedNs;
 #endif
 
     return ((elapsedNs >= PTP_TIMEBASE_MIN_NS) &&
             (elapsedNs <= PTP_TIMEBASE_MAX_NS));
 }
+
 
 static uint32_t getElapsedNs(uint32_t startSec, uint32_t startNs,
                              uint32_t endSec, uint32_t endNs)
@@ -544,30 +574,19 @@ static uint32_t getElapsedNs(uint32_t startSec, uint32_t startNs,
 
 static void configurePps1Hz(void)
 {
-    uint32_t ppsControl;
-
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |=
-            ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
-
     waitTimestampIdle();
 
     HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = 0x00U;
     DEVICE_DELAY_US(10U);
 
-    Ethernet_setPeriodPPS(EMAC_BASE,
-                          ETHERNET_MAC_PPS_OUT_INSTANCE_0,
-                          PTP_PPS_COUNTER_FREQ / 100U,
-                          PTP_PPS_COUNTER_FREQ - 1U);
+    Ethernet_selectTargetInterruptOrPulsePPS(
+        EMAC_BASE,
+        ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+        ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
+    Ethernet_setFixedModePPS(
+        EMAC_BASE,
+        PTP_PPS_EDGE_1HZ);
 
-    ppsControl =
-        ((ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE &
-          ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL0_M) <<
-          ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL0_S) |
-          ETHERNET_MAC_PPS_CONTROL_PPSCTRL_PPS_OUTPUT_1HZ;
-
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = ppsControl;
-    DEVICE_DELAY_US(10U);
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = ppsControl;
 #ifdef ETHERNET_DEBUG
     debug_master_pps_control = HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL);
 #endif
@@ -579,7 +598,8 @@ static void waitTimestampIdle(void)
 
     while(((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) &
             (ETHERNET_MAC_TIMESTAMP_CONTROL_TSINIT |
-             ETHERNET_MAC_TIMESTAMP_CONTROL_TSUPDT)) != 0U) &&
+             ETHERNET_MAC_TIMESTAMP_CONTROL_TSUPDT |
+             ETHERNET_MAC_TIMESTAMP_CONTROL_TSADDREG)) != 0U) &&
           (timeout > 0U))
     {
         timeout--;

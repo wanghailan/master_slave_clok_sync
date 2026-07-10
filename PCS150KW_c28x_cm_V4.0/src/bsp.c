@@ -175,6 +175,11 @@ void Cm_Fault_Reset(void)
     CmIpc_cm2cpu.SelfCheckOK = 0;
 }
 
+void Ptp_SetSynced(int16_t synced)
+{
+    CmIpc_cm2cpu.PtpSynced = (synced != 0) ? 1 : 0;
+}
+
 void GloabParam_Init(void)
 {
     Cm_Fault_Reset();
@@ -193,6 +198,7 @@ void GloabParam_Init(void)
     CmIpc_cm2cpu.RelayCtrl_WorkLed = 0;
     CmIpc_cm2cpu.RelayCtrl_FaultLed = 0;
     CmIpc_cm2cpu.FanCtrl_duty = 0;
+    CmIpc_cm2cpu.PtpSynced = 0;
     EEParam_Init();
 }
 

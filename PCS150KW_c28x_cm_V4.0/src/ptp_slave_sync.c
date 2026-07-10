@@ -1,4 +1,4 @@
-﻿#include <stdbool.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -6,11 +6,11 @@
 #include "cm.h"
 
 #define ONE_BILLION                 1000000000UL
-#define PTP_REF_CLOCK_FREQ          200000000UL
+#define PTP_REF_CLOCK_FREQ          100000000UL
 #define PTP_TIMESTAMP_FREQ          (PTP_REF_CLOCK_FREQ / 2U)
 #define PTP_TIMESTAMP_INC_NS        (ONE_BILLION / PTP_TIMESTAMP_FREQ)
 #define PTP_ADDEND_BASE             0x80000000UL
-#define PTP_PPS_COUNTER_FREQ        PTP_TIMESTAMP_FREQ
+#define PTP_PPS_EDGE_1HZ            ETHERNET_MAC_PPS_CONTROL_PPSCTRL_PPS_OUTPUT_1HZ
 #define PACKET_LENGTH               200U
 #define PTP_HEADER_OFFSET           14U
 
@@ -24,6 +24,7 @@
 #define DELAY_RESP_LENGTH           54U
 
 #define PTP_OFM_NANOSECONDS_CUTOFF  100LL
+#define PTP_SYNC_LOCK_NS             1000LL
 #define PTP_DELAYRESP_TIMEOUT_NS    500000000LL
 #define PTP_MEAN_PATH_DELAY_MAX_NS  5000LL
 #define PTP_COARSE_OFFSET_NS        1000000LL
@@ -31,7 +32,7 @@
 #define PTP_COARSE_CONFIRM_COUNT    2U
 #define PTP_SETTLE_SKIP_COUNT       2U
 #define PTP_DELAY_FILTER_DIV        8LL
-
+#define PTP_OFFSET_FILTER_DIV       4LL
 #define PTP_SERVO_DEFAULT_AP        8LL
 #define PTP_SERVO_DEFAULT_AI        400LL
 
@@ -39,14 +40,15 @@
 #define PTP_SERVO_DEADBAND_NS       20LL
 #define PTP_SERVO_ADJ_MAX_NS_PER_S  512000LL
 #define PTP_HW_WAIT_LIMIT           1000000UL
-#define PTP_TIMEBASE_VERIFY_US      1000U
-#define PTP_TIMEBASE_MIN_NS         800000UL
-#define PTP_TIMEBASE_MAX_NS         1200000UL
-#define PTP_TIMEBASE_RETRIES        5U
+#define PTP_TIMEBASE_VERIFY_US      20000U
+#define PTP_TIMEBASE_MIN_NS         15000000UL
+#define PTP_TIMEBASE_MAX_NS         25000000UL
+#define PTP_TIMEBASE_RETRIES        10U
 
 #define ETHERNET_DEBUG
 
 extern Ethernet_Handle emac_handle;
+extern void Ptp_SetSynced(int16_t synced);
 
 typedef enum { FALSE = 0, TRUE } Boolean;
 typedef char Octet;
@@ -149,8 +151,10 @@ static int64_t gFilteredMeanPathDelayNs = 0LL;
 static bool gOffsetFilterValid = false;
 static int64_t gPrevOffsetNs = 0LL;
 static int64_t gObservedDriftNsPerS = 0LL;
+static int64_t gServoIntegralRemainder = 0LL;
 static int64_t gServoAi = PTP_SERVO_DEFAULT_AI;
 static uint32_t gServoUpdateCount = 0U;
+static uint32_t gPtpSlaveAddendBase = PTP_ADDEND_BASE;
 
 #ifdef ETHERNET_DEBUG
 volatile uint32_t debug_tx_callback_cnt = 0U;
@@ -226,6 +230,7 @@ static void waitTimestampIdle(void);
 
 void ptp_slave_init(void)
 {
+    Ptp_SetSynced(0);
     initTimestampTimebase();
 
     Ethernet_setMACAddr(EMAC_BASE,
@@ -271,10 +276,11 @@ void ptp_slave_run(void)
 #ifdef ETHERNET_DEBUG
         debug_delayresp_timeout_cnt++;
 #endif
+        Ptp_SetSynced(0);
     }
 }
 
-// 鎺ユ敹鍥炶皟
+// PTP接收回调
 void ptp_slave_receive_packet(Ethernet_Handle handleApplication,
                               Ethernet_Pkt_Desc *pPacket)
 {
@@ -292,8 +298,7 @@ void ptp_slave_receive_packet(Ethernet_Handle handleApplication,
         return;
     }
 
-    ptpHeader = (Octet *)(pPacket->dataBuffer + pPacket->dataOffset +
-                          PTP_HEADER_OFFSET);
+    ptpHeader = (Octet *)(pPacket->dataBuffer + pPacket->dataOffset + PTP_HEADER_OFFSET);
     msgUnpackHeader(ptpHeader, &header);
 
     switch(header.messageType)
@@ -344,9 +349,12 @@ void ptp_slave_receive_packet(Ethernet_Handle handleApplication,
         debug_offsetFromMaster.nanoseconds =
                 gPtpSlaveState.offsetFromMaster.nanoseconds;
 #endif
-        updateClock();
-
         gPtpSlaveState.lastSyncSeqId = header.sequenceId;
+        if(gPtpSlaveState.meanPathDelayValid == TRUE)
+        {
+            updateClock();
+        }
+
         if(gPtpSlaveState.waitingForDelayResp == FALSE)
         {
             sendDelayReq();
@@ -440,7 +448,7 @@ void ptp_slave_receive_packet(Ethernet_Handle handleApplication,
     }
 }
 
-// 閲婃斁Tx鍥炶皟
+// 閲婃斁Tx鍥炶�?
 bool ptp_slave_release_tx_packet(Ethernet_Handle handleApplication,
                                  Ethernet_Pkt_Desc *pPacket)
 {
@@ -634,6 +642,7 @@ static void setTime(TimeInternal *time)
     configurePps1Hz();
 }
 
+// 更新时钟
 static void updateClock(void)
 {
     int64_t rawOffsetNs;
@@ -642,10 +651,11 @@ static void updateClock(void)
     int64_t coarseDeltaNs;
 
     rawOffsetNs = timeInternalToNs(&gPtpSlaveState.offsetFromMaster);
+    Ptp_SetSynced(0);
     offsetNs = rawOffsetNs;
-    if(abs64(rawOffsetNs) < PTP_COARSE_OFFSET_NS)
+    if(abs64(offsetNs) < PTP_COARSE_OFFSET_NS)
     {
-        offsetNs = filterOffsetNs(rawOffsetNs);
+        offsetNs = filterOffsetNs(offsetNs);
     }
     offsetAbsNs = abs64(offsetNs);
 
@@ -713,15 +723,18 @@ static void updateClock(void)
     gPtpSlaveState.clockUpdateCount++;
 }
 
+// 更新频率伺服
 static void updateFrequencyServo(int64_t offsetNs)
 {
     int64_t servoOffsetNs;
     int64_t servoAdjNsPerS;
+    int64_t integralStepNsPerS;
 
     servoOffsetNs = offsetNs;
     if(abs64(servoOffsetNs) <= PTP_SERVO_DEADBAND_NS)
     {
         servoOffsetNs = 0LL;
+        gServoIntegralRemainder = 0LL;
     }
 
     if((gServoUpdateCount & 1U) == 0U)
@@ -733,7 +746,11 @@ static void updateFrequencyServo(int64_t offsetNs)
     }
     gServoUpdateCount++;
 
-    gObservedDriftNsPerS += servoOffsetNs / gServoAi;
+    gServoIntegralRemainder += servoOffsetNs;
+    integralStepNsPerS = gServoIntegralRemainder / gServoAi;
+    gServoIntegralRemainder -= integralStepNsPerS * gServoAi;
+
+    gObservedDriftNsPerS += integralStepNsPerS;
     gObservedDriftNsPerS = limitAbs64(gObservedDriftNsPerS,
                                       PTP_SERVO_ADJ_MAX_NS_PER_S);
 
@@ -743,8 +760,9 @@ static void updateFrequencyServo(int64_t offsetNs)
                                 PTP_SERVO_ADJ_MAX_NS_PER_S);
 
     setFrequencyAdjustmentNsPerS(-servoAdjNsPerS);
+    Ptp_SetSynced((abs64(servoOffsetNs) <= PTP_SYNC_LOCK_NS) ? 1 : 0);
+
 #ifdef ETHERNET_DEBUG
-    debug_ptp_applied_adjust_ns = 0LL;
     debug_servo_correction_ns = -servoAdjNsPerS;
     debug_servo_filtered_offset_ns = servoOffsetNs;
     debug_servo_observed_drift_ns_per_s = gObservedDriftNsPerS;
@@ -753,6 +771,7 @@ static void updateFrequencyServo(int64_t offsetNs)
 #endif
 }
 
+// 粗校正时�?
 static void coarseCorrectClock(int64_t offsetNs)
 {
     TimeInternal now;
@@ -770,6 +789,7 @@ static void coarseCorrectClock(int64_t offsetNs)
 #ifdef ETHERNET_DEBUG
     debug_ptp_applied_adjust_ns = -offsetNs;
     debug_servo_correction_ns = -offsetNs;
+    Ptp_SetSynced(0);
 #endif
 }
 
@@ -846,6 +866,7 @@ static void resetServo(void)
     gOffsetFilterValid = false;
     gPrevOffsetNs = 0LL;
     gObservedDriftNsPerS = 0LL;
+    gServoIntegralRemainder = 0LL;
     gServoAi = PTP_SERVO_DEFAULT_AI;
     gServoUpdateCount = 0U;
     setFrequencyAdjustmentNsPerS(0LL);
@@ -870,7 +891,7 @@ static void setFrequencyAdjustmentNsPerS(int64_t adjNsPerS)
         targetRate = (int64_t)PTP_REF_CLOCK_FREQ - 1LL;
     }
 
-    addend64 = ((uint64_t)PTP_ADDEND_BASE * (uint64_t)targetRate) /
+    addend64 = ((uint64_t)gPtpSlaveAddendBase * (uint64_t)targetRate) /
                (uint64_t)PTP_TIMESTAMP_FREQ;
     if(addend64 > 0xFFFFFFFFULL)
     {
@@ -922,7 +943,6 @@ static void initTimestampTimebase(void)
 {
     uint32_t varPtpConfig;
     float subSecondInc;
-    uint32_t retry;
 
     varPtpConfig = (0U << ETHERNET_MAC_TIMESTAMP_CONTROL_SNAPTYPSEL_S) |
                    ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR |
@@ -933,32 +953,35 @@ static void initTimestampTimebase(void)
 
     subSecondInc = (float)PTP_TIMESTAMP_INC_NS;
 
-    for(retry = 0U; retry < PTP_TIMEBASE_RETRIES; retry++)
-    {
-        Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
-        Ethernet_setAddend(EMAC_BASE, PTP_ADDEND_BASE);
-        Ethernet_enableSysTimePTP(EMAC_BASE);
-        waitTimestampIdle();
-        Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCAU, 0x25a5a5a5U);
-        waitTimestampIdle();
+    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = 0x00U;
+    DEVICE_DELAY_US(10U);
 
-        if(verifyTimestampTimebase() == true)
-        {
-            break;
-        }
+    Ethernet_disableSysTimePTP(EMAC_BASE);
+    waitTimestampIdle();
 
-        DEVICE_DELAY_US(1000U);
-    }
+    Ethernet_setConfigTimestampPTP(EMAC_BASE, varPtpConfig, subSecondInc);
+    Ethernet_setAddend(EMAC_BASE, PTP_ADDEND_BASE);
+    waitTimestampIdle();
+
+    Ethernet_enableSysTimePTP(EMAC_BASE);
+    waitTimestampIdle();
+
+    Ethernet_setSysTimePTP(EMAC_BASE, 0x4132EDCAU, 0x25a5a5a5U);
+    waitTimestampIdle();
+
+    (void)verifyTimestampTimebase();
 
 #ifdef ETHERNET_DEBUG
-    debug_slave_timebase_retry_cnt = retry;
+    debug_slave_timebase_retry_cnt = 0U;
     debug_slave_timestamp_control =
             HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL);
     debug_slave_subsec_inc =
             HWREG(EMAC_BASE + ETHERNET_O_MAC_SUB_SECOND_INCREMENT);
+    debug_servo_addend = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_ADDEND);
 #endif
 }
 
+// 修正效验延时不准
 static bool verifyTimestampTimebase(void)
 {
     uint32_t startSec;
@@ -966,19 +989,41 @@ static bool verifyTimestampTimebase(void)
     uint32_t endSec;
     uint32_t endNs;
     uint32_t elapsedNs;
+    uint32_t tsCtrl;
+    uint32_t subSecInc;
+    uint32_t addend;
+
+    tsCtrl = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL);
+    subSecInc = HWREG(EMAC_BASE + ETHERNET_O_MAC_SUB_SECOND_INCREMENT);
+    addend = HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_ADDEND);
+
+    if((tsCtrl & ETHERNET_MAC_TIMESTAMP_CONTROL_TSENA) == 0U)
+    {
+#ifdef ETHERNET_DEBUG
+        debug_slave_timestamp_control = tsCtrl;
+        debug_slave_subsec_inc = subSecInc;
+        debug_servo_addend = addend;
+        debug_slave_timebase_delta_ns = 0U;
+#endif
+        return false;
+    }
 
     Ethernet_getSysTimePTP(EMAC_BASE, &startSec, &startNs);
     DEVICE_DELAY_US(PTP_TIMEBASE_VERIFY_US);
     Ethernet_getSysTimePTP(EMAC_BASE, &endSec, &endNs);
-
     elapsedNs = getElapsedNs(startSec, startNs, endSec, endNs);
+
 #ifdef ETHERNET_DEBUG
+    debug_slave_timestamp_control = tsCtrl;
+    debug_slave_subsec_inc = subSecInc;
+    debug_servo_addend = addend;
     debug_slave_timebase_delta_ns = elapsedNs;
 #endif
 
     return ((elapsedNs >= PTP_TIMEBASE_MIN_NS) &&
             (elapsedNs <= PTP_TIMEBASE_MAX_NS));
 }
+
 
 static uint32_t getElapsedNs(uint32_t startSec, uint32_t startNs,
                              uint32_t endSec, uint32_t endNs)
@@ -1004,30 +1049,19 @@ static uint32_t getElapsedNs(uint32_t startSec, uint32_t startNs,
 
 static void configurePps1Hz(void)
 {
-    uint32_t ppsControl;
-
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) |=
-            ETHERNET_MAC_TIMESTAMP_CONTROL_TSCTRLSSR;
-
     waitTimestampIdle();
 
     HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = 0x00U;
     DEVICE_DELAY_US(10U);
 
-    Ethernet_setPeriodPPS(EMAC_BASE,
-                          ETHERNET_MAC_PPS_OUT_INSTANCE_0,
-                          PTP_PPS_COUNTER_FREQ / 100U,
-                          PTP_PPS_COUNTER_FREQ - 1U);
+    Ethernet_selectTargetInterruptOrPulsePPS(
+        EMAC_BASE,
+        ETHERNET_MAC_PPS_OUT_INSTANCE_0,
+        ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE);
+    Ethernet_setFixedModePPS(
+        EMAC_BASE,
+        PTP_PPS_EDGE_1HZ);
 
-    ppsControl =
-        ((ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL_PULSE &
-          ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL0_M) <<
-          ETHERNET_MAC_PPS_CONTROL_TRGTMODSEL0_S) |
-          ETHERNET_MAC_PPS_CONTROL_PPSCTRL_PPS_OUTPUT_1HZ;
-
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = ppsControl;
-    DEVICE_DELAY_US(10U);
-    HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL) = ppsControl;
 #ifdef ETHERNET_DEBUG
     debug_slave_pps_control = HWREG(EMAC_BASE + ETHERNET_O_MAC_PPS_CONTROL);
 #endif
@@ -1039,7 +1073,8 @@ static void waitTimestampIdle(void)
 
     while(((HWREG(EMAC_BASE + ETHERNET_O_MAC_TIMESTAMP_CONTROL) &
             (ETHERNET_MAC_TIMESTAMP_CONTROL_TSINIT |
-             ETHERNET_MAC_TIMESTAMP_CONTROL_TSUPDT)) != 0U) &&
+             ETHERNET_MAC_TIMESTAMP_CONTROL_TSUPDT |
+             ETHERNET_MAC_TIMESTAMP_CONTROL_TSADDREG)) != 0U) &&
           (timeout > 0U))
     {
         timeout--;

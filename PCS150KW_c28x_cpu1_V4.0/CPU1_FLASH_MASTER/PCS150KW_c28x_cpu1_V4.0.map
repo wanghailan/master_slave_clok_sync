@@ -1,7 +1,7 @@
 ******************************************************************************
              TMS320C2000 Linker PC v22.6.1                     
 ******************************************************************************
->> Linked Thu May 14 16:13:02 2026
+>> Linked Fri May 15 09:12:33 2026
 
 OUTPUT FILE NAME:   <PCS150KW_c28x_cpu1_V4.0.out>
 ENTRY POINT SYMBOL: "code_start"  address: 00080000
@@ -56,7 +56,7 @@ MEMORY CONFIGURATION
   FLASH4                00088000   00008000  00005e51  000021af  RWIX
   FLASH5                00090000   00008000  00000000  00008000  RWIX
   FLASH6                00098000   00008000  000000d5  00007f2b  RWIX
-  FLASH7                000a0000   00008000  000011ec  00006e14  RWIX
+  FLASH7                000a0000   00008000  000011ee  00006e12  RWIX
   FLASH8                000a8000   00008000  0000040b  00007bf5  RWIX
   FLASH9                000b0000   00008000  00000000  00008000  RWIX
   FLASH10               000b8000   00002000  00000000  00002000  RWIX
@@ -75,17 +75,16 @@ codestart
 *          0    00080000    00000002     
                   00080000    00000002     f2838x_codestartbranch.obj (codestart)
 
-.cinit     0    000a1190    0000005e     
-                  000a1190    00000023     (.cinit..data.load) [load image, compression = lzss]
-                  000a11b3    00000001     --HOLE-- [fill = 0]
-                  000a11b4    00000006     (__TI_handler_table)
-                  000a11ba    00000004     (.cinit..bss.1.load) [load image, compression = zero_init]
-                  000a11be    00000004     (.cinit..bss.2.load) [load image, compression = zero_init]
-                  000a11c2    00000004     (.cinit..bss.3.load) [load image, compression = zero_init]
-                  000a11c6    00000004     (.cinit..bss_cla.load) [load image, compression = zero_init]
-                  000a11ca    00000004     (.cinit..scratchpad.load) [load image, compression = zero_init]
-                  000a11ce    00000004     (.cinit.CLADataLS1.load) [load image, compression = zero_init]
-                  000a11d2    0000001c     (__TI_cinit_table)
+.cinit     0    000a1190    00000060     
+                  000a1190    00000026     (.cinit..data.load) [load image, compression = lzss]
+                  000a11b6    00000006     (__TI_handler_table)
+                  000a11bc    00000004     (.cinit..bss.1.load) [load image, compression = zero_init]
+                  000a11c0    00000004     (.cinit..bss.2.load) [load image, compression = zero_init]
+                  000a11c4    00000004     (.cinit..bss.3.load) [load image, compression = zero_init]
+                  000a11c8    00000004     (.cinit..bss_cla.load) [load image, compression = zero_init]
+                  000a11cc    00000004     (.cinit..scratchpad.load) [load image, compression = zero_init]
+                  000a11d0    00000004     (.cinit.CLADataLS1.load) [load image, compression = zero_init]
+                  000a11d4    0000001c     (__TI_cinit_table)
 
 .reset     0    003fffc0    00000000     DSECT
 
@@ -551,26 +550,26 @@ MODULE SUMMARY
        Total:                       56      208       0      
                                                              
        Stack:                       0       0         512    
-       Linker Generated:            0       93        0      
+       Linker Generated:            0       96        0      
     +--+----------------------------+-------+---------+---------+
-       Grand Total:                 33560   1120      3933   
+       Grand Total:                 33560   1123      3933   
 
 
 LINKER GENERATED COPY TABLES
 
-__TI_cinit_table @ 000a11d2 records: 7, size/record: 4, table size: 28
-	.data: load addr=000a1190, load size=00000023 bytes, run addr=0000a000, run size=00000515 bytes, compression=lzss
-	.bss.1: load addr=000a11ba, load size=00000004 bytes, run addr=00009000, run size=0000017e bytes, compression=zero_init
-	.bss.2: load addr=000a11be, load size=00000004 bytes, run addr=00009180, run size=000000f8 bytes, compression=zero_init
-	.bss.3: load addr=000a11c2, load size=00000004 bytes, run addr=00009280, run size=000000be bytes, compression=zero_init
-	.bss_cla: load addr=000a11c6, load size=00000004 bytes, run addr=000089e8, run size=00000030 bytes, compression=zero_init
-	.scratchpad: load addr=000a11ca, load size=00000004 bytes, run addr=00008a18, run size=0000000e bytes, compression=zero_init
-	CLADataLS1: load addr=000a11ce, load size=00000004 bytes, run addr=00008900, run size=000000e8 bytes, compression=zero_init
+__TI_cinit_table @ 000a11d4 records: 7, size/record: 4, table size: 28
+	.data: load addr=000a1190, load size=00000026 bytes, run addr=0000a000, run size=00000515 bytes, compression=lzss
+	.bss.1: load addr=000a11bc, load size=00000004 bytes, run addr=00009000, run size=0000017e bytes, compression=zero_init
+	.bss.2: load addr=000a11c0, load size=00000004 bytes, run addr=00009180, run size=000000f8 bytes, compression=zero_init
+	.bss.3: load addr=000a11c4, load size=00000004 bytes, run addr=00009280, run size=000000be bytes, compression=zero_init
+	.bss_cla: load addr=000a11c8, load size=00000004 bytes, run addr=000089e8, run size=00000030 bytes, compression=zero_init
+	.scratchpad: load addr=000a11cc, load size=00000004 bytes, run addr=00008a18, run size=0000000e bytes, compression=zero_init
+	CLADataLS1: load addr=000a11d0, load size=00000004 bytes, run addr=00008900, run size=000000e8 bytes, compression=zero_init
 
 
 LINKER GENERATED HANDLER TABLE
 
-__TI_handler_table @ 000a11b4 records: 3, size/record: 2, table size: 6
+__TI_handler_table @ 000a11b6 records: 3, size/record: 2, table size: 6
 	index: 0, handler: __TI_zero_init
 	index: 1, handler: __TI_decompress_lzss
 	index: 2, handler: __TI_decompress_none
@@ -942,11 +941,11 @@ abs   000000d5  RamfuncsRunSize
 0     0008da70  SysCtl_selectXTALSingleEnded     
 0     0008b086  SysCtl_setAuxClock               
 0     0008ad3b  SysCtl_setClock                  
-0     000a11d2  __TI_CINIT_Base                  
-0     000a11ee  __TI_CINIT_Limit                 
-0     000a11ee  __TI_CINIT_Warm                  
-0     000a11b4  __TI_Handler_Table_Base          
-0     000a11ba  __TI_Handler_Table_Limit         
+0     000a11d4  __TI_CINIT_Base                  
+0     000a11f0  __TI_CINIT_Limit                 
+0     000a11f0  __TI_CINIT_Warm                  
+0     000a11b6  __TI_Handler_Table_Base          
+0     000a11bc  __TI_Handler_Table_Limit         
 0     00000600  __TI_STACK_END                   
 abs   00000200  __TI_STACK_SIZE                  
 0     0008d857  __TI_auto_init_nobinit_nopinit   
@@ -1388,11 +1387,11 @@ page  address   name
 0     000980d5  RamfuncsLoadEnd                  
 0     000a0000  Cla1funcsLoadStart               
 0     000a118e  Cla1funcsLoadEnd                 
-0     000a11b4  __TI_Handler_Table_Base          
-0     000a11ba  __TI_Handler_Table_Limit         
-0     000a11d2  __TI_CINIT_Base                  
-0     000a11ee  __TI_CINIT_Limit                 
-0     000a11ee  __TI_CINIT_Warm                  
+0     000a11b6  __TI_Handler_Table_Base          
+0     000a11bc  __TI_Handler_Table_Limit         
+0     000a11d4  __TI_CINIT_Base                  
+0     000a11f0  __TI_CINIT_Limit                 
+0     000a11f0  __TI_CINIT_Warm                  
 0     000a8000  IPC_Instance                     
 0     000a833c  FPU32LOG2                        
 0     000a833e  FPU32INVLOG10                    

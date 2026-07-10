@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<?ccsproject version="1.0"?>
+<projectOptions>
+	<deviceFamily value="TMS470"/>
+	<isTargetManual value="false"/>
+	<origin value="D:/workspace/backup/0430/master_slave_clok_sync/PCS150KW_c28x_cm_V4.0"/>
+</projectOptions>

@@ -245,7 +245,7 @@ void objControl_FanControl(void)
                 Cpu1Ipc_cpu2cm.Relay_FanCtrl = 0;
         }
     }
-    //锟斤拷锟阶拷锟斤拷锟絀GBT锟斤拷锟斤拷露瓤锟斤拷锟?
+    //锟斤拷锟阶?拷锟斤拷锟絀GBT锟斤拷锟斤拷露瓤锟斤拷锟?
     if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 250) //锟铰度碉拷锟斤拷25锟斤拷
         Cpu1Ipc_cpu2cm.FanCtrl_duty = 200; //转锟斤拷20%
     else  if(Cpu1Ipc_cpu2cm.Temp_AmbOutlet < 500)

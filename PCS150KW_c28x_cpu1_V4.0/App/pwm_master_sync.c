@@ -1,31 +1,31 @@
 /*
  * pwm_master_sync.c
  *
-* 主机侧 PPS -> EPWM 相位同步模块
+ * Master-side PPS -> EPWM Phase Synchronization Module
  *
- * 优化点:
- *   1. 补充说明硬件连接、时序、算法原理。
- *   2. 禁用EPWM硬件同步输入(SYNCI)，改为ISR内软件强制同步(SWFSYNC)，
- *      彻底消除原有1 PPS周期控制滞后。
- *   3. 精确补偿ISR执行延迟(CAP1 时间戳 -> forceSyncPulse 生效)，
- *      换算全部改为四舍五入，消除整数截断误差，目标精度50ns。
- *   4. PI控制器优化: 积分分离、50ns死区、输出变化率限制、Kp/Ki 增大，
- *      收敛时间从约16秒缩短至4秒以内。
- *   5. 运行期不再修改TBPRD，避免计数器毛刺。
+ * Optimization Points:
+ *   1. Supplemented descriptions for hardware connections, timing sequences, and algorithm principles.
+ *   2. Disabled EPWM hardware synchronization input (SYNCI), replaced with software-forced synchronization
+ *      (SWFSYNC) within ISR, completely eliminating the original 1-PPS cycle control lag.
+ *   3. Precisely compensates for ISR execution latency (CAP1 timestamp -> forceSyncPulse activation),
+ *      all conversions adopt rounding to eliminate integer truncation errors, target accuracy: 50ns.
+ *   4. Optimized PI controller: integral separation, 50ns dead zone, output slew rate limiting,
+ *      increased Kp/Ki gains, convergence time reduced from ~16s to within 4s.
+ *   5. TBPRD is no longer modified during runtime to avoid counter glitches.
  *
- * 硬件连接 (F28388D):
- *   - PPS 信号 -> GPIO47
+ * Hardware Connections (F28388D):
+ *   - PPS signal -> GPIO47
  *   - GPIO47 -> INPUTXBAR7 -> eCAP1 (ECAP1_BASE)
- *   - EPWM1 (EPWM1_BASE)以100MHz TBCLK上下计数运行
- *   - 注意: 本版本不再将PPS接到 INPUTXBAR5/EPWM SYNCI，完全由软件控制同步时机
+ *   - EPWM1 (EPWM1_BASE) operates in up-down count mode with 100MHz TBCLK
+ *   - Note: This version no longer connects PPS to INPUTXBAR5/EPWM SYNCI; synchronization is fully
+ *     software-controlled.
  */
 
 #include "pwm_master_sync.h"
 #include "bsp.h"
 
-// ------------------- 硬件与常量配置 -------------------
 
-// eCAP 输入路由: GPIO47 -> INPUTXBAR7 -> eCAP1
+// eCAP input route: GPIO47 -> INPUTXBAR7 -> eCAP1
 #define PPS_ECAP_INPUTXBAR_CHANNEL  XBAR_INPUT7
 #define PPS_SYNC_INPUTXBAR_CHANNEL  XBAR_INPUT5
 #define PPS_ECAP_INPUT_SEL          ECAP_INPUT_INPUTXBAR7
@@ -33,31 +33,35 @@
 #define PPS_ECAP_INT                INT_ECAP1
 #define PPS_GPIO                    47U
 
-// 待同步的EPWM模块
+// sync EPWM module
 #define SYNC_EPWM_BASE              EPWM1_BASE
 
-// 时钟频率: EPWM TBCLK=100MHz (10ns/tick); eCAP TSCTR=200MHz (5ns/tick)
+// clock frequency: EPWM TBCLK=100MHz (10ns/tick); eCAP TSCTR=200MHz (5ns/tick)
 #define EPWM_TBCLK_HZ               100000000UL
 #define ECAP_TSCTR_HZ               200000000UL
 
-// 默认伺服参数
-#define PWM_MAX_STEP_NS             100L     // PI 输出每周期最大调整量
-#define PWM_LOCK_THRESHOLD_NS       1000L    // 默认锁定判定阈值
-#define PPS_ISR_MAX_LATENCY_NS      5000UL   // ISR 最大允许延迟5us
-#define PPS_PHASE_OFFSET_NS         0L       // 主机基础相位偏移
+// default servo prams
+#define PWM_MAX_STEP_NS             100L     // PI maximum adjustment amount per period
+#define PWM_LOCK_THRESHOLD_NS       1000L    // default lock determination threshold值
+#define PPS_ISR_MAX_LATENCY_NS      5000UL   // maximum allowable ISR delay: 5渭s
+#define PPS_PHASE_OFFSET_NS         0L       // host base phase offset
 #define PWM_SYNC_NOMINAL_TBPRD      ((uint32_t)EPWM_TBPRD)
 
 
-/* 同步执行延迟精细补偿 (ns)
- * 包含: ISR 尾部指令执行 + CPU->EPWM 外设总线写延迟 + SWFSYNC 生效延迟。
- * 建议初始值 500ns，可通过示波器测量 PPS 与 PWM 边沿实际偏差后微调.
+/* Fine compensation for synchronous execution delay (ns)
+ * Includes: ISR tail instruction execution + CPU-to-EPWM peripheral
+ * bus write delay + SWFSYNC assertion delay.
+ * Recommended initial value is 500ns, which can be fine-tuned after measuring the actual edge
+ * deviation between PPS and PWM via oscilloscope.
  */
 #define SYNC_EXEC_COMPENSATION_NS   500L
 
-// 死区: 误差绝对值小于此值时视为零，防止锁定后抖动 (目标50ns精度)
+// Dead band: when the absolute error is less than this value,
+// it is regarded as zero to prevent jitter after lock
+// (target accuracy: 50 ns)
 #define PWM_DEAD_BAND_NS            50L
 
-// eCAP 全部中断标志位掩码
+// eCAP all interrupt flag bit mask
 #define PPS_ECAP_ALL_INT_FLAGS      (ECAP_ISR_SOURCE_CAPTURE_EVENT_1 | \
                                      ECAP_ISR_SOURCE_CAPTURE_EVENT_2 | \
                                      ECAP_ISR_SOURCE_CAPTURE_EVENT_3 | \
